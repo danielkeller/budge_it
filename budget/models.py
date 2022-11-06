@@ -1,7 +1,6 @@
 from django.db import models
-from django.db.models import Q, Manager
+from django.db.models import Q
 from django.urls import reverse
-import copy
 
 class Budget(models.Model):
     id: models.BigAutoField
@@ -23,11 +22,13 @@ class BaseAccount(models.Model):
     budget_id: int # Sigh
     #TODO: read/write access
 
+    def ishidden(self):
+        return self.name == ""
     def __str__(self):
-        if self.name:
-            return self.budget.name + " - " + str(self.name)
-        else:
+        if self.ishidden():
             return self.budget.name
+        else:
+            return self.budget.name + " - " + str(self.name)
 
 class Account(BaseAccount):
     """Accounts describe the physical ownership of money."""
@@ -38,99 +39,97 @@ class Account(BaseAccount):
 
 class Category(BaseAccount):
     """Categories describe the conceptual ownership of money."""
+    class Meta: # type: ignore
+        verbose_name_plural = "categories"
     def kind(self):
         return 'category'
     def get_absolute_url(self):
-        return "/404/"
+        return reverse('category', kwargs={'category_id': self.id})
 
 class Transaction(models.Model):
     id: models.BigAutoField
     date = models.DateField()
     description = models.CharField(max_length=1000)
-    transactionpart_set: Manager['TransactionPart']
+    accounts: 'models.ManyToManyField[Account, TransactionAccountPart]'
+    account_parts: 'models.Manager[TransactionAccountPart]'
+    accounts = models.ManyToManyField(
+        Account, through='TransactionAccountPart',
+        through_fields=('transaction', 'to'))
+    categories: 'models.ManyToManyField[Category, TransactionCategoryPart]'
+    category_parts: 'models.Manager[TransactionCategoryPart]'
+    categories = models.ManyToManyField(
+        Category, through='TransactionCategoryPart',
+        through_fields=('transaction', 'to'))
+    running_sum: int
 
     def __str__(self):
         return self.description[0:100]
 
 class TransactionPart(models.Model):
-    id: models.BigAutoField
-    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE)
+    class Meta: # type: ignore
+        abstract = True
+        constraints = [models.UniqueConstraint(fields=["transaction", "to"],
+                                               name="m2m_%(class)s")]
+    transaction: models.ForeignKey['Transaction']
     amount = models.BigIntegerField()
+    to: models.ForeignKey[BaseAccount]
+    to_id: int
 
-    from_account = models.ForeignKey(Account, on_delete=models.PROTECT,
-                                     related_name='transaction_from')
-    to_account = models.ForeignKey(Account, on_delete=models.PROTECT,
-                                   related_name='transaction_to')
-    from_category = models.ForeignKey(Category, on_delete=models.PROTECT,
-                                      related_name='transaction_from')
-    to_category = models.ForeignKey(Category, on_delete=models.PROTECT,
-                                    related_name='transaction_to')
-    
-    def flipped(self):
-        new = copy.copy(self)
-        new.from_account=self.to_account
-        new.from_category=self.to_category
-        new.to_account=self.from_account
-        new.to_category=self.from_category
-        new.amount=-self.amount
-        return new
+class TransactionAccountPart(TransactionPart):
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
+                                    related_name="account_parts")
+    to = models.ForeignKey(Account, on_delete=models.PROTECT,
+                           related_name="entries") # type: ignore
 
-    def make_to_account(self, account_id: int):
-        if (self.to_category.id == account_id
-            or self.to_account.id == account_id):
-            return self
-        if (self.from_category.id == account_id
-            or self.from_account.id == account_id):
-            return self.flipped()
-        return self
-
-    def make_positive(self):
-        if self.amount < 0:
-            return self.flipped()
-        return self
+class TransactionCategoryPart(TransactionPart):
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
+                                    related_name="category_parts")
+    to = models.ForeignKey(Category, on_delete=models.PROTECT,
+                           related_name="entries") # type: ignore
 
 def transactions_for_budget(budget_id: int):
-    filter = (Q(transactionpart__from_account__budget__id=budget_id) |
-              Q(transactionpart__to_account__budget__id=budget_id) |
-              Q(transactionpart__from_category__budget__id=budget_id) |
-              Q(transactionpart__to_category__budget__id=budget_id))
-    related = ['transactionpart_set__from_account__budget',
-               'transactionpart_set__to_account__budget',
-               'transactionpart_set__from_category__budget',
-               'transactionpart_set__to_category__budget']
+    filter = (Q(accounts__budget_id=budget_id) |
+              Q(categories__budget_id=budget_id))
     qs = (Transaction.objects
         .filter(filter)
         .distinct()
         .order_by('date')
-        .prefetch_related(*related))
+        .prefetch_related('account_parts', 'category_parts',
+                          'accounts__budget', 'categories__budget'))
     total = 0
     for transaction in qs:
-        for part in transaction.transactionpart_set.all():
-            if part.from_category.budget.id == budget_id:
-                total -= part.amount
-            if part.to_category.budget.id == budget_id:
+        for part in transaction.category_parts.all():
+            if part.to.budget_id == budget_id:
                 total += part.amount
-            setattr(part, 'running_sum', total)
+        setattr(transaction, 'running_sum', total)
     return qs
 
 def transactions_for_account(account_id: int):
-    filter = (Q(transactionpart__from_account__id=account_id) |
-              Q(transactionpart__to_account__id=account_id))
-    related = ['transactionpart_set__from_account__budget',
-               'transactionpart_set__to_account__budget',
-               'transactionpart_set__from_category__budget',
-               'transactionpart_set__to_category__budget']
     qs = (Transaction.objects
-        .filter(filter)
+        .filter(accounts__id=account_id)
         .distinct()
         .order_by('date')
-        .prefetch_related(*related))
+        .prefetch_related('account_parts', 'category_parts',
+                          'accounts__budget', 'categories__budget'))
     total = 0
     for transaction in qs:
-        for part in transaction.transactionpart_set.all():
-            if part.from_account.id == account_id:
-                total -= part.amount
-            if part.to_account.id == account_id:
+        for part in transaction.account_parts.all():
+            if part.to_id == account_id:
                 total += part.amount
-            setattr(part, 'running_sum', total)
+        setattr(transaction, 'running_sum', total)
+    return qs
+
+def transactions_for_category(category_id: int):
+    qs = (Transaction.objects
+        .filter(categories__id=category_id)
+        .distinct()
+        .order_by('date')
+        .prefetch_related('account_parts', 'category_parts',
+                          'accounts__budget', 'categories__budget'))
+    total = 0
+    for transaction in qs:
+        for part in transaction.category_parts.all():
+            if part.to_id == category_id:
+                total += part.amount
+        setattr(transaction, 'running_sum', total)
     return qs
