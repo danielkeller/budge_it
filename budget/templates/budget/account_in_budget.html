@@ -1,5 +1,8 @@
-{% if account.budget.id == budget_id %}
-{{ account.name }}
-{% else %}
-<i>{{ account }}</i>
-{% endif %}
+<a href="{{ account.get_absolute_url }}">
+    {% if account.budget.id == budget_id %}
+    {{ account.name }}
+    {% elif account.kind == 'account' or account.name != '' %}
+    <i>{{ account }}</i>
+    {% else %}
+    {% endif %}
+</a>

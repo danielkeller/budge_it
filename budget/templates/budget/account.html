@@ -4,14 +4,13 @@
 <table>
     <th>Date</th>
     <th>Note</th>
-    <th>From Account</th>
-    <th>Category</th>
-    <th>To Account</th>
+    <th>Payee</th>
     <th>Category</th>
     <th>Amount</th>
     <th>Total</th>
     {% for transaction in transactions %}
     {% for part in transaction.transactionpart_set.all %}
+    {% with part=part|make_to_account:account_id %}
     {% if forloop.first %}
     <tr class="{% cycle 'a' 'b' %}">
         <td>{{transaction.date}}</td>
@@ -22,12 +21,17 @@
         <td></td>
         {% endif %}
         <td>{% account_in_budget part.from_account budget_id %}</td>
-        <td>{% account_in_budget part.from_category budget_id %}</td>
-        <td>{% account_in_budget part.to_account budget_id %}</td>
-        <td>{% account_in_budget part.to_category budget_id %}</td>
-        <td>{{part.amount}}</td>
-        <td>{{part.running_sum}}</td>
+        <td>
+            {% with part=part.make_positive %}
+            {% account_in_budget part.from_category budget_id %}
+            &RightArrow;
+            {% account_in_budget part.to_category budget_id %}
+            {% endwith %}
+        </td>
+        <td>{{ part.amount }}</td>
+        <td>{{ part.running_sum }}</td>
     </tr>
+    {% endwith %}
     {% endfor %}
     {% endfor %}
 </table>
