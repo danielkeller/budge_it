@@ -1,10 +1,16 @@
+from typing import Optional, Union
+from datetime import date
+
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
+from django.db import transaction
 
 class Budget(models.Model):
     id: models.BigAutoField
     name = models.CharField(max_length=100)
+    account_set: 'models.Manager[Account]'
+    category_set: 'models.Manager[Category]'
     # May be marked as external
     #TODO: owner, currency
 
@@ -36,6 +42,9 @@ class Account(BaseAccount):
         return 'account'
     def get_absolute_url(self):
         return reverse('account', kwargs={'account_id': self.id})
+    def get_hidden_category(self) -> 'Category':
+        return Category.objects.get_or_create(
+            budget_id=self.budget_id, name="")[0]
 
 class Category(BaseAccount):
     """Categories describe the conceptual ownership of money."""
@@ -63,7 +72,7 @@ class Transaction(models.Model):
     running_sum: int
 
     def __str__(self):
-        return self.description[0:100]
+        return str(self.date) + " " + self.description[0:100]
 
 class TransactionPart(models.Model):
     class Meta: # type: ignore
@@ -72,7 +81,6 @@ class TransactionPart(models.Model):
                                                name="m2m_%(class)s")]
     transaction: models.ForeignKey['Transaction']
     amount = models.BigIntegerField()
-    to: models.ForeignKey[BaseAccount]
     to_id: int
 
 class TransactionAccountPart(TransactionPart):
@@ -86,6 +94,98 @@ class TransactionCategoryPart(TransactionPart):
                                     related_name="category_parts")
     to = models.ForeignKey(Category, on_delete=models.PROTECT,
                            related_name="entries") # type: ignore
+
+# Simple transaction types
+class SimpleTransaction:
+    id: Optional[int]
+    date: date
+    description: str
+
+    def __init__(self):
+        self.id = None
+
+    @transaction.atomic
+    def save(self) -> Transaction:
+        result = Transaction(id=self.id, date=self.date,
+            description=self.description)
+        self.save_(result)
+        return result
+    def save_(self, result: Transaction):
+        result.save()
+        result.accounts.clear()
+        result.categories.clear()
+
+class Transfer(SimpleTransaction):
+    from_account: Account
+    to_account: Account
+    amount: int
+
+    def save_(self, result: Transaction):
+        super().save_(result)
+        TransactionAccountPart.objects.create(
+            transaction=result, to=self.from_account, amount=-self.amount)
+        TransactionAccountPart.objects.create(
+            transaction=result, to=self.to_account, amount=self.amount)
+
+class Purchase(Transfer):
+    from_category: Category
+
+    def save_(self, result: Transaction):
+        super().save_(result)
+        to_category = self.to_account.get_hidden_category()
+        TransactionCategoryPart.objects.create(
+            transaction=result, to=self.from_category, amount=-self.amount)
+        TransactionCategoryPart.objects.create(
+            transaction=result, to=to_category, amount=self.amount)
+
+class Inflow(Transfer):
+    to_category: Category
+
+    def save_(self, result: Transaction):
+        super().save_(result)
+        from_category = self.from_account.get_hidden_category()
+        TransactionCategoryPart.objects.create(
+            transaction=result, to=from_category, amount=-self.amount)
+        TransactionCategoryPart.objects.create(
+            transaction=result, to=self.to_category, amount=self.amount)
+
+    
+def to_simple_transaction(transaction: Transaction) -> \
+    Union[Transaction, Purchase, Inflow, Transfer]:
+    """Convert the transaction to a simple transaction if possible."""
+    accounts = list(transaction.account_parts.all())
+    categories = list(transaction.category_parts.all())
+    if len(accounts) == 2:
+        if len(categories) == 2:
+            if abs(categories[0].amount) != abs(accounts[0].amount):
+                return transaction
+            payer, payee = sorted(categories, key=lambda c: c.amount)
+            if payee.to.ishidden():
+                result = Purchase()
+                result.from_category = payer.to
+            elif payer.to.ishidden():
+                result = Inflow()
+                result.to_category = payee.to
+            else:
+                return transaction
+        elif transaction.categories.count() == 0:
+            result = Transfer()
+        else:
+            return transaction
+        payer, payee = sorted(accounts, key=lambda c: c.amount)
+        result.from_account = payer.to
+        result.to_account = payee.to
+        result.amount = payee.amount
+    else:
+        return transaction
+    result.id = transaction.id
+    result.date = transaction.date
+    return result
+
+# Transaction.objects
+# .annotate(value_change=Sum('category_parts__amount',
+#                             filter=Q(categories__budget_id=budget_id)))
+# .exclude(value_change=0)
 
 def transactions_for_budget(budget_id: int):
     filter = (Q(accounts__budget_id=budget_id) |
