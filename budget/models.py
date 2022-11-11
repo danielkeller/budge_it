@@ -1,5 +1,6 @@
 from typing import Optional, Union
 from datetime import date
+from collections import defaultdict
 
 from django.db import models
 from django.db.models import Q
@@ -73,6 +74,35 @@ class Transaction(models.Model):
 
     def __str__(self):
         return str(self.date) + " " + self.description[0:100]
+    
+    # TODO: Maybe put this in the non-database wrapper thingy (proxy model?)
+    def debts(self):
+        owed: defaultdict[int, int] = defaultdict(int)
+        for part in self.category_parts.all():
+            owed[part.to.budget_id] -= part.amount
+        for part in self.account_parts.all():
+            owed[part.to.budget_id] += part.amount
+        return combine_debts(owed)
+
+def combine_debts(owed: 'dict[int, int]'):
+    amounts = sorted((amount, budget) for (budget, amount) in owed.items()
+                        if amount != 0)
+    result: dict[tuple[int], int] = {}
+    amount, from_budget = 0, 0
+    while amounts:
+        amount, from_budget = amounts.pop(0)
+        if not amount:
+            amount, from_budget = amounts.pop(0)
+        if not amounts:
+            raise ValueError("Debts do not sum to zero")
+        other, to_budget = amounts.pop()
+        result_amount = min(-amount, other)
+        result[(from_budget, to_budget)] = result_amount
+        amount += other
+        if amount > 0:
+            amounts.append((amount, to_budget))
+            amount = 0
+    return result
 
 class TransactionPart(models.Model):
     class Meta: # type: ignore
@@ -231,5 +261,28 @@ def transactions_for_category(category_id: int):
         for part in transaction.category_parts.all():
             if part.to_id == category_id:
                 total += part.amount
+        setattr(transaction, 'running_sum', total)
+    return qs
+
+def transactions_for_balance(budget_id_1: int, budget_id_2: int):
+    filter = (Q(accounts__budget_id=budget_id_1) &
+               Q(categories__budget_id=budget_id_2) |
+              Q(accounts__budget_id=budget_id_2) &
+               Q(categories__budget_id=budget_id_1))
+    qs = (Transaction.objects
+        .filter(filter)
+        .distinct()
+        .order_by('date')
+        .prefetch_related('account_parts', 'category_parts',
+                          'accounts__budget', 'categories__budget'))
+    total = 0
+    for transaction in qs:
+        debts = transaction.debts()
+        out = debts.get((budget_id_1, budget_id_2))
+        if out:
+            total -= out
+        into = debts.get((budget_id_2, budget_id_1))
+        if into:
+            total += into
         setattr(transaction, 'running_sum', total)
     return qs

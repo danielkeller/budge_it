@@ -3,8 +3,10 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 
-from .models import transactions_for_budget, transactions_for_account
-from .models import transactions_for_category, Account, Category, Budget
+from .models import (
+    transactions_for_budget, transactions_for_account,
+    transactions_for_category, transactions_for_balance,
+    Account, Category, Budget)
 from .forms import PurchaseForm
 
 def index(request: HttpRequest):
@@ -25,6 +27,11 @@ def category(request: HttpRequest, category_id: int):
     budget_id = Category.objects.get(id=category_id).budget_id
     transactions = transactions_for_category(category_id)
     context = {'transactions': transactions, 'budget_id': budget_id}
+    return render(request, 'budget/budget.html', context)
+
+def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
+    transactions = transactions_for_balance(budget_id_1, budget_id_2)
+    context = {'transactions': transactions, 'budget_id': budget_id_1}
     return render(request, 'budget/budget.html', context)
 
 def purchase(request: HttpRequest, budget_id: int):
