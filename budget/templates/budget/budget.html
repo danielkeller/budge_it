@@ -1,6 +1,10 @@
 {% load budget %}
 
 <!DOCTYPE html>
+{% url 'budget' budget_id as budget_url %}
+{% if request.get_full_path != budget_url %}
+<a href="{{ budget_url }}">Back to Budget</a>
+{% endif %}
 <table>
     <th>Date</th>
     <th>Note</th>
