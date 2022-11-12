@@ -11,4 +11,3 @@ urlpatterns = [
          name='balance'),
     path('budget/<int:budget_id>/purchase/', views.purchase, name='purchase'),
 ]
-

@@ -9,13 +9,16 @@ from .models import (
     Account, Category, Budget)
 from .forms import PurchaseForm
 
+
 def index(request: HttpRequest):
     return HttpResponse("Hello, world.")
+
 
 def budget(request: HttpRequest, budget_id: int):
     transactions = transactions_for_budget(budget_id)
     context = {'transactions': transactions, 'budget_id': budget_id}
     return render(request, 'budget/budget.html', context)
+
 
 def account(request: HttpRequest, account_id: int):
     budget_id = Account.objects.get(id=account_id).budget_id
@@ -23,16 +26,19 @@ def account(request: HttpRequest, account_id: int):
     context = {'transactions': transactions, 'budget_id': budget_id}
     return render(request, 'budget/budget.html', context)
 
+
 def category(request: HttpRequest, category_id: int):
     budget_id = Category.objects.get(id=category_id).budget_id
     transactions = transactions_for_category(category_id)
     context = {'transactions': transactions, 'budget_id': budget_id}
     return render(request, 'budget/budget.html', context)
 
+
 def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
     transactions = transactions_for_balance(budget_id_1, budget_id_2)
     context = {'transactions': transactions, 'budget_id': budget_id_1}
     return render(request, 'budget/budget.html', context)
+
 
 def purchase(request: HttpRequest, budget_id: int):
     budget = get_object_or_404(Budget, id=budget_id)

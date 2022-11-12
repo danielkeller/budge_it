@@ -7,54 +7,66 @@ from django.db.models import Q
 from django.urls import reverse
 from django.db import transaction
 
+
 class Budget(models.Model):
     id: models.BigAutoField
     name = models.CharField(max_length=100)
     account_set: 'models.Manager[Account]'
     category_set: 'models.Manager[Category]'
     # May be marked as external
-    #TODO: owner, currency
+    # TODO: owner, currency
 
     def __str__(self):
         return self.name
+
     def get_absolute_url(self):
         return reverse('budget', kwargs={'budget_id': self.id})
 
+
 class BaseAccount(models.Model):
-    class Meta: # type: ignore
+    class Meta:  # type: ignore
         abstract = True
     id: models.BigAutoField
     name = models.CharField(max_length=100, blank=True)
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE)
-    budget_id: int # Sigh
-    #TODO: read/write access
+    budget_id: int  # Sigh
+    # TODO: read/write access
 
     def ishidden(self):
         return self.name == ""
+
     def __str__(self):
         if self.ishidden():
             return self.budget.name
         else:
             return self.budget.name + " - " + str(self.name)
 
+
 class Account(BaseAccount):
     """Accounts describe the physical ownership of money."""
+
     def kind(self):
         return 'account'
+
     def get_absolute_url(self):
         return reverse('account', kwargs={'account_id': self.id})
+
     def get_hidden_category(self) -> 'Category':
         return Category.objects.get_or_create(
             budget_id=self.budget_id, name="")[0]
 
+
 class Category(BaseAccount):
     """Categories describe the conceptual ownership of money."""
-    class Meta: # type: ignore
+    class Meta:  # type: ignore
         verbose_name_plural = "categories"
+
     def kind(self):
         return 'category'
+
     def get_absolute_url(self):
         return reverse('category', kwargs={'category_id': self.id})
+
 
 class Transaction(models.Model):
     id: models.BigAutoField
@@ -74,7 +86,7 @@ class Transaction(models.Model):
 
     def __str__(self):
         return str(self.date) + " " + self.description[0:100]
-    
+
     # TODO: Maybe put this in the non-database wrapper thingy (proxy model?)
     def debts(self):
         owed: defaultdict[int, int] = defaultdict(int)
@@ -84,9 +96,10 @@ class Transaction(models.Model):
             owed[part.to.budget_id] += part.amount
         return combine_debts(owed)
 
+
 def combine_debts(owed: 'dict[int, int]'):
     amounts = sorted((amount, budget) for (budget, amount) in owed.items()
-                        if amount != 0)
+                     if amount != 0)
     result: dict[tuple[int], int] = {}
     amount, from_budget = 0, 0
     while amounts:
@@ -104,8 +117,9 @@ def combine_debts(owed: 'dict[int, int]'):
             amount = 0
     return result
 
+
 class TransactionPart(models.Model):
-    class Meta: # type: ignore
+    class Meta:  # type: ignore
         abstract = True
         constraints = [models.UniqueConstraint(fields=["transaction", "to"],
                                                name="m2m_%(class)s")]
@@ -113,19 +127,23 @@ class TransactionPart(models.Model):
     amount = models.BigIntegerField()
     to_id: int
 
+
 class TransactionAccountPart(TransactionPart):
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="account_parts")
     to = models.ForeignKey(Account, on_delete=models.PROTECT,
-                           related_name="entries") # type: ignore
+                           related_name="entries")  # type: ignore
+
 
 class TransactionCategoryPart(TransactionPart):
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="category_parts")
     to = models.ForeignKey(Category, on_delete=models.PROTECT,
-                           related_name="entries") # type: ignore
+                           related_name="entries")  # type: ignore
 
 # Simple transaction types
+
+
 class SimpleTransaction:
     id: Optional[int]
     date: date
@@ -137,13 +155,15 @@ class SimpleTransaction:
     @transaction.atomic
     def save(self) -> Transaction:
         result = Transaction(id=self.id, date=self.date,
-            description=self.description)
+                             description=self.description)
         self.save_(result)
         return result
+
     def save_(self, result: Transaction):
         result.save()
         result.accounts.clear()
         result.categories.clear()
+
 
 class Transfer(SimpleTransaction):
     from_account: Account
@@ -157,6 +177,7 @@ class Transfer(SimpleTransaction):
         TransactionAccountPart.objects.create(
             transaction=result, to=self.to_account, amount=self.amount)
 
+
 class Purchase(Transfer):
     from_category: Category
 
@@ -167,6 +188,7 @@ class Purchase(Transfer):
             transaction=result, to=self.from_category, amount=-self.amount)
         TransactionCategoryPart.objects.create(
             transaction=result, to=to_category, amount=self.amount)
+
 
 class Inflow(Transfer):
     to_category: Category
@@ -179,9 +201,9 @@ class Inflow(Transfer):
         TransactionCategoryPart.objects.create(
             transaction=result, to=self.to_category, amount=self.amount)
 
-    
+
 def to_simple_transaction(transaction: Transaction) -> \
-    Union[Transaction, Purchase, Inflow, Transfer]:
+        Union[Transaction, Purchase, Inflow, Transfer]:
     """Convert the transaction to a simple transaction if possible."""
     accounts = list(transaction.account_parts.all())
     categories = list(transaction.category_parts.all())
@@ -217,15 +239,16 @@ def to_simple_transaction(transaction: Transaction) -> \
 #                             filter=Q(categories__budget_id=budget_id)))
 # .exclude(value_change=0)
 
+
 def transactions_for_budget(budget_id: int):
     filter = (Q(accounts__budget_id=budget_id) |
               Q(categories__budget_id=budget_id))
     qs = (Transaction.objects
-        .filter(filter)
-        .distinct()
-        .order_by('date')
-        .prefetch_related('account_parts', 'category_parts',
-                          'accounts__budget', 'categories__budget'))
+          .filter(filter)
+          .distinct()
+          .order_by('date')
+          .prefetch_related('account_parts', 'category_parts',
+                            'accounts__budget', 'categories__budget'))
     total = 0
     for transaction in qs:
         for part in transaction.category_parts.all():
@@ -234,13 +257,14 @@ def transactions_for_budget(budget_id: int):
         setattr(transaction, 'running_sum', total)
     return qs
 
+
 def transactions_for_account(account_id: int):
     qs = (Transaction.objects
-        .filter(accounts__id=account_id)
-        .distinct()
-        .order_by('date')
-        .prefetch_related('account_parts', 'category_parts',
-                          'accounts__budget', 'categories__budget'))
+          .filter(accounts__id=account_id)
+          .distinct()
+          .order_by('date')
+          .prefetch_related('account_parts', 'category_parts',
+                            'accounts__budget', 'categories__budget'))
     total = 0
     for transaction in qs:
         for part in transaction.account_parts.all():
@@ -249,13 +273,14 @@ def transactions_for_account(account_id: int):
         setattr(transaction, 'running_sum', total)
     return qs
 
+
 def transactions_for_category(category_id: int):
     qs = (Transaction.objects
-        .filter(categories__id=category_id)
-        .distinct()
-        .order_by('date')
-        .prefetch_related('account_parts', 'category_parts',
-                          'accounts__budget', 'categories__budget'))
+          .filter(categories__id=category_id)
+          .distinct()
+          .order_by('date')
+          .prefetch_related('account_parts', 'category_parts',
+                            'accounts__budget', 'categories__budget'))
     total = 0
     for transaction in qs:
         for part in transaction.category_parts.all():
@@ -264,17 +289,18 @@ def transactions_for_category(category_id: int):
         setattr(transaction, 'running_sum', total)
     return qs
 
+
 def transactions_for_balance(budget_id_1: int, budget_id_2: int):
     filter = (Q(accounts__budget_id=budget_id_1) &
-               Q(categories__budget_id=budget_id_2) |
+              Q(categories__budget_id=budget_id_2) |
               Q(accounts__budget_id=budget_id_2) &
-               Q(categories__budget_id=budget_id_1))
+              Q(categories__budget_id=budget_id_1))
     qs = (Transaction.objects
-        .filter(filter)
-        .distinct()
-        .order_by('date')
-        .prefetch_related('account_parts', 'category_parts',
-                          'accounts__budget', 'categories__budget'))
+          .filter(filter)
+          .distinct()
+          .order_by('date')
+          .prefetch_related('account_parts', 'category_parts',
+                            'accounts__budget', 'categories__budget'))
     total = 0
     for transaction in qs:
         debts = transaction.debts()
@@ -284,5 +310,6 @@ def transactions_for_balance(budget_id_1: int, budget_id_2: int):
         into = debts.get((budget_id_2, budget_id_1))
         if into:
             total += into
-        setattr(transaction, 'running_sum', total)
+        setattr(transaction,
+                'running_sum', total)
     return qs

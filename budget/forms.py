@@ -7,6 +7,7 @@ from django.db import transaction
 from .models import Budget, Account, Category, Transaction
 from .models import Purchase
 
+
 class PurchaseForm(forms.Form):
     budget: Budget
     date = forms.DateField()
@@ -18,16 +19,16 @@ class PurchaseForm(forms.Form):
     amount = forms.DecimalField()
 
     def __init__(self, budget: Budget, *args: Any,
-                 instance: Optional[Transaction]=None, **kwargs: Any):
+                 instance: Optional[Transaction] = None, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.budget = budget
-        self.fields['amount'].decimal_places = 2 #TODO correctly
+        self.fields['amount'].decimal_places = 2  # TODO correctly
         self.fields['from_account'].queryset = Account.objects.all()
         self.fields['to_account'].queryset = Account.objects.all()
         self.fields['from_category'].queryset = Category.objects.all()
-    
+
     @transaction.atomic
-    def save(self, instance: Optional[Transaction]=None):
+    def save(self, instance: Optional[Transaction] = None):
         if instance:
             instance.delete()
         transaction = Purchase()
