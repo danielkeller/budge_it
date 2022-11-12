@@ -30,20 +30,22 @@ def budget(request: HttpRequest, budget_id: int):
 
 
 def account(request: HttpRequest, account_id: int):
-    budget_id = Account.objects.get(id=account_id).budget_id
+    budget_id = get_object_or_404(Account, id=account_id).budget_id
     transactions = transactions_for_account(account_id)
     context = {'transactions': transactions, 'budget_id': budget_id}
     return render(request, 'budget/budget.html', context)
 
 
 def category(request: HttpRequest, category_id: int):
-    budget_id = Category.objects.get(id=category_id).budget_id
+    budget_id = get_object_or_404(Category, id=category_id).budget_id
     transactions = transactions_for_category(category_id)
     context = {'transactions': transactions, 'budget_id': budget_id}
     return render(request, 'budget/budget.html', context)
 
 
 def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
+    get_object_or_404(Budget, id=budget_id_1)
+    get_object_or_404(Budget, id=budget_id_2)
     transactions = transactions_for_balance(budget_id_1, budget_id_2)
     context = {'transactions': transactions, 'budget_id': budget_id_1}
     return render(request, 'budget/budget.html', context)
