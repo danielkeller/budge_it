@@ -6,12 +6,21 @@ from django.urls import reverse
 from .models import (
     transactions_for_budget, transactions_for_account,
     transactions_for_category, transactions_for_balance,
+    accounts_overview,
     Account, Category, Budget)
 from .forms import PurchaseForm
 
 
 def index(request: HttpRequest):
     return HttpResponse("Hello, world.")
+
+
+def overview(request: HttpRequest, budget_id: int):
+    get_object_or_404(Budget, id=budget_id)
+    accounts, categories = accounts_overview(budget_id)
+    context = {'accounts': accounts, 'categories': categories,
+               'budget_id': budget_id}
+    return render(request, 'budget/overview.html', context)
 
 
 def budget(request: HttpRequest, budget_id: int):

@@ -3,7 +3,7 @@ from datetime import date
 from collections import defaultdict
 
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.urls import reverse
 from django.db import transaction
 
@@ -30,6 +30,7 @@ class BaseAccount(models.Model):
     name = models.CharField(max_length=100, blank=True)
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE)
     budget_id: int  # Sigh
+    balance: int
     # TODO: read/write access
 
     def ishidden(self):
@@ -126,6 +127,9 @@ class TransactionPart(models.Model):
     transaction: models.ForeignKey['Transaction']
     amount = models.BigIntegerField()
     to_id: int
+
+    def __str__(self):  # type: ignore
+        return f"{self.to} + {self.amount}"  # type: ignore
 
 
 class TransactionAccountPart(TransactionPart):
@@ -313,3 +317,13 @@ def transactions_for_balance(budget_id_1: int, budget_id_2: int):
         setattr(transaction,
                 'running_sum', total)
     return qs
+
+
+def accounts_overview(budget_id: int):
+    accounts = (Account.objects
+                .filter(budget_id=budget_id)
+                .annotate(balance=Sum('entries__amount')))
+    categories = (Category.objects
+                  .filter(budget_id=budget_id)
+                  .annotate(balance=Sum('entries__amount')))
+    return (accounts, categories)

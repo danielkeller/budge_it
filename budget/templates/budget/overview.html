@@ -1,0 +1,27 @@
+{% load budget static %}
+
+<!DOCTYPE html>
+<link rel="stylesheet" href="{% static 'budget/style.css' %}">
+
+<p><a href="{% url 'budget' budget_id %}">See all transactions</a></p>
+
+<table>
+    <th>Category</th>
+    <th>Balance</th>
+    {% for category in categories %}
+    <tr class="{% cycle 'a' 'b' %}">
+        <td>{% account_in_budget category budget_id %}</td>
+        <td>{{ category.balance }}</td>
+    </tr>
+    {% endfor %}
+</table>
+<table>
+    <th>Account</th>
+    <th>Balance</th>
+    {% for account in accounts %}
+    <tr class="{% cycle 'a' 'b' %}">
+        <td>{% account_in_budget account budget_id %}</td>
+        <td>{{ account.balance }}</td>
+    </tr>
+    {% endfor %}
+</table>

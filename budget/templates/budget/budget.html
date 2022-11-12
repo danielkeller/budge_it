@@ -1,9 +1,12 @@
-{% load budget %}
+{% load budget static %}
 
 <!DOCTYPE html>
+<link rel="stylesheet" href="{% static 'budget/style.css' %}">
+
+<p><a href="{% url 'overview' budget_id %}">Overview</a></p>
 {% url 'budget' budget_id as budget_url %}
 {% if request.get_full_path != budget_url %}
-<a href="{{ budget_url }}">Back to Budget</a>
+<p><a href="{{ budget_url }}">See all transactions</a></p>
 {% endif %}
 <table>
     <th>Date</th>
@@ -38,20 +41,3 @@
     {% endwith %}
     {% endfor %}
 </table>
-
-<style>
-    table {
-        border-collapse: collapse;
-    }
-
-    tr.a {
-        background-color: #e0f0eb;
-    }
-
-    td,
-    th {
-        border: 1px solid #888;
-        padding: 1px 2px;
-    }
-
-</style>
