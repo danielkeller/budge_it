@@ -104,7 +104,6 @@ def combine_debts(owed: 'dict[int, int]'):
     result: dict[tuple[int], int] = {}
     amount, from_budget = 0, 0
     while amounts:
-        amount, from_budget = amounts.pop(0)
         if not amount:
             amount, from_budget = amounts.pop(0)
         if not amounts:
