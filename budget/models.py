@@ -1,6 +1,7 @@
 from typing import Optional, Union
 from datetime import date
 from collections import defaultdict
+import functools
 
 from django.db import models
 from django.db.models import Q, Sum
@@ -101,10 +102,11 @@ class Transaction(models.Model):
 def combine_debts(owed: 'dict[int, int]'):
     amounts = sorted((amount, budget) for (budget, amount) in owed.items()
                      if amount != 0)
-    result: dict[tuple[int], int] = {}
+    result: 'dict[tuple[int, int], int]' = {}
     amount, from_budget = 0, 0
     while amounts:
         if not amount:
+            # FIXME: This is a Schlemiel the painter's algorithm
             amount, from_budget = amounts.pop(0)
         if not amounts:
             raise ValueError("Debts do not sum to zero")
@@ -116,6 +118,12 @@ def combine_debts(owed: 'dict[int, int]'):
             amounts.append((amount, to_budget))
             amount = 0
     return result
+
+
+def sum_debts(debts_1: 'dict[tuple[int, int], int]',
+              debts_2: 'dict[tuple[int, int], int]'):
+    keys = debts_1.keys() | debts_2.keys()
+    return {key: debts_1.get(key, 0) + debts_2.get(key, 0) for key in keys}
 
 
 class TransactionPart(models.Model):
@@ -309,12 +317,11 @@ def transactions_for_balance(budget_id_1: int, budget_id_2: int):
         debts = transaction.debts()
         out = debts.get((budget_id_1, budget_id_2))
         if out:
-            total -= out
+            total += out
         into = debts.get((budget_id_2, budget_id_1))
         if into:
-            total += into
-        setattr(transaction,
-                'running_sum', total)
+            total -= into
+        setattr(transaction, 'running_sum', total)
     return qs
 
 
@@ -325,4 +332,13 @@ def accounts_overview(budget_id: int):
     categories = (Category.objects
                   .filter(budget_id=budget_id)
                   .annotate(balance=Sum('entries__amount')))
-    return (accounts, categories)
+    transactions = transactions_for_budget(budget_id)
+    debt_map = functools.reduce(
+        sum_debts, (transaction.debts() for transaction in transactions))
+    debts = ([(Budget.objects.get(id=from_budget), -amount)
+              for ((from_budget, to_budget), amount) in debt_map.items()
+              if to_budget == budget_id] +
+             [(Budget.objects.get(id=to_budget), amount)
+              for ((from_budget, to_budget), amount) in debt_map.items()
+              if from_budget == budget_id])
+    return (accounts, categories, debts)

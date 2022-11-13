@@ -24,4 +24,11 @@
         <td>{{ account.balance }}</td>
     </tr>
     {% endfor %}
+
+    {% for budget, amount in debts %}
+    <tr class="{% cycle 'a' 'b' %}">
+        <td><a href="{% url 'balance' budget_id budget.id %}">Owed by {{ budget }}</a></td>
+        <td>{{ amount }}</td>
+    </tr>
+    {% endfor %}
 </table>
