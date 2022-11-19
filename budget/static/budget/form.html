@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<link rel="stylesheet" href="style.css">
+
+<table>
+    <th>From</th>
+    <th>To</th>
+    <th>Category</th>
+    <th>Amount</th>
+    <tr id="adder-row" style="text-align:right;">
+        <td colspan="6"><button id="addrow">+</button></td>
+    </tr>
+</table>
+
+<script>
+    "use strict";
+    function E(tag, attributes, ...contents) {
+        var element = document.createElement(tag);
+        if (attributes?.constructor === Object) {
+            for (const [name, value] of Object.entries(attributes)) {
+                const type = typeof value;
+                if (value === true) {
+                    element.setAttribute(name, '');
+                } else if (value === false) {
+                } else if (type === 'function') {
+                    element.addEventListener(name, value);
+                } else if (type === 'string' || type === 'number') {
+                    element.setAttribute(name, value);
+                } else {
+                    throw new Error(`Unexpected attribute '${value}'`)
+                }
+            }
+        } else if (attributes) {
+            element.append(attributes);
+        }
+        element.append(...contents);
+        return element;
+    }
+
+    var categories = ["Salary", "Food", "Rent"];
+    var accounts = ["Bank", "Credit"];
+    var external = ["Employer", "Landlord", "Shop"];
+    function budgetOf(account) {
+        if (categories.includes(account) || accounts.includes(account))
+            return "Budget";
+        return account;
+    }
+
+    var rows = [];
+    var tbody = document.getElementsByTagName("table")[0].children[0];
+    var adder_row = document.getElementById("adder-row");
+
+    var none = () => E('option', { value: '' }, '-----');
+    var option = value => E('option', value);
+
+    function findRow(inpit) {
+        return rows.findIndex(
+            ({ from, to, category, amount }) =>
+                [from, to, category, amount].includes(inpu));
+    }
+
+    function addRow(event) {
+        var from = E('select', { change: accountChanged },
+            none(), ...accounts.map(option), ...external.map(option));
+        var to = E('select', { change: accountChanged },
+            none(), ...accounts.map(option), ...external.map(option));
+        var category = E('select', { change: categoryChanged },
+            none(), ...categories.map(option), ...external.map(option));
+        var amount = E('input', { size: 7 });
+
+        var row = { from, to, category, amount };
+        rows.push(row);
+
+        var td = element => E('td', element);
+        var tr = E('tr', ...[from, to, category, amount].map(td));
+        tbody.insertBefore(tr, adder_row);
+        if (event) from.focus();
+        return row;
+    }
+
+    function accountChanged({ target }) {
+        // Enforce uniqueness
+        if (target.value) {
+            for (var { from, to } of rows) {
+                if (from !== target && from.value === target.value) {
+                    from.value = "";
+                    accountChanged({ target: from });
+                }
+                if (to !== target && to.value === target.value) {
+                    to.value = "";
+                    accountChanged({ target: to });
+                }
+            }
+        }
+
+        var { from, to, category, amount } =
+            rows.find(({ from, to }) => [from, to].includes(target));
+
+        // Make sure the sign of the category is unambiguous.
+        const old_category = category.value;
+        var row_categories = [];
+        if (!from.value && !to.value) {
+            row_categories.push(...categories, ...external);
+        } else if (budgetOf(from.value) !== budgetOf(to.value)) {
+            if (accounts.includes(from.value))
+                row_categories.push(...categories);
+            else if (from.value)
+                row_categories.push(from.value);
+            if (accounts.includes(to.value))
+                row_categories.push(...categories);
+            else if (to.value)
+                row_categories.push(to.value);
+        }
+        category.replaceChildren(none(), ...row_categories.map(option));
+        if (row_categories.includes(old_category))
+            category.value = old_category;
+        else
+            categoryChanged({ target: category }); // maybe
+        // TODO: else should kick the category into a new row
+
+        // TODO: If the other side of a transfer is added and the first is
+        // categorized, and the new side is external, add the external
+        // category.
+    }
+
+    function categoryChanged({ target }) {
+        // Enforce uniqueness
+        if (target.value) {
+            for (var { category } of rows) {
+                if (category !== target && category.value === target.value) {
+                    category.value = "";
+                    categoryChanged({ target: category });
+                }
+            }
+        }
+
+        // Convert transfers to payments when one end is categorized:
+        // If there's only one category, but two accounts, add the corresponding
+        // external category.
+
+        // Allow the change to be undone by the user.
+        if (!target.value) return;
+        // TODO: Only do this if it's currently valid double-entry
+        var accounts = [];
+        var categories = [];
+        for (const { from, to, category } of rows) {
+            if (from.value) accounts.push(from);
+            if (to.value) accounts.push(to);
+            if (category.value) categories.push(category);
+        }
+        if (accounts.length != 2 || categories.length != 1) return;
+        if (external.includes(accounts[0].value))
+            var [other, self] = accounts;
+        else if (external.includes(accounts[1].value))
+            var [self, other] = accounts;
+        else return;
+        if (other.value === categories[0].value) return;  // Sanity check
+
+        var other_row = findRow(other);
+        var other_category = rows[other_row].category;
+        if (other_category === target) {
+            // They're in the same row
+            var new_row = addRow();
+            new_row.category.value = other.value;
+            categoryChanged({ target: new_row.category });
+            var new_account = (rows[other_row].to === other)
+                ? new_row.to : new_row.from;
+            new_account.value = other.value;
+            accountChanged({ target: new_account });
+        } else {
+            other_category.value = other.value;
+            categoryChanged({ target: other_category });
+        }
+    }
+
+    function amountChanged({ target }) {
+        var opposite = -target.value;
+        if (isNaN(opposite)) opposite = "";
+
+        const { from, to, category } = rows[findRow(target)];
+
+
+        // for (var { from, to, category, amount } of rows) {
+
+        // }
+    }
+
+    document.getElementById('addrow').addEventListener('click', addRow);
+
+    addRow();
+</script>
