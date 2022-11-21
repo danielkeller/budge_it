@@ -25,6 +25,7 @@ class Budget(models.Model):
 
 
 class BaseAccount(models.Model):
+    """BaseAccounts describe the generic place money can be"""
     class Meta:  # type: ignore
         abstract = True
     id: models.BigAutoField
@@ -71,6 +72,7 @@ class Category(BaseAccount):
 
 
 class Transaction(models.Model):
+    """A logical event involving moving money between accounts and categories"""
     id: models.BigAutoField
     date = models.DateField()
     description = models.CharField(max_length=1000)
@@ -84,7 +86,7 @@ class Transaction(models.Model):
     categories = models.ManyToManyField(
         Category, through='TransactionCategoryPart',
         through_fields=('transaction', 'to'))
-    running_sum: int
+    running_sum: int #TODO this is gross, put in view logic
 
     def __str__(self):
         return str(self.date) + " " + self.description[0:100]
