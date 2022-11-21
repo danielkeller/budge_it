@@ -1,38 +1,65 @@
-Transaction editor
+Transaction Editor View:
+	(a transaction where we each paid some)
+		Date:  Today
+		Note:
+		Parts:
+		Acc	Cat	AmountMoved	AmountSpent
+		-------------------------------------------
+		CCash	Food	-20		-20
+		Shop	[Shop] 	20		20
 
-(a transaction split by total): split by total: who? dan+me, even split
-	Date:  Today
-	Note:
-	Parts:
-	Acc	Cat	AmountMoved	AmountSpent
-	-------------------------------------------
-	C Cash		-10
-	C Credit	-40
-		Food			-25
-		[Dan]			-25
-	Rest	 	50
+	(this should appear as the above in greyed out while editing)
+		Acc	Cat	AmountMoved	AmountSpent
+		-------------------------------------------
+		CCash	Food	-20		
+		Shop	 			
 
-(a transaction split by line item): this line item, split: who? dan+me, even split
-	Date:	Today
-	Note:
-	Parts:
-	Acc	Cat	AmountMoved	AmountSpent	Memo
-	--------------------------------------------------------
-	C Credit	-100
-		Food			-20		Sweets
-		Home			-40		Hoover
-		[Dan]			-40		Hoover	
-	Galaxus		+100
-		[Galaxus]		+100
+	(a transaction where we each paid some)
+		Date:  Today
+		Note:
+		Parts:
+		Acc	Cat	AmountMoved	AmountSpent
+		-------------------------------------------
+		C Credit	-40
+		D Cash		-10
+			Food			-25
+			[Dan]			-25
+		Rest	[Rest] 	50		50
 
-	Date: XY
-	Note: Party stuff
-	Parts:
-	Acc	Cat	AmountMoved	AmountSpent	Memo
-	--------------------------------------------------------
-	CCash	Food	-10		-10		Chips
-	CCash	Fun	-10		-10		Wine
-	Shop	[Shop]	20		20
+	(a transaction split by total): split by total: who? dan+me, even split
+		Date:  Today
+		Note:
+		Parts:
+		Acc	Cat	AmountMoved	AmountSpent
+		-------------------------------------------
+		C Cash		-10
+		C Credit	-40
+			Food			-25
+			[Dan]			-25
+		Rest	[Rest] 	50		50
+
+	(a transaction split by line item): this line item, split: who? dan+me, even split
+		Date:	Today
+		Note:
+		Parts:
+		Acc	Cat	AmountMoved	AmountSpent	Memo
+		--------------------------------------------------------
+		C Credit	-100
+			Food			-20		Sweets
+			Home			-40		Hoover
+			[Dan]			-40		Hoover	
+		Galaxus		+100
+			[Galaxus]		+100
+
+	(a transaction with memos on line items and whole transaction)
+		Date: XY
+		Note: Party stuff
+		Parts:
+		Acc	Cat	AmountMoved	AmountSpent	Memo
+		--------------------------------------------------------
+		CCash	Food	-10		-10		Chips
+		CCash	Fun	-10		-10		Wine
+		Shop	[Shop]	20		20
 
 
 All Transactions View:
