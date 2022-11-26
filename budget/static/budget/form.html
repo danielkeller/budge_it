@@ -84,17 +84,19 @@
         return row;
     }
 
-    function suggest(element, value) {
-        const suggested = element.classList.contains('suggested');
-        const unselected = element.value === "" || suggested;
-        if (value && unselected && document.activeElement !== element) {
-            element.value = value;
-            element.classList.add('suggested');
-        }
-        if (!value && suggested) {
+    function unsuggest(element) {
+        if (element.classList.contains('suggested')) {
             element.value = '';
             element.classList.remove('suggested');
         }
+    }
+    function suggest(element, value) {
+        if (element.value === "" && document.activeElement !== element) {
+            element.value = value;
+            element.classList.add('suggested');
+            return true;
+        }
+        return false;
     }
 
     function accountChanged({ target }) {
@@ -109,7 +111,9 @@
         }
 
         var { category } = rows[findRow(target)];
-        suggest(category, external.includes(target.value) ? target.value : '');
+        unsuggest(category);
+        if (external.includes(target.value))
+            suggest(category, target.value);
         suggestAmounts();
     }
 
@@ -134,19 +138,7 @@
         suggestAmounts();
     }
 
-    function suggestAmounts() {
-        for (var { moved, transferred } of rows) {
-            suggest(moved, '');
-            suggest(transferred, '');
-        }
-        for (var { account, category, moved, transferred } of rows) {
-            if (account.value && category.value) {
-                if (!isNaN(transferred.value))
-                    suggest(moved, transferred.value);
-                if (!isNaN(moved.value))
-                    suggest(transferred, moved.value);
-            }
-        }
+    function suggestSums() {
         var to_category = [];
         var category_total = 0;
         var to_account = [];
@@ -167,12 +159,43 @@
                 }
             }
         }
-        if (!isNaN(-category_total) && to_category.length === 1) {
-            suggest(to_category[0], -category_total);
+        var result = false;
+        if (category_total && !isNaN(-category_total)
+            && to_category.length === 1) {
+            result |= suggest(to_category[0], -category_total);
         }
-        if (!isNaN(-account_total) && to_account.length === 1) {
-            suggest(to_account[0], -account_total);
+        if (account_total && !isNaN(-account_total)
+            && to_account.length === 1) {
+            result |= suggest(to_account[0], -account_total);
         }
+        return result;
+    }
+
+    function suggestRowConsistency(options) {
+        var result = false;
+        for (var { account, category, moved, transferred } of rows) {
+            if (!account.value || !category.value) { continue; }
+            if (options?.onlyExternal && account.value != category.value)
+                continue;
+            if (transferred.value && !isNaN(transferred.value))
+                result |= suggest(moved, transferred.value);
+            if (moved.value && !isNaN(moved.value))
+                result |= suggest(transferred, moved.value);
+        }
+        return result;
+    }
+
+    function suggestAmounts() {
+        for (var { moved, transferred } of rows) {
+            unsuggest(moved);
+            unsuggest(transferred);
+        }
+        // Try to make progress with each one, with this priority
+        do {
+            do {
+                suggestSums();
+            } while (suggestRowConsistency({ onlyExternal: true }));
+        } while (suggestRowConsistency());
     }
 
     document.getElementById('addrow').addEventListener('click', addRow);
