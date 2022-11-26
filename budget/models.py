@@ -107,7 +107,7 @@ def combine_debts(owed: 'dict[int, int]'):
                      if amount != 0)
     result: 'dict[tuple[int, int], int]' = {}
     amount, from_budget = 0, 0
-    while amounts:
+    while amounts or amount:
         if not amount:
             # FIXME: This is a Schlemiel the painter's algorithm
             amount, from_budget = amounts.pop(0)

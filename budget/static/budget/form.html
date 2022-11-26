@@ -10,6 +10,9 @@
         <td colspan="6"><button id="addrow">+</button></td>
     </tr>
 </table>
+<p id="category-sum"></p>
+<p id="account-sum"></p>
+<p id="debt"></p>
 
 <script>
     "use strict";
@@ -36,7 +39,7 @@
         return element;
     }
 
-    var categories = ["Salary", "Food", "Rent"];
+    var categories = ["Salary", "Food", "Fun", "Rent"];
     var accounts = ["Bank", "Credit"];
     var external = ["Employer", "Landlord", "Shop"];
     function budgetOf(account) {
@@ -48,6 +51,9 @@
     var rows = [];
     var tbody = document.getElementsByTagName("table")[0].children[0];
     var adder_row = document.getElementById("adder-row");
+    var category_sum = document.getElementById("category-sum");
+    var account_sum = document.getElementById("account-sum");
+    var debt = document.getElementById("debt");
 
     var none = () => E('option', { value: '' });
     var option = value => E('option', value);
@@ -160,12 +166,10 @@
             }
         }
         var result = false;
-        if (category_total && !isNaN(-category_total)
-            && to_category.length === 1) {
+        if (!isNaN(-category_total) && to_category.length === 1) {
             result |= suggest(to_category[0], -category_total);
         }
-        if (account_total && !isNaN(-account_total)
-            && to_account.length === 1) {
+        if (!isNaN(-account_total) && to_account.length === 1) {
             result |= suggest(to_account[0], -account_total);
         }
         return result;
@@ -196,6 +200,59 @@
                 suggestSums();
             } while (suggestRowConsistency({ onlyExternal: true }));
         } while (suggestRowConsistency());
+
+        var category_total = 0;
+        var account_total = 0;
+        var owed = {};
+        for (var { account, category, moved, transferred } of rows) {
+            if (category.value) {
+                category_total += +transferred.value;
+                const budget = budgetOf(category.value);
+                if (!owed[budget]) owed[budget] = 0;
+                owed[budget] += -transferred.value;
+            }
+            if (account.value) {
+                account_total += +moved.value;
+                const budget = budgetOf(account.value);
+                if (!owed[budget]) owed[budget] = 0;
+                owed[budget] += +moved.value;
+            }
+        }
+        if (category_total && !isNaN(category_total)) {
+            category_sum.innerText = category_total + ' left to categorize';
+        } else {
+            category_sum.innerText = '';
+        }
+        if (account_total && !isNaN(account_total)) {
+            account_sum.innerText = account_total + ' left to account for';
+        } else {
+            account_sum.innerText = '';
+        }
+        debt.innerText = combineDebts(owed)
+            .map(([from, to, amount]) => `${to} owes ${from} ${amount}`)
+            .join(', ');
+    }
+
+    function combineDebts(owed) {
+        var amounts = Object.entries(owed).filter(o => o[1])
+            .sort((a, b) => a[1] - b[1]);
+        var result = [];
+        var [from, amount] = ['', 0];
+        while (amounts.length || amount) {
+            if (!amount)
+                [from, amount] = amounts.shift();
+            if (!amounts.length)
+                return [];  // Debts do not sum to zero
+            const [to, other] = amounts.pop();
+            const result_amount = Math.min(-amount, other);
+            result.push([from, to, result_amount]);
+            amount += other;
+            if (amount > 0) {
+                amounts.push([to, amount]);
+                amount = 0;
+            }
+        }
+        return result;
     }
 
     document.getElementById('addrow').addEventListener('click', addRow);
