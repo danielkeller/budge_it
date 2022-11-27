@@ -2,6 +2,7 @@ from typing import Optional, Union
 from datetime import date
 from collections import defaultdict
 import functools
+import typing
 
 from django.db import models
 from django.db.models import Q, Sum
@@ -43,7 +44,16 @@ class BaseAccount(models.Model):
         if self.ishidden():
             return self.budget.name
         else:
-            return self.budget.name + " - " + str(self.name)
+            return f"{self.budget.name} - {str(self.name)}"
+
+    def name_in_budget(self, budget_id: int):
+        if self.budget_id == budget_id:
+            return self.name
+        if self.ishidden() and isinstance(self, Category):
+            return f"[{self.budget.name}]"
+        if self.ishidden():
+            return self.budget.name
+        return f"{self.budget.name} - {str(self.name)}"
 
 
 class Account(BaseAccount):
@@ -101,6 +111,32 @@ class Transaction(models.Model):
             owed[part.to.budget_id] += part.amount
         return combine_debts(owed)
 
+    def tabular(self):
+        T = typing.TypeVar('T', bound='TransactionPart')
+
+        def pop_by_amount_(parts: 'set[T]', amount: int) -> Optional[BaseAccount]:
+            try:
+                result = next(
+                    (part for part in parts if part.amount == amount))
+                parts.discard(result)
+                return result.to
+            except StopIteration:
+                return None
+
+        accounts = set(self.account_parts.all())
+        categories = set(self.category_parts.all())
+        account_amounts = list(account.amount for account in accounts)
+        category_amounts = list(category.amount for category in categories)
+        parts: list[dict[str, typing.Any]]
+        parts = []
+        for amount in sorted(account_amounts + category_amounts):
+            account = pop_by_amount_(accounts, amount)
+            category = pop_by_amount_(categories, amount)
+            if account or category:
+                parts.append({'account': account, 'category': category,
+                              'amount': amount})
+        return parts
+
 
 def combine_debts(owed: 'dict[int, int]'):
     amounts = sorted((amount, budget) for (budget, amount) in owed.items()
@@ -134,8 +170,9 @@ class TransactionPart(models.Model):
         abstract = True
         constraints = [models.UniqueConstraint(fields=["transaction", "to"],
                                                name="m2m_%(class)s")]
-    transaction: models.ForeignKey['Transaction']
+    transaction: models.ForeignKey[Transaction]
     amount = models.BigIntegerField()
+    to: models.ForeignKey[BaseAccount]
     to_id: int
 
     def __str__(self):  # type: ignore
@@ -228,10 +265,10 @@ def to_simple_transaction(transaction: Transaction) -> \
             payer, payee = sorted(categories, key=lambda c: c.amount)
             if payee.to.ishidden():
                 result = Purchase()
-                result.from_category = payer.to
+                result.from_category = payer.to  # type: ignore
             elif payer.to.ishidden():
                 result = Inflow()
-                result.to_category = payee.to
+                result.to_category = payee.to  # type: ignore
             else:
                 return transaction
         elif transaction.categories.count() == 0:
@@ -239,8 +276,8 @@ def to_simple_transaction(transaction: Transaction) -> \
         else:
             return transaction
         payer, payee = sorted(accounts, key=lambda c: c.amount)
-        result.from_account = payer.to
-        result.to_account = payee.to
+        result.from_account = payer.to  # type: ignore
+        result.to_account = payee.to  # type: ignore
         result.amount = payee.amount
     else:
         return transaction
@@ -272,7 +309,7 @@ def transactions_for_budget(budget_id: int):
     return qs
 
 
-def entries_for(account: BaseAccount):
+def entries_for(account: BaseAccount) -> models.Manager[TransactionPart]:
     qs = (account.entries
           .order_by('transaction__date')
           .prefetch_related('transaction__account_parts__to__budget',

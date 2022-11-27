@@ -6,8 +6,8 @@ from django.urls import reverse
 from .models import (
     transactions_for_budget, transactions_for_balance, entries_for,
     accounts_overview,
-    Account, Category, Budget)
-from .forms import PurchaseForm
+    Account, Category, Budget, Transaction)
+from .forms import PurchaseForm, TransactionForm, TransactionPartFormSet
 
 
 def index(request: HttpRequest):
@@ -46,6 +46,14 @@ def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
     transactions = transactions_for_balance(budget_id_1, budget_id_2)
     context = {'transactions': transactions, 'budget_id': budget_id_1}
     return render(request, 'budget/budget.html', context)
+
+
+def edit(request: HttpRequest, budget_id: int, transaction_id: int):
+    budget = get_object_or_404(Budget, id=budget_id)
+    transaction = get_object_or_404(Transaction, id=transaction_id)
+    formset = TransactionPartFormSet(budget, instance=transaction)
+    context = {'formset': formset}
+    return render(request, 'budget/edit.html', context)
 
 
 def purchase(request: HttpRequest, budget_id: int):

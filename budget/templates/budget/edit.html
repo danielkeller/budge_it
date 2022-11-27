@@ -1,0 +1,33 @@
+{% load budget static %}
+
+<!DOCTYPE html>
+<link rel="stylesheet" href="{% static 'budget/style.css' %}">
+
+<form action="{{ request.get_full_path }}" method="post">
+    <table>
+        <tr>
+            <th>Account</th>
+            <th>Category</th>
+            <th>Amount<br>Transferred</th>
+            <th>Amount<br>Categorized</th>
+        </tr>
+        {% for form in formset %}
+        <tr>
+            <td>{{ form.account }}</td>
+            <td>{{ form.category }}</td>
+            <td>{{ form.transferred }}</td>
+            <td>{{ form.moved }}</td>
+        </tr>
+        {% endfor %}
+        <tr id="adder-row" style="text-align:right;">
+            <td colspan="6"><button id="addrow">+</button></td>
+        </tr>
+    </table>
+    <p id="category-sum"></p>
+    <p id="account-sum"></p>
+    <p id="debt"></p>
+
+    {{ formset.management_form }}
+    {% csrf_token %}
+    <input type="submit" value="Submit">
+</form>

@@ -28,8 +28,8 @@
                         {% with parts=entry.transaction|transaction_display %}
                         {% for part in parts %}
                         <tr class="{% cycle 'a' 'b' as rowcolor %}">
-                            <td>{% account_in_budget part.to.to account.budget_id %}</td>
-                            <td>{% account_in_budget part.category.to account.budget_id %}</td>
+                            <td>{% account_in_budget part.account account.budget_id %}</td>
+                            <td>{% account_in_budget part.category account.budget_id %}</td>
                             <td>{{part.amount}}</td>
                         </tr>
                         {% endfor %}

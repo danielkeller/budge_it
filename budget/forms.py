@@ -4,8 +4,58 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 
-from .models import Budget, Account, Category, Transaction
-from .models import Purchase
+from .models import (Budget, Account, Category,
+                     Transaction, Purchase, BaseAccount)
+
+
+class AccountChoiceField(forms.ModelChoiceField):
+    budget: Budget
+
+    def label_from_instance(self, obj: BaseAccount):  # type: ignore
+        return obj.name_in_budget(self.budget.id)
+
+
+class TransactionPartForm(forms.Form):
+    account = AccountChoiceField(queryset=None, empty_label='')
+    category = AccountChoiceField(queryset=None, empty_label='')
+    transferred = forms.DecimalField(widget=forms.TextInput(attrs={'size': 7}))
+    moved = forms.DecimalField(widget=forms.TextInput(attrs={'size': 7}))
+
+
+class BaseTransactionPartFormSet(forms.BaseFormSet):
+    budget: Budget
+
+    def __init__(self, budget: Budget, *args: Any,
+                 instance: Optional[Transaction] = None, **kwargs: Any):
+        self.budget = budget
+        if instance:
+            initial = instance.tabular()
+            for row in initial:
+                if row['account']:
+                    row['transferred'] = row['amount']
+                if row['category']:
+                    row['moved'] = row['amount']
+        else:
+            initial = None
+        super().__init__(*args, initial=initial, **kwargs)
+
+    def add_fields(self, form: TransactionPartForm, index: int):
+        super().add_fields(form, index)
+        # queryset is ˚*･༓ magic ༓･*˚ so it has to be set second
+        form.fields['account'].budget = self.budget
+        form.fields['account'].queryset = Account.objects.all()
+        form.fields['category'].budget = self.budget
+        form.fields['category'].queryset = Category.objects.all()
+
+
+TransactionPartFormSet = forms.formset_factory(
+    TransactionPartForm, formset=BaseTransactionPartFormSet)
+
+
+class TransactionForm(forms.ModelForm):
+    class Meta:  # type: ignore
+        model = Transaction
+        fields = ('date', 'description')
 
 
 class PurchaseForm(forms.Form):
