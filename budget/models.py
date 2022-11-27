@@ -33,6 +33,7 @@ class BaseAccount(models.Model):
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE)
     budget_id: int  # Sigh
     balance: int
+    entries: 'models.Manager[TransactionPart]'
     # TODO: read/write access
 
     def ishidden(self):
@@ -86,7 +87,7 @@ class Transaction(models.Model):
     categories = models.ManyToManyField(
         Category, through='TransactionCategoryPart',
         through_fields=('transaction', 'to'))
-    running_sum: int #TODO this is gross, put in view logic
+    running_sum: int  # TODO this is gross, put in view logic
 
     def __str__(self):
         return str(self.date) + " " + self.description[0:100]
@@ -271,35 +272,15 @@ def transactions_for_budget(budget_id: int):
     return qs
 
 
-def transactions_for_account(account_id: int):
-    qs = (Transaction.objects
-          .filter(accounts__id=account_id)
-          .distinct()
-          .order_by('date')
-          .prefetch_related('account_parts', 'category_parts',
-                            'accounts__budget', 'categories__budget'))
+def entries_for(account: BaseAccount):
+    qs = (account.entries
+          .order_by('transaction__date')
+          .prefetch_related('transaction__account_parts__to__budget',
+                            'transaction__category_parts__to__budget'))
     total = 0
-    for transaction in qs:
-        for part in transaction.account_parts.all():
-            if part.to_id == account_id:
-                total += part.amount
-        setattr(transaction, 'running_sum', total)
-    return qs
-
-
-def transactions_for_category(category_id: int):
-    qs = (Transaction.objects
-          .filter(categories__id=category_id)
-          .distinct()
-          .order_by('date')
-          .prefetch_related('account_parts', 'category_parts',
-                            'accounts__budget', 'categories__budget'))
-    total = 0
-    for transaction in qs:
-        for part in transaction.category_parts.all():
-            if part.to_id == category_id:
-                total += part.amount
-        setattr(transaction, 'running_sum', total)
+    for part in qs:
+        total += part.amount
+        setattr(part, 'running_sum', total)
     return qs
 
 

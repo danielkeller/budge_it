@@ -11,8 +11,7 @@
 <table>
     <th>Date</th>
     <th>Note</th>
-    <th>From</th>
-    <th>To</th>
+    <th>Account</th>
     <th>Category</th>
     <th>Amount</th>
     <th>Total</th>
@@ -28,7 +27,6 @@
         <td></td>
         <td></td>
         {% endif %}
-        <td>{% account_in_budget part.from.to budget_id %}</td>
         <td>{% account_in_budget part.to.to budget_id %}</td>
         <td>{% account_in_budget part.category.to budget_id %}</td>
         <td>{{part.amount}}</td>

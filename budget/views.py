@@ -4,8 +4,7 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse
 
 from .models import (
-    transactions_for_budget, transactions_for_account,
-    transactions_for_category, transactions_for_balance,
+    transactions_for_budget, transactions_for_balance, entries_for,
     accounts_overview,
     Account, Category, Budget)
 from .forms import PurchaseForm
@@ -30,17 +29,15 @@ def budget(request: HttpRequest, budget_id: int):
 
 
 def account(request: HttpRequest, account_id: int):
-    budget_id = get_object_or_404(Account, id=account_id).budget_id
-    transactions = transactions_for_account(account_id)
-    context = {'transactions': transactions, 'budget_id': budget_id}
-    return render(request, 'budget/budget.html', context)
+    account = get_object_or_404(Account, id=account_id)
+    context = {'entries': entries_for(account), 'account': account}
+    return render(request, 'budget/account.html', context)
 
 
 def category(request: HttpRequest, category_id: int):
-    budget_id = get_object_or_404(Category, id=category_id).budget_id
-    transactions = transactions_for_category(category_id)
-    context = {'transactions': transactions, 'budget_id': budget_id}
-    return render(request, 'budget/budget.html', context)
+    category = get_object_or_404(Category, id=category_id)
+    context = {'entries': entries_for(category), 'account': category}
+    return render(request, 'budget/account.html', context)
 
 
 def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):

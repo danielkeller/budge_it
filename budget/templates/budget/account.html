@@ -1,0 +1,43 @@
+{% load budget static %}
+
+<!DOCTYPE html>
+<link rel="stylesheet" href="{% static 'budget/style.css' %}">
+
+<p><a href="{% url 'overview' account.budget_id %}">Overview</a></p>
+{% url 'budget' account.budget_id as budget_url %}
+<p><a href="{{ budget_url }}">See all transactions</a></p>
+<table>
+    <th>Date</th>
+    <th>Note</th>
+    <th>Amount</th>
+    <th>{{ account.name | default:account.budget.name }}</th>
+    {% for entry in entries %}
+    <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0">
+        <td>{{entry.transaction.date}}</td>
+        <td>{{entry.transaction.description}}</td>
+        <td>{{entry.amount}}</td>
+        <td>
+            {{entry.running_sum}}
+            <div class="detail-container">
+                <div class="transaction-detail">
+                    ──┐
+                    <table class="transaction-detail-table">
+                        <th>Account</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        {% with parts=entry.transaction|transaction_display %}
+                        {% for part in parts %}
+                        <tr class="{% cycle 'a' 'b' as rowcolor %}">
+                            <td>{% account_in_budget part.to.to account.budget_id %}</td>
+                            <td>{% account_in_budget part.category.to account.budget_id %}</td>
+                            <td>{{part.amount}}</td>
+                        </tr>
+                        {% endfor %}
+                        {% endwith %}
+                    </table>
+                </div>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+</table>

@@ -12,3 +12,24 @@ th {
     border: 1px solid #888;
     padding: 1px 2px;
 }
+
+.detail-container {
+    /* Start in the upper right corner of the cell's contents */
+    float: right;
+}
+
+.transaction-detail {
+    /* Allow table to fill screen width */
+    position: absolute;
+    /* Move past the 1px of padding and 1px of border */
+    margin-left: 4px;
+    display: none;
+}
+
+tr:focus-within .transaction-detail {
+    display: initial;
+}
+
+.transaction-detail-table {
+    margin: 0 16px;
+}
