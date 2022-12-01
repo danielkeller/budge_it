@@ -3,9 +3,11 @@ from typing import Any, Optional
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
+from django.forms import ValidationError
 
 from .models import (Budget, Account, Category,
-                     Transaction, Purchase, BaseAccount)
+                     Transaction, Purchase, BaseAccount,
+                     TransactionAccountPart, TransactionCategoryPart)
 
 
 class AccountChoiceField(forms.ModelChoiceField):
@@ -16,18 +18,37 @@ class AccountChoiceField(forms.ModelChoiceField):
 
 
 class TransactionPartForm(forms.Form):
-    account = AccountChoiceField(queryset=None, empty_label='')
-    category = AccountChoiceField(queryset=None, empty_label='')
-    transferred = forms.DecimalField(widget=forms.TextInput(attrs={'size': 7}))
-    moved = forms.DecimalField(widget=forms.TextInput(attrs={'size': 7}))
+    account = AccountChoiceField(required=False, queryset=None, empty_label='')
+    category = AccountChoiceField(
+        required=False, queryset=None, empty_label='')
+    transferred = forms.DecimalField(
+        required=False, widget=forms.TextInput(attrs={'size': 7}))
+    moved = forms.DecimalField(
+        required=False, widget=forms.TextInput(attrs={'size': 7}))
+
+    def save(self, transaction: Transaction):
+        if (self.cleaned_data.get('account')
+                and self.cleaned_data.get('transferred')):
+            TransactionAccountPart.objects.create(
+                transaction=transaction, to=self.cleaned_data['account'],
+                amount=self.cleaned_data['transferred']
+            )
+        if (self.cleaned_data.get('category')
+                and self.cleaned_data.get('moved')):
+            TransactionCategoryPart.objects.create(
+                transaction=transaction, to=self.cleaned_data['category'],
+                amount=self.cleaned_data['moved']
+            )
 
 
 class BaseTransactionPartFormSet(forms.BaseFormSet):
     budget: Budget
+    instance: Transaction
 
     def __init__(self, budget: Budget, *args: Any,
-                 instance: Optional[Transaction] = None, **kwargs: Any):
+                 instance: Transaction, **kwargs: Any):
         self.budget = budget
+        self.instance = instance
         if instance:
             initial = instance.tabular()
             for row in initial:
@@ -46,6 +67,25 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
         form.fields['account'].queryset = Account.objects.all()
         form.fields['category'].budget = self.budget
         form.fields['category'].queryset = Category.objects.all()
+
+    def clean(self):
+        if any(self.errors):
+            return
+        category_total, account_total = 0, 0
+        for form in self.forms:
+            if form.cleaned_data.get('category'):
+                category_total += (form.cleaned_data.get('moved') or 0)
+            if form.cleaned_data.get('account'):
+                account_total += (form.cleaned_data.get('transferred') or 0)
+        if account_total or category_total:
+            raise ValidationError("Amounts do not sum to zero")
+
+    @transaction.atomic
+    def save(self):
+        self.instance.accounts.clear()
+        self.instance.categories.clear()
+        for form in self.forms:
+            form.save(self.instance)
 
 
 TransactionPartFormSet = forms.formset_factory(

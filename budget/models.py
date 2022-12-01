@@ -55,6 +55,10 @@ class BaseAccount(models.Model):
             return self.budget.name
         return f"{self.budget.name} - {str(self.name)}"
 
+    def dict(self, budget_id: int):
+        return {'id': self.id, 'budget_id': self.budget_id,
+                'name': self.name_in_budget(budget_id), }
+
 
 class Account(BaseAccount):
     """Accounts describe the physical ownership of money."""
@@ -66,8 +70,8 @@ class Account(BaseAccount):
         return reverse('account', kwargs={'account_id': self.id})
 
     def get_hidden_category(self) -> 'Category':
-        return Category.objects.get_or_create(
-            budget_id=self.budget_id, name="")[0]
+        return self.budget.category_set.get_or_create(
+            name="", defaults={'budget': self.budget})[0]
 
 
 class Category(BaseAccount):

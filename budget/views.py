@@ -51,8 +51,30 @@ def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
 def edit(request: HttpRequest, budget_id: int, transaction_id: int):
     budget = get_object_or_404(Budget, id=budget_id)
     transaction = get_object_or_404(Transaction, id=transaction_id)
-    formset = TransactionPartFormSet(budget, instance=transaction)
-    context = {'formset': formset}
+
+    if request.method == 'POST':
+        formset = TransactionPartFormSet(
+            budget, prefix="tx", instance=transaction, data=request.POST)
+        if formset.is_valid():
+            formset.save()
+            return HttpResponseRedirect(
+                reverse('budget', kwargs={'budget_id': budget_id}))
+    else:
+        formset = TransactionPartFormSet(
+            budget, prefix="tx", instance=transaction)
+
+    data = {
+        'category_budget': dict(
+            Category.objects.values_list('id', 'budget_id')),
+        'account_budget': dict(
+            Account.objects.values_list('id', 'budget_id')),
+        'budget': {budget.id: budget.name for budget in Budget.objects.all()},
+        'external': {account.id: account.get_hidden_category().id
+                     for account
+                     in Account.objects.filter(name='')
+                     .prefetch_related('budget__category_set')}
+    }
+    context = {'formset': formset, 'data': data}
     return render(request, 'budget/edit.html', context)
 
 
