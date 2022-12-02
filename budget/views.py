@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.db.transaction import atomic
 
 from .models import (
     transactions_for_budget, transactions_for_balance, entries_for,
@@ -57,15 +58,19 @@ def edit(request: HttpRequest, budget_id: int, transaction_id: int):
     transaction = get_object_or_404(Transaction, id=transaction_id)
 
     if request.method == 'POST':
+        form = TransactionForm(instance=transaction, data=request.POST)
         formset = TransactionPartFormSet(
             budget, prefix="tx", instance=transaction, data=request.POST)
         if formset.is_valid():
-            formset.save()
+            with atomic():
+                formset.save()
+                form.save()
             if 'back' in request.GET:
                 return HttpResponseRedirect(request.GET['back'])
             return HttpResponseRedirect(
                 reverse('budget', kwargs={'budget_id': budget_id}))
     else:
+        form = TransactionForm(instance=transaction)
         formset = TransactionPartFormSet(
             budget, prefix="tx", instance=transaction)
 
@@ -80,7 +85,7 @@ def edit(request: HttpRequest, budget_id: int, transaction_id: int):
                      in Account.objects.filter(name='')
                      .prefetch_related('budget__category_set')}
     }
-    context = {'formset': formset, 'data': data}
+    context = {'formset': formset, 'form': form, 'data': data}
     return render(request, 'budget/edit.html', context)
 
 

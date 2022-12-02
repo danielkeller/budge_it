@@ -7,10 +7,20 @@
 <form action="{{ request.get_full_path }}" method="post">
     <table>
         <tr>
+            <th>Date</th>
+            <th>Note</th>
+        </tr>
+        <tr>
+            <td>{{ form.date }}</td>
+            <td>{{ form.description }}</td>
+        </tr>
+    </table>
+    <table>
+        <tr>
             <th>Account</th>
             <th>Category</th>
-            <th>Amount<br>Transferred</th>
-            <th>Amount<br>Categorized</th>
+            <th>Transferred</th>
+            <th>Categorized</th>
         </tr>
         {% for form in formset %}
         <tr>
@@ -33,5 +43,5 @@
     <input id="submit-button" type="submit" value="Submit">
 </form>
 {{ data|json_script:"data" }}
-{{ formset.errors }}
+{{ formset.errors|default:"" }}
 {{ formset.non_form_errors }}

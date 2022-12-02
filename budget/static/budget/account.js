@@ -35,12 +35,12 @@ function key(event) {
 function updateHash(event) {
     const current = currentRow();
     if (current) {
-        document.location.hash = current.dataset.id;
+        history.replaceState(undefined, undefined, "#" + current.dataset.id);
     } else if (!event.relatedTarget?.dataset.id) {
         // When moving between rows, no row has :focus-within after focusout and
         // before focusin. Instead use relatedTarget to see if the new target
         // is another row.
-        document.location.hash = "";
+        history.replaceState(undefined, undefined, "#");
     }
 }
 
