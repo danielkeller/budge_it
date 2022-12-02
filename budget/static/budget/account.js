@@ -32,9 +32,16 @@ function key(event) {
     }
 }
 
-function updateHash() {
+function updateHash(event) {
     const current = currentRow();
-    document.location.hash = current ? current.dataset.id : "";
+    if (current) {
+        document.location.hash = current.dataset.id;
+    } else if (!event.relatedTarget?.dataset.id) {
+        // When moving between rows, no row has :focus-within after focusout and
+        // before focusin. Instead use relatedTarget to see if the new target
+        // is another row.
+        document.location.hash = "";
+    }
 }
 
 function edit() {
