@@ -30,6 +30,10 @@ tr:focus-within .transaction-detail {
     display: initial;
 }
 
+form.edit {
+    display: inline;
+}
+
 .transaction-detail-table {
     margin: 0 16px;
 }

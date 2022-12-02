@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
 <script src="{% static 'budget/editor.js' %}"></script>
 
-<form action="{{ request.get_full_path }}" method="post">
+<form class="edit" action="{{ request.get_full_path }}" method="post">
     <table>
         <tr>
             <th>Date</th>
@@ -40,8 +40,14 @@
 
     {{ formset.management_form }}
     {% csrf_token %}
-    <input id="submit-button" type="submit" value="Submit">
+    <input id="submit-button" type="submit" value="Save">
+    <button id="cancel" type="button">Cancel</button>
 </form>
+<form class="edit" action="{% url 'delete' transaction_id%}?next={{ request.GET.back|urlencode }}" method="post">
+    {% csrf_token %}
+    <input type="submit" value="Delete">
+</form>
+
 {{ data|json_script:"data" }}
 {{ formset.errors|default:"" }}
 {{ formset.non_form_errors }}

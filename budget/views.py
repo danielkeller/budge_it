@@ -58,8 +58,10 @@ def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
 def edit(request: HttpRequest, budget_id: int,
          transaction_id: Optional[int] = None):
     budget = get_object_or_404(Budget, id=budget_id)
-    transaction = transaction_id and get_object_or_404(
-        Transaction, id=transaction_id)
+    if transaction_id == None:
+        transaction = None
+    else:
+        transaction = get_object_or_404(Transaction, id=transaction_id)
 
     if request.method == 'POST':
         form = TransactionForm(instance=transaction, data=request.POST)
@@ -69,10 +71,7 @@ def edit(request: HttpRequest, budget_id: int,
             with atomic():
                 instance = form.save()
                 formset.save(instance=instance)
-            if 'back' in request.GET:
-                return HttpResponseRedirect(request.GET['back'])
-            return HttpResponseRedirect(
-                reverse('budget', kwargs={'budget_id': budget_id}))
+            return HttpResponseRedirect(request.GET['back'])
     else:
         form = TransactionForm(instance=transaction)
         formset = TransactionPartFormSet(
@@ -89,8 +88,14 @@ def edit(request: HttpRequest, budget_id: int,
                      in Account.objects.filter(name='')
                      .prefetch_related('budget__category_set')}
     }
-    context = {'formset': formset, 'form': form, 'data': data}
+    context = {'formset': formset, 'form': form,
+               'transaction_id': transaction_id, 'data': data}
     return render(request, 'budget/edit.html', context)
+
+
+def delete(request: HttpRequest, transaction_id: int):
+    get_object_or_404(Transaction, id=transaction_id).delete()
+    return HttpResponseRedirect(request.GET['next'])
 
 
 def purchase(request: HttpRequest, budget_id: int):

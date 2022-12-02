@@ -11,6 +11,7 @@ addEventListener("DOMContentLoaded", function () {
     window.debt = document.getElementById("debt");
 
     document.getElementById('addrow').addEventListener('click', addRow);
+    document.getElementById('cancel').addEventListener('click', cancel);
     document.forms[0].addEventListener('submit', onSubmit);
     document.addEventListener("keydown", key);
     setUpRows();
@@ -20,12 +21,20 @@ function key(event) {
     if (event.key === "Escape") {
         // The default behavior of "esc" is to stop page load
         event.preventDefault();
-        const back = new URLSearchParams(window.location.search).get('back');
-        if (back) window.location.href = back;
+        cancel();
     } else if (event.key === "Enter") {
-        if (document.activeElement.id !== "addrow")
+        if (document.activeElement.type !== "button"
+            && document.activeElement.type !== "submit")
             document.forms[0].submit();
     }
+}
+
+function cancel() {
+    const back = new URLSearchParams(window.location.search).get('back');
+    if (back)
+        window.location.href = back;
+    else
+        history.back();
 }
 
 function findRow(input) {
