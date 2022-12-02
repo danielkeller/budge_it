@@ -12,8 +12,20 @@ addEventListener("DOMContentLoaded", function () {
 
     document.getElementById('addrow').addEventListener('click', addRow);
     document.forms[0].addEventListener('submit', onSubmit);
+    document.addEventListener("keydown", key);
     setUpRows();
 });
+
+function key(event) {
+    if (event.key === "Escape") {
+        // The default behavior of "esc" is to stop page load
+        event.preventDefault();
+        const back = new URLSearchParams(window.location.search).get('back');
+        if (back) window.location.href = back;
+    } else if (event.key === "Enter") {
+        document.forms[0].submit();
+    }
+}
 
 function findRow(input) {
     return rows.findIndex(
@@ -233,7 +245,7 @@ function checkValid() {
             `${data.budget[to]} owes ${data.budget[from]} ${amount}`)
         .join(', ');
 
-    document.getElementById("submit").disabled = !valid;
+    document.getElementById("submit-button").disabled = !valid;
 }
 
 function onSubmit(event) {

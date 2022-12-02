@@ -30,13 +30,17 @@ def budget(request: HttpRequest, budget_id: int):
 
 def account(request: HttpRequest, account_id: int):
     account = get_object_or_404(Account, id=account_id)
-    context = {'entries': entries_for(account), 'account': account}
+    data = {'budget': account.budget_id}
+    context = {'entries': entries_for(
+        account), 'account': account, 'data': data}
     return render(request, 'budget/account.html', context)
 
 
 def category(request: HttpRequest, category_id: int):
     category = get_object_or_404(Category, id=category_id)
-    context = {'entries': entries_for(category), 'account': category}
+    data = {'budget': category.budget_id}
+    context = {'entries': entries_for(
+        category), 'account': category, 'data': data}
     return render(request, 'budget/account.html', context)
 
 
@@ -57,6 +61,8 @@ def edit(request: HttpRequest, budget_id: int, transaction_id: int):
             budget, prefix="tx", instance=transaction, data=request.POST)
         if formset.is_valid():
             formset.save()
+            if 'back' in request.GET:
+                return HttpResponseRedirect(request.GET['back'])
             return HttpResponseRedirect(
                 reverse('budget', kwargs={'budget_id': budget_id}))
     else:
