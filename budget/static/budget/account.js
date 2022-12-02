@@ -29,6 +29,11 @@ function key(event) {
         }
     } else if (event.key === "Enter" || event.key === "i") {
         edit();
+    } else if (event.key === "o") {
+        const back = encodeURIComponent(
+            window.location.pathname + window.location.hash);
+        window.location.href =
+            `/transaction/${data.budget}/?back=${back}`;
     }
 }
 

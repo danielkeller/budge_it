@@ -43,12 +43,10 @@ class TransactionPartForm(forms.Form):
 
 class BaseTransactionPartFormSet(forms.BaseFormSet):
     budget: Budget
-    instance: Transaction
 
     def __init__(self, budget: Budget, *args: Any,
                  instance: Transaction, **kwargs: Any):
         self.budget = budget
-        self.instance = instance
         if instance:
             initial = instance.tabular()
             for row in initial:
@@ -81,18 +79,19 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
             raise ValidationError("Amounts do not sum to zero")
 
     @transaction.atomic
-    def save(self):
-        self.instance.accounts.clear()
-        self.instance.categories.clear()
+    def save(self, *, instance: Transaction):
+        instance.accounts.clear()
+        instance.categories.clear()
         for form in self.forms:
-            form.save(self.instance)
+            form.save(instance)
 
 
 TransactionPartFormSet = forms.formset_factory(
-    TransactionPartForm, formset=BaseTransactionPartFormSet)
+    TransactionPartForm, formset=BaseTransactionPartFormSet, extra=2)
 
 
 class TransactionForm(forms.ModelForm):
+    # TODO: Date validation doesn't work
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date', 'description')

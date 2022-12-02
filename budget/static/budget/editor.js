@@ -4,7 +4,7 @@ addEventListener("DOMContentLoaded", function () {
     window.data = JSON.parse(document.getElementById('data').textContent);
     window.valid = true;
     window.rows = [];
-    window.tbody = document.getElementsByTagName("table")[0].children[0];
+    window.tbody = document.getElementById("parts").children[0];
     window.adder_row = document.getElementById("adder-row");
     window.category_sum = document.getElementById("category-sum");
     window.account_sum = document.getElementById("account-sum");
@@ -23,7 +23,8 @@ function key(event) {
         const back = new URLSearchParams(window.location.search).get('back');
         if (back) window.location.href = back;
     } else if (event.key === "Enter") {
-        document.forms[0].submit();
+        if (document.activeElement.id !== "addrow")
+            document.forms[0].submit();
     }
 }
 

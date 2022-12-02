@@ -12,5 +12,7 @@ urlpatterns = [
          name='balance'),
     path('transaction/<int:budget_id>/<int:transaction_id>/',
          views.edit, name='edit'),
+    path('transaction/<int:budget_id>/',
+         views.edit, name='create'),
     path('budget/<int:budget_id>/purchase/', views.purchase, name='purchase'),
 ]

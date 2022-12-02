@@ -1,3 +1,5 @@
+from typing import Optional
+
 from django.shortcuts import render
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
@@ -53,9 +55,11 @@ def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
     return render(request, 'budget/budget.html', context)
 
 
-def edit(request: HttpRequest, budget_id: int, transaction_id: int):
+def edit(request: HttpRequest, budget_id: int,
+         transaction_id: Optional[int] = None):
     budget = get_object_or_404(Budget, id=budget_id)
-    transaction = get_object_or_404(Transaction, id=transaction_id)
+    transaction = transaction_id and get_object_or_404(
+        Transaction, id=transaction_id)
 
     if request.method == 'POST':
         form = TransactionForm(instance=transaction, data=request.POST)
@@ -63,8 +67,8 @@ def edit(request: HttpRequest, budget_id: int, transaction_id: int):
             budget, prefix="tx", instance=transaction, data=request.POST)
         if formset.is_valid():
             with atomic():
-                formset.save()
-                form.save()
+                instance = form.save()
+                formset.save(instance=instance)
             if 'back' in request.GET:
                 return HttpResponseRedirect(request.GET['back'])
             return HttpResponseRedirect(
