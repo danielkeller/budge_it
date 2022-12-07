@@ -43,10 +43,12 @@
     <input id="submit-button" type="submit" value="Save">
     <button id="cancel" type="button">Cancel</button>
 </form>
+{% if transaction_id %}
 <form class="edit" action="{% url 'delete' transaction_id%}?next={{ request.GET.back|urlencode }}" method="post">
     {% csrf_token %}
     <input type="submit" value="Delete">
 </form>
+{% endif %}
 
 {{ data|json_script:"data" }}
 {{ formset.errors|default:"" }}
