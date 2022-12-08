@@ -16,3 +16,9 @@ def account_in_budget(account: models.BaseAccount, budget_id: int):
 @register.filter
 def transaction_display(value: models.Transaction):
     return value.tabular()
+
+
+@register.filter
+def transaction_description(value: models.Transaction,
+                            account: models.BaseAccount):
+    return value.auto_description(account)

@@ -9,13 +9,13 @@
 <p><a href="{{ budget_url }}">See all transactions</a></p>
 <table id="table">
     <th>Date</th>
-    <th>Note</th>
+    <th>Description</th>
     <th>Amount</th>
     <th>{{ account.name | default:account.budget.name }}</th>
     {% for entry in entries %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{entry.transaction.id}}">
         <td>{{entry.transaction.date}}</td>
-        <td>{{entry.transaction.description}}</td>
+        <td>{{entry.transaction|transaction_description:account}}</td>
         <td>{{entry.amount}}</td>
         <td>
             {{entry.running_sum}}
@@ -26,15 +26,13 @@
                         <th>Account</th>
                         <th>Category</th>
                         <th>Amount</th>
-                        {% with parts=entry.transaction|transaction_display %}
-                        {% for part in parts %}
+                        {% for part in entry.transaction.tabular %}
                         <tr class="{% cycle 'a' 'b' as rowcolor %}">
                             <td>{% account_in_budget part.account account.budget_id %}</td>
                             <td>{% account_in_budget part.category account.budget_id %}</td>
                             <td>{{part.amount}}</td>
                         </tr>
                         {% endfor %}
-                        {% endwith %}
                     </table>
                 </div>
             </div>

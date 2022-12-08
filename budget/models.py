@@ -90,7 +90,7 @@ class Transaction(models.Model):
     """A logical event involving moving money between accounts and categories"""
     id: models.BigAutoField
     date = models.DateField()
-    description = models.CharField(max_length=1000)
+    description = models.CharField(blank=True, max_length=1000)
     accounts: 'models.ManyToManyField[Account, TransactionAccountPart]'
     account_parts: 'models.Manager[TransactionAccountPart]'
     accounts = models.ManyToManyField(
@@ -140,6 +140,19 @@ class Transaction(models.Model):
                 parts.append({'account': account, 'category': category,
                               'amount': amount})
         return parts
+
+    def auto_description(self, in_account: BaseAccount):
+        if self.description:
+            return self.description
+        categories = [category.name_in_budget(in_account.budget_id)
+                      for category in self.categories.all()
+                      if not category.ishidden() and category != in_account]
+        accounts = [account.name_in_budget(in_account.budget_id)
+                    for account in self.accounts.all()
+                    if account != in_account]
+        if len(categories) + len(accounts) > 3:
+            return "(Split)"
+        return ", ".join(categories + accounts)
 
 
 def combine_debts(owed: 'dict[int, int]'):
