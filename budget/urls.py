@@ -16,5 +16,4 @@ urlpatterns = [
          views.edit, name='create'),
     path('transaction/<int:transaction_id>/delete/',
          views.delete, name='delete'),
-    path('budget/<int:budget_id>/purchase/', views.purchase, name='purchase'),
 ]

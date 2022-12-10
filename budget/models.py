@@ -1,5 +1,4 @@
-from typing import Optional, Union
-from datetime import date
+from typing import Optional, Iterable
 from collections import defaultdict
 import functools
 import typing
@@ -7,7 +6,6 @@ import typing
 from django.db import models
 from django.db.models import Q, Sum
 from django.urls import reverse
-from django.db import transaction
 
 
 class Budget(models.Model):
@@ -209,106 +207,13 @@ class TransactionCategoryPart(TransactionPart):
     to = models.ForeignKey(Category, on_delete=models.PROTECT,
                            related_name="entries")  # type: ignore
 
-# Simple transaction types
-
-
-class SimpleTransaction:
-    id: Optional[int]
-    date: date
-    description: str
-
-    def __init__(self):
-        self.id = None
-
-    @transaction.atomic
-    def save(self) -> Transaction:
-        result = Transaction(id=self.id, date=self.date,
-                             description=self.description)
-        self.save_(result)
-        return result
-
-    def save_(self, result: Transaction):
-        result.save()
-        result.accounts.clear()
-        result.categories.clear()
-
-
-class Transfer(SimpleTransaction):
-    from_account: Account
-    to_account: Account
-    amount: int
-
-    def save_(self, result: Transaction):
-        super().save_(result)
-        TransactionAccountPart.objects.create(
-            transaction=result, to=self.from_account, amount=-self.amount)
-        TransactionAccountPart.objects.create(
-            transaction=result, to=self.to_account, amount=self.amount)
-
-
-class Purchase(Transfer):
-    from_category: Category
-
-    def save_(self, result: Transaction):
-        super().save_(result)
-        to_category = self.to_account.get_hidden_category()
-        TransactionCategoryPart.objects.create(
-            transaction=result, to=self.from_category, amount=-self.amount)
-        TransactionCategoryPart.objects.create(
-            transaction=result, to=to_category, amount=self.amount)
-
-
-class Inflow(Transfer):
-    to_category: Category
-
-    def save_(self, result: Transaction):
-        super().save_(result)
-        from_category = self.from_account.get_hidden_category()
-        TransactionCategoryPart.objects.create(
-            transaction=result, to=from_category, amount=-self.amount)
-        TransactionCategoryPart.objects.create(
-            transaction=result, to=self.to_category, amount=self.amount)
-
-
-def to_simple_transaction(transaction: Transaction) -> \
-        Union[Transaction, Purchase, Inflow, Transfer]:
-    """Convert the transaction to a simple transaction if possible."""
-    accounts = list(transaction.account_parts.all())
-    categories = list(transaction.category_parts.all())
-    if len(accounts) == 2:
-        if len(categories) == 2:
-            if abs(categories[0].amount) != abs(accounts[0].amount):
-                return transaction
-            payer, payee = sorted(categories, key=lambda c: c.amount)
-            if payee.to.ishidden():
-                result = Purchase()
-                result.from_category = payer.to  # type: ignore
-            elif payer.to.ishidden():
-                result = Inflow()
-                result.to_category = payee.to  # type: ignore
-            else:
-                return transaction
-        elif transaction.categories.count() == 0:
-            result = Transfer()
-        else:
-            return transaction
-        payer, payee = sorted(accounts, key=lambda c: c.amount)
-        result.from_account = payer.to  # type: ignore
-        result.to_account = payee.to  # type: ignore
-        result.amount = payee.amount
-    else:
-        return transaction
-    result.id = transaction.id
-    result.date = transaction.date
-    return result
-
 # Transaction.objects
 # .annotate(value_change=Sum('category_parts__amount',
 #                             filter=Q(categories__budget_id=budget_id)))
 # .exclude(value_change=0)
 
 
-def transactions_for_budget(budget_id: int):
+def transactions_for_budget(budget_id: int) -> Iterable[Transaction]:
     filter = (Q(accounts__budget_id=budget_id) |
               Q(categories__budget_id=budget_id))
     qs = (Transaction.objects
@@ -323,10 +228,10 @@ def transactions_for_budget(budget_id: int):
             if part.to.budget_id == budget_id:
                 total += part.amount
         setattr(transaction, 'running_sum', total)
-    return qs
+    return reversed(qs)
 
 
-def entries_for(account: BaseAccount) -> models.Manager[TransactionPart]:
+def entries_for(account: BaseAccount) -> Iterable[TransactionPart]:
     qs = (account.entries
           .order_by('transaction__date')
           .prefetch_related('transaction__account_parts__to__budget',
@@ -335,10 +240,11 @@ def entries_for(account: BaseAccount) -> models.Manager[TransactionPart]:
     for part in qs:
         total += part.amount
         setattr(part, 'running_sum', total)
-    return qs
+    return reversed(qs)
 
 
-def transactions_for_balance(budget_id_1: int, budget_id_2: int):
+def transactions_for_balance(budget_id_1: int, budget_id_2: int
+                             ) -> Iterable[Transaction]:
     filter = (Q(accounts__budget_id=budget_id_1) &
               Q(categories__budget_id=budget_id_2) |
               Q(accounts__budget_id=budget_id_2) &
@@ -359,7 +265,7 @@ def transactions_for_balance(budget_id_1: int, budget_id_2: int):
         if into:
             total -= into
         setattr(transaction, 'running_sum', total)
-    return qs
+    return reversed(qs)
 
 
 def accounts_overview(budget_id: int):

@@ -1,20 +1,20 @@
 from typing import Optional
 
 from django.shortcuts import render
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
+                         HttpResponseBadRequest)
 from django.shortcuts import get_object_or_404
-from django.urls import reverse
 from django.db.transaction import atomic
 
 from .models import (
     transactions_for_budget, transactions_for_balance, entries_for,
     accounts_overview,
     Account, Category, Budget, Transaction)
-from .forms import PurchaseForm, TransactionForm, TransactionPartFormSet
+from .forms import TransactionForm, TransactionPartFormSet
 
 
 def index(request: HttpRequest):
-    return HttpResponse("Hello, world.")
+    return HttpResponse("TODO")
 
 
 def overview(request: HttpRequest, budget_id: int):
@@ -94,19 +94,7 @@ def edit(request: HttpRequest, budget_id: int,
 
 
 def delete(request: HttpRequest, transaction_id: int):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
     get_object_or_404(Transaction, id=transaction_id).delete()
     return HttpResponseRedirect(request.GET['next'])
-
-
-def purchase(request: HttpRequest, budget_id: int):
-    budget = get_object_or_404(Budget, id=budget_id)
-    if request.method == 'POST':
-        form = PurchaseForm(budget, data=request.POST)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(
-                reverse('budget', kwargs={'budget_id': budget_id}))
-    else:
-        form = PurchaseForm(budget)
-    context = {'form': form, 'budget_id': budget_id}
-    return render(request, 'budget/purchase.html', context)
