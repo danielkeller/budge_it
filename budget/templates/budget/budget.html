@@ -16,8 +16,7 @@
     <th>Amount</th>
     <th>Total</th>
     {% for transaction in transactions %}
-    {% with parts=transaction|transaction_display %}
-    {% for part in parts %}
+    {% for part in transaction.tabular %}
     {% if forloop.first %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{{transaction.date}}</td>
@@ -27,8 +26,8 @@
         <td></td>
         <td></td>
         {% endif %}
-        <td>{% account_in_budget part.to.to budget_id %}</td>
-        <td>{% account_in_budget part.category.to budget_id %}</td>
+        <td>{% account_in_budget part.account budget_id %}</td>
+        <td>{% account_in_budget part.category budget_id %}</td>
         <td>{{part.amount}}</td>
         <td>{% if forloop.first %}
             {{ transaction.running_sum }}
@@ -36,6 +35,5 @@
         </td>
     </tr>
     {% endfor %}
-    {% endwith %}
     {% endfor %}
 </table>
