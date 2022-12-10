@@ -7,6 +7,7 @@ addEventListener("DOMContentLoaded", function () {
     document.addEventListener('focusin', updateHash);
     document.addEventListener('focusout', updateHash);
     tbody.addEventListener('dblclick', edit);
+    document.getElementById('new').addEventListener('click', create);
 
     const hash = document.location.hash;
     if (hash) document.querySelector(`[data-id="${hash.substring(1)}"]`)?.focus();
@@ -30,10 +31,7 @@ function key(event) {
     } else if (event.key === "Enter" || event.key === "i") {
         edit();
     } else if (event.key === "o") {
-        const back = encodeURIComponent(
-            window.location.pathname + window.location.hash);
-        window.location.href =
-            `/transaction/${data.budget}/?back=${back}`;
+        create();
     }
 }
 
@@ -58,6 +56,13 @@ function edit() {
         window.location.href =
             `/transaction/${data.budget}/${id}/?back=${back}`;
     }
+}
+
+function create() {
+    const back = encodeURIComponent(
+        window.location.pathname + window.location.hash);
+    window.location.href =
+        `/transaction/${data.budget}/?back=${back}`;
 }
 
 function currentRow() {
