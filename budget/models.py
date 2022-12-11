@@ -45,13 +45,11 @@ class BaseAccount(models.Model):
             return f"{self.budget.name} - {str(self.name)}"
 
     def name_in_budget(self, budget_id: int):
-        if self.budget_id == budget_id:
+        if self.budget_id == budget_id and self.name:
             return self.name
-        if self.ishidden() and isinstance(self, Category):
+        if isinstance(self, Category):
             return f"[{self.budget.name}]"
-        if self.ishidden():
-            return self.budget.name
-        return f"{self.budget.name} - {str(self.name)}"
+        return self.budget.name
 
     def dict(self, budget_id: int):
         return {'id': self.id, 'budget_id': self.budget_id,
@@ -114,6 +112,7 @@ class Transaction(models.Model):
         return combine_debts(owed)
 
     def tabular(self):
+        # TODO: Tablular for one budget collapses categories/accounts in others
         T = typing.TypeVar('T', bound='TransactionPart')
 
         def pop_by_amount_(parts: 'set[T]', amount: int) -> Optional[BaseAccount]:
@@ -148,9 +147,10 @@ class Transaction(models.Model):
         accounts = [account.name_in_budget(in_account.budget_id)
                     for account in self.accounts.all()
                     if account != in_account]
-        if len(categories) + len(accounts) > 3:
-            return "(Split)"
-        return ", ".join(categories + accounts)
+        names = accounts + categories
+        if len(names) > 2:
+            names = names[:2] + ['...']
+        return ", ".join(names)
 
 
 def combine_debts(owed: 'dict[int, int]'):

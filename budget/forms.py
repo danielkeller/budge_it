@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
@@ -10,17 +10,46 @@ from .models import (Budget, Account, Category,
                      TransactionAccountPart, TransactionCategoryPart)
 
 
+class Datalist(forms.Select):
+    template_name = "budget/widgets/datalist.html"
+
+    def format_value(self, value: str):
+        return value
+
+
 class AccountChoiceField(forms.ModelChoiceField):
     budget: Budget
 
-    def label_from_instance(self, obj: BaseAccount):  # type: ignore
+    def label_from_instance(self, obj: Optional[BaseAccount]):  # type: ignore
+        if obj == None:
+            return ""
         return obj.name_in_budget(self.budget.id)
+
+    def prepare_value(self, value: BaseAccount):
+        if isinstance(value, str):
+            return value
+        return self.label_from_instance(value)
+
+    def to_python(self, value: Optional[Any]):
+        try:
+            choice = next(choice for choice,
+                          label in self.choices if label == value)
+        except StopIteration:
+            raise ValidationError(
+                self.error_messages["invalid_choice"],
+                code="invalid_choice",
+                params={"value": value},
+            )
+        if choice == '':
+            return None
+        return choice.instance
 
 
 class TransactionPartForm(forms.Form):
-    account = AccountChoiceField(required=False, queryset=None, empty_label='')
+    account = AccountChoiceField(
+        required=False, queryset=None, empty_label='', widget=Datalist)
     category = AccountChoiceField(
-        required=False, queryset=None, empty_label='')
+        required=False, queryset=None, empty_label='', widget=Datalist)
     transferred = forms.DecimalField(
         required=False, widget=forms.TextInput(attrs={'size': 7}))
     moved = forms.DecimalField(

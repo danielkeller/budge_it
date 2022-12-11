@@ -1,0 +1,7 @@
+<input name="{{ widget.name }}" list="data-{{ widget.name }}" value="{{ widget.value|default:"" }}"
+    {% include "django/forms/widgets/attrs.html" %}>
+<datalist id="data-{{ widget.name }}">
+    {% for group_name, group_choices, group_index in widget.optgroups %}{% for option in group_choices %}
+    <option value="{{ option.label }}"></option>
+    {% endfor %}{% endfor %}
+</datalist>

@@ -20,8 +20,8 @@ addEventListener("DOMContentLoaded", function () {
 function key(event) {
     if (event.key === "Escape") {
         // The default behavior of "esc" is to stop page load
-        event.preventDefault();
-        cancel();
+        // event.preventDefault();
+        // cancel();
     } else if (event.key === "Enter") {
         if (document.activeElement.type !== "button"
             && document.activeElement.type !== "submit")
