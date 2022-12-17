@@ -6,50 +6,30 @@ from django.db import transaction
 from django.forms import ValidationError
 
 from .models import (Budget, Account, Category,
-                     Transaction, BaseAccount,
+                     Transaction,
                      TransactionAccountPart, TransactionCategoryPart)
 
 
-class Datalist(forms.Select):
-    template_name = "budget/widgets/datalist.html"
-
-    def format_value(self, value: str):
-        return value
-
-
 class AccountChoiceField(forms.ModelChoiceField):
-    budget: Budget
-
-    def label_from_instance(self, obj: Optional[BaseAccount]):  # type: ignore
-        if obj == None:
-            return ""
-        return obj.name_in_budget(self.budget.id)
-
-    def prepare_value(self, value: BaseAccount):
-        if isinstance(value, str):
-            return value
-        return self.label_from_instance(value)
-
-    def to_python(self, value: Optional[Any]):
-        try:
-            choice = next(choice for choice,
-                          label in self.choices if label == value)
-        except StopIteration:
-            raise ValidationError(
-                self.error_messages["invalid_choice"],
-                code="invalid_choice",
-                params={"value": value},
-            )
-        if choice == '':
+    def to_python(self, value: Any):
+        if value in self.empty_values:
             return None
-        return choice.instance
+        try:
+            return self.queryset.get(id=value)
+        except (TypeError, ValueError, self.queryset.model.DoesNotExist):
+            pass
+        if (self.queryset.model == Category
+                and value.startswith('[') and value.endswith(']')):
+            value = value[1:-1]
+        budget, _ = Budget.objects.get_or_create(name=value)
+        return self.queryset.get_or_create(budget=budget, name='')[0]
 
 
 class TransactionPartForm(forms.Form):
     account = AccountChoiceField(
-        required=False, queryset=None, empty_label='', widget=Datalist)
+        required=False, queryset=None, empty_label='', widget=forms.HiddenInput)
     category = AccountChoiceField(
-        required=False, queryset=None, empty_label='', widget=Datalist)
+        required=False, queryset=None, empty_label='', widget=forms.HiddenInput)
     transferred = forms.DecimalField(
         required=False, widget=forms.TextInput(attrs={'size': 7}))
     moved = forms.DecimalField(

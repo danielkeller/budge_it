@@ -24,13 +24,17 @@
         </tr>
         {% for form in formset %}
         <tr>
-            <td>{{ form.account }}</td>
-            <td>{{ form.category }}</td>
+            <td>
+                {{ form.account }}<input list="account-list" size="12">
+            </td>
+            <td>
+                {{ form.category }}<input list="category-list" size="12">
+            </td>
             <td>{{ form.transferred }}</td>
             <td>{{ form.moved }}</td>
         </tr>
         {% endfor %}
-        <tr id="adder-row" style="text-align:right;">
+        <tr id=" adder-row" style="text-align:right;">
             <td colspan="6"><button id="addrow" type="button">+</button></td>
         </tr>
     </table>
@@ -49,6 +53,16 @@
     <input type="submit" value="Delete">
 </form>
 {% endif %}
+<datalist id="account-list">
+    {% for account, id in data.accounts %}
+    <option value="{{ account }}"></option>
+    {% endfor %}
+</datalist>
+<datalist id="category-list">
+    {% for category, id in data.categories %}
+    <option value="{{ category }}"></option>
+    {% endfor %}
+</datalist>
 
 {{ data|json_script:"data" }}
 {{ formset.errors|default:"" }}

@@ -77,7 +77,13 @@ def edit(request: HttpRequest, budget_id: int,
         formset = TransactionPartFormSet(
             budget, prefix="tx", instance=transaction)
 
+    accounts = [(account.name_in_budget(budget_id), str(account.id))
+                for account in Account.objects.all()]
+    categories = [(category.name_in_budget(budget_id), str(category.id))
+                  for category in Category.objects.all()]
     data = {
+        'budget': budget_id,
+        'accounts': accounts, 'categories': categories,
         'category_budget': dict(
             Category.objects.values_list('id', 'budget_id')),
         'account_budget': dict(

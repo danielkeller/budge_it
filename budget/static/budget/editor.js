@@ -43,11 +43,41 @@ function findRow(input) {
             [account, category, moved, transferred].includes(input));
 }
 
+class Selector {
+    constructor([hidden, visible], options, oninput) {
+        this.visible = visible;
+        this.hidden = hidden;
+        this.options = options;
+        this.oninput = oninput;
+        visible.addEventListener('input', selectInput.bind(this));
+        this.value = this.value;
+    }
+    set value(value) {
+        value = String(value);
+        this.hidden.value = value;
+        const option = this.options.find(([_, optvalue]) => optvalue === value);
+        this.visible.value = option ? option[0] : value;
+    }
+    get value() {
+        return this.hidden.value;
+    }
+    get classList() {
+        return this.visible.classList;
+    }
+}
+function selectInput() {
+    const option = this.options.find(([name, _]) => name === this.visible.value);
+    this.hidden.value = option ? option[1] : this.visible.value;
+    this.oninput({ target: this })
+}
+
 function setUpRow(tr) {
-    var [account, category, transferred, moved] =
-        Array.prototype.map.call(tr.children, n => n.children[0]);
-    account.addEventListener('change', accountChanged);
-    category.addEventListener('change', categoryChanged);
+    var [account, category, [transferred], [moved]] =
+        Array.prototype.map.call(tr.children, n => n.children);
+    account = new Selector(account, data.accounts, accountChanged);
+    category = new Selector(category, data.categories, categoryChanged);
+    if (category.value === String(data.external[account.value]))
+        category.classList.add('suggested');
     transferred.addEventListener('input', amountChanged);
     transferred.addEventListener('blur', suggestAmounts);
     moved.addEventListener('input', amountChanged);
@@ -113,6 +143,9 @@ function accountChanged({ target }) {
     unsuggest(category);
     if (target.value in data.external)
         suggest(category, data.external[target.value]);
+    else if (target.value && !(target.value in data.account_budget))
+        suggest(category, `[${target.value}]`);
+
     suggestAmounts();
 }
 
@@ -172,7 +205,8 @@ function suggestRowConsistency(options) {
     var result = false;
     for (var { account, category, moved, transferred } of rows) {
         if (!account.value || !category.value) { continue; }
-        if (options?.onlyExternal && account.value != category.value)
+        if (options?.onlyExternal &&
+            category.value !== String(data.external[account.value]))
             continue;
         if (transferred.value && !isNaN(transferred.value))
             result |= suggest(moved, transferred.value);
@@ -219,22 +253,29 @@ function combineDebts(owed) {
     return result;
 }
 
+function stripBrackets(value) {
+    if (value.startsWith('[') && value.endsWith(']'))
+        return value.slice(1, -1);
+    return value;
+}
+
 function checkValid() {
     var category_total = 0;
     var account_total = 0;
     var owed = {};
     for (var { account, category, moved, transferred } of rows) {
-        if (category.value) {
-            category_total += +moved.value;
-            const budget = data.category_budget[category.value];
-            if (!owed[budget]) owed[budget] = 0;
-            owed[budget] += -moved.value;
-        }
         if (account.value) {
             account_total += +transferred.value;
-            const budget = data.account_budget[account.value];
+            const budget = data.account_budget[account.value] || account.value;
             if (!owed[budget]) owed[budget] = 0;
             owed[budget] += +transferred.value;
+        }
+        if (category.value) {
+            category_total += +moved.value;
+            const budget = data.category_budget[category.value]
+                || stripBrackets(category.value);
+            if (!owed[budget]) owed[budget] = 0;
+            owed[budget] += -moved.value;
         }
     }
     valid = true;
@@ -252,7 +293,7 @@ function checkValid() {
     }
     debt.innerText = combineDebts(owed)
         .map(([from, to, amount]) =>
-            `${data.budget[to]} owes ${data.budget[from]} ${amount}`)
+            `${data.budget[to] || to} owes ${data.budget[from] || from} ${amount}`)
         .join(', ');
 
     document.getElementById("submit-button").disabled = !valid;
