@@ -65,5 +65,6 @@
 </datalist>
 
 {{ data|json_script:"data" }}
+{{ form.errors|default:"" }}
 {{ formset.errors|default:"" }}
 {{ formset.non_form_errors }}

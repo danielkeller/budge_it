@@ -61,7 +61,7 @@ class Selector {
     get value() { return this.hidden.value; }
     set name(name) { this.hidden.name = name; }
     get classList() { return this.visible.classList; }
-    focus() { this.visible.focus(); }
+    focus(args) { this.visible.focus(args); }
 }
 function selectInput() {
     const option = this.options.find(([name, _]) => name === this.visible.value);

@@ -67,7 +67,7 @@ def edit(request: HttpRequest, budget_id: int,
         form = TransactionForm(instance=transaction, data=request.POST)
         formset = TransactionPartFormSet(
             budget, prefix="tx", instance=transaction, data=request.POST)
-        if formset.is_valid():
+        if form.is_valid() and formset.is_valid():
             with atomic():
                 instance = form.save()
                 formset.save(instance=instance)
