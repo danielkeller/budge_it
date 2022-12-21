@@ -11,7 +11,7 @@
     {% for category in categories %}
     <tr class="{% cycle 'a' 'b' %}">
         <td>{% account_in_budget category budget_id %}</td>
-        <td>{{ category.balance }}</td>
+        <td>{{ category.balance |default:0 }}</td>
     </tr>
     {% endfor %}
 </table>
@@ -21,7 +21,7 @@
     {% for account in accounts %}
     <tr class="{% cycle 'a' 'b' %}">
         <td>{% account_in_budget account budget_id %}</td>
-        <td>{{ account.balance }}</td>
+        <td>{{ account.balance |default:0 }}</td>
     </tr>
     {% endfor %}
 

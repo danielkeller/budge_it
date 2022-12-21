@@ -16,7 +16,7 @@
     <th>Amount</th>
     <th>Total</th>
     {% for transaction in transactions %}
-    {% for part in transaction.tabular %}
+    {% for part in transaction|transaction_display:budget_id %}
     {% if forloop.first %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{{transaction.date}}</td>
