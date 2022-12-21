@@ -92,7 +92,6 @@ TransactionPartFormSet = forms.formset_factory(
 
 
 class TransactionForm(forms.ModelForm):
-    # TODO: Date validation doesn't work
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date', 'description')

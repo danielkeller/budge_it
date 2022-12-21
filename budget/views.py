@@ -1,5 +1,6 @@
 from typing import Optional
 
+from django.db.models import Q
 from django.shortcuts import render
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
                          HttpResponseBadRequest)
@@ -78,9 +79,11 @@ def edit(request: HttpRequest, budget_id: int,
             budget, prefix="tx", instance=transaction)
 
     accounts = [(account.name_in_budget(budget_id), str(account.id))
-                for account in Account.objects.all()]
+                for account in Account.objects.filter(
+                    Q(budget_id=budget_id) | Q(name=""))]
     categories = [(category.name_in_budget(budget_id), str(category.id))
-                  for category in Category.objects.all()]
+                  for category in Category.objects.filter(
+        Q(budget_id=budget_id) | Q(name=""))]
     data = {
         'budget': budget_id,
         'accounts': accounts, 'categories': categories,
