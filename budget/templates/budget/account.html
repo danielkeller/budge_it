@@ -27,7 +27,7 @@
                         <th>Account</th>
                         <th>Category</th>
                         <th>Amount</th>
-                        {% for part in entry.transaction.tabular %}
+                        {% for part in entry.transaction|transaction_display:account.budget_id %}
                         <tr class="{% cycle 'a' 'b' as rowcolor %}">
                             <td>{% account_in_budget part.account account.budget_id %}</td>
                             <td>{% account_in_budget part.category account.budget_id %}</td>

@@ -1,13 +1,11 @@
-from typing import Any, Optional
+from typing import Any
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.forms import ValidationError
 
-from .models import (Budget, Account, Category,
-                     Transaction,
-                     TransactionAccountPart, TransactionCategoryPart)
+from .models import (Budget, Account, Category, Transaction)
 
 
 class AccountChoiceField(forms.ModelChoiceField):
@@ -22,7 +20,7 @@ class AccountChoiceField(forms.ModelChoiceField):
                 and value.startswith('[') and value.endswith(']')):
             value = value[1:-1]
         budget, _ = Budget.objects.get_or_create(name=value)
-        return self.queryset.get_or_create(budget=budget, name='')[0]
+        return budget.get_hidden(self.queryset.model)
 
 
 class TransactionPartForm(forms.Form):
@@ -35,20 +33,6 @@ class TransactionPartForm(forms.Form):
     moved = forms.DecimalField(
         required=False, widget=forms.TextInput(attrs={'size': 7}))
 
-    def save(self, transaction: Transaction):
-        if (self.cleaned_data.get('account')
-                and self.cleaned_data.get('transferred')):
-            TransactionAccountPart.objects.create(
-                transaction=transaction, to=self.cleaned_data['account'],
-                amount=self.cleaned_data['transferred']
-            )
-        if (self.cleaned_data.get('category')
-                and self.cleaned_data.get('moved')):
-            TransactionCategoryPart.objects.create(
-                transaction=transaction, to=self.cleaned_data['category'],
-                amount=self.cleaned_data['moved']
-            )
-
 
 class BaseTransactionPartFormSet(forms.BaseFormSet):
     budget: Budget
@@ -57,7 +41,7 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
                  instance: Transaction, **kwargs: Any):
         self.budget = budget
         if instance:
-            initial = instance.tabular()
+            initial = instance.tabular(budget.id)
             for row in initial:
                 if row['account']:
                     row['transferred'] = row['amount']
@@ -89,10 +73,18 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
 
     @transaction.atomic
     def save(self, *, instance: Transaction):
-        instance.accounts.clear()
-        instance.categories.clear()
+        accounts: dict[Account, int] = {}
+        categories: dict[Category, int] = {}
         for form in self.forms:
-            form.save(instance)
+            if (form.cleaned_data.get('account')
+                    and form.cleaned_data.get('transferred')):
+                accounts[form.cleaned_data['account']
+                         ] = form.cleaned_data['transferred']
+            if (form.cleaned_data.get('category')
+                    and form.cleaned_data.get('moved')):
+                categories[form.cleaned_data['category']
+                           ] = form.cleaned_data['moved']
+        instance.set_parts(self.budget.id, (accounts, categories))
 
 
 TransactionPartFormSet = forms.formset_factory(

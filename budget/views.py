@@ -89,7 +89,7 @@ def edit(request: HttpRequest, budget_id: int,
         'account_budget': dict(
             Account.objects.values_list('id', 'budget_id')),
         'budget': {budget.id: budget.name for budget in Budget.objects.all()},
-        'external': {account.id: account.get_hidden_category().id
+        'external': {account.id: account.budget.get_hidden(Category).id
                      for account
                      in Account.objects.filter(name='')
                      .prefetch_related('budget__category_set')}

@@ -1,11 +1,14 @@
-from typing import Optional, Iterable
+from typing import Optional, Iterable, TypeVar, Type
 from collections import defaultdict
 import functools
+from itertools import chain
 import typing
 
 from django.db import models
 from django.db.models import Q, Sum
 from django.urls import reverse
+
+BaseAccountT = TypeVar('BaseAccountT', bound='BaseAccount')
 
 
 class Budget(models.Model):
@@ -22,9 +25,12 @@ class Budget(models.Model):
     def get_absolute_url(self):
         return reverse('budget', kwargs={'budget_id': self.id})
 
+    def get_hidden(self, cls: Type[BaseAccountT]) -> BaseAccountT:
+        return cls.objects.get_or_create(name="", budget=self)[0]
+
 
 class BaseAccount(models.Model):
-    """BaseAccounts describe the generic place money can be"""
+    """BaseAccounts describe a generic place money can be"""
     class Meta:  # type: ignore
         abstract = True
     id: models.BigAutoField
@@ -34,6 +40,12 @@ class BaseAccount(models.Model):
     balance: int
     entries: 'models.Manager[TransactionPart]'
     # TODO: read/write access
+
+    def kind(self) -> str:
+        return ''
+
+    def get_absolute_url(self):
+        return reverse(self.kind(), kwargs={self.kind() + '_id': self.id})
 
     def ishidden(self):
         return self.name == ""
@@ -45,15 +57,22 @@ class BaseAccount(models.Model):
             return f"{self.budget.name} - {str(self.name)}"
 
     def name_in_budget(self, budget_id: int):
-        if self.budget_id == budget_id and self.name:
-            return self.name
+        if self.budget_id == budget_id:
+            return self.name or "Inbox"
         if isinstance(self, Category):
             return f"[{self.budget.name}]"
         return self.budget.name
 
-    def dict(self, budget_id: int):
-        return {'id': self.id, 'budget_id': self.budget_id,
-                'name': self.name_in_budget(budget_id), }
+    def to_hidden(self):
+        if self.ishidden():
+            return self
+        return self.budget.get_hidden(self.__class__)
+
+    def display_in(self, budget_id: int):
+        if self.budget_id != budget_id:
+            return self.to_hidden()
+        else:
+            return self
 
 
 class Account(BaseAccount):
@@ -61,13 +80,6 @@ class Account(BaseAccount):
 
     def kind(self):
         return 'account'
-
-    def get_absolute_url(self):
-        return reverse('account', kwargs={'account_id': self.id})
-
-    def get_hidden_category(self) -> 'Category':
-        return self.budget.category_set.get_or_create(
-            name="", defaults={'budget': self.budget})[0]
 
 
 class Category(BaseAccount):
@@ -78,8 +90,15 @@ class Category(BaseAccount):
     def kind(self):
         return 'category'
 
-    def get_absolute_url(self):
-        return reverse('category', kwargs={'category_id': self.id})
+
+T = TypeVar('T')
+
+
+def sum_by(input: 'Iterable[tuple[T, int]]') -> 'dict[T, int]':
+    result: defaultdict[T, int] = defaultdict(int)
+    for key, value in input:
+        result[key] += value
+    return result
 
 
 class Transaction(models.Model):
@@ -104,39 +123,61 @@ class Transaction(models.Model):
 
     # TODO: Maybe put this in the non-database wrapper thingy (proxy model?)
     def debts(self):
-        owed: defaultdict[int, int] = defaultdict(int)
-        for part in self.category_parts.all():
-            owed[part.to.budget_id] -= part.amount
-        for part in self.account_parts.all():
-            owed[part.to.budget_id] += part.amount
+        owed = sum_by(chain(((part.to.budget_id, part.amount)
+                            for part in self.account_parts.all()),
+                            ((part.to.budget_id, -part.amount)
+                             for part in self.category_parts.all())))
         return combine_debts(owed)
 
-    def tabular(self):
-        # TODO: Tablular for one budget collapses categories/accounts in others
-        T = typing.TypeVar('T', bound='TransactionPart')
+    def parts(self, in_budget_id: int):
+        accounts = sum_by((part.to.display_in(in_budget_id), part.amount)
+                          for part in self.account_parts.all())
+        categories = sum_by((part.to.display_in(in_budget_id), part.amount)
+                            for part in self.category_parts.all())
+        return (accounts, categories)
 
-        def pop_by_amount_(parts: 'set[T]', amount: int) -> Optional[BaseAccount]:
+    def residual_parts_(self, in_budget_id: int):
+        accounts: defaultdict[Account, int] = defaultdict(int)
+        categories: defaultdict[Category, int] = defaultdict(int)
+        for part in self.account_parts.all():
+            affected = part.to.display_in(in_budget_id)
+            accounts[affected] += 0 if affected == part.to else part.amount
+        for part in self.category_parts.all():
+            affected = part.to.display_in(in_budget_id)
+            categories[affected] += 0 if affected == part.to else part.amount
+        return (accounts, categories)
+
+    def set_parts(self, in_budget_id: int,
+                  parts: 'tuple[dict[Account, int], dict[Category, int]]'):
+        residual = self.residual_parts_(in_budget_id)
+        for account in residual[0].keys() | parts[0].keys():
+            amount = parts[0].get(account, 0) - residual[0].get(account, 0)
+            TransactionAccountPart.update(self, account, amount)
+        for category in residual[1].keys() | parts[1].keys():
+            amount = parts[1].get(category, 0) - residual[1].get(category, 0)
+            TransactionCategoryPart.update(self, category, amount)
+
+    def tabular(self, in_budget_id: int):
+        def pop_by_amount_(parts: 'dict[BaseAccountT, int]', amount: int
+                           ) -> Optional[BaseAccountT]:
             try:
-                result = next(
-                    (part for part in parts if part.amount == amount))
-                parts.discard(result)
-                return result.to
+                result = next(part for (part, value) in parts.items()
+                              if value == amount)
+                del parts[result]
+                return result
             except StopIteration:
                 return None
 
-        accounts = set(self.account_parts.all())
-        categories = set(self.category_parts.all())
-        account_amounts = list(account.amount for account in accounts)
-        category_amounts = list(category.amount for category in categories)
-        parts: list[dict[str, typing.Any]]
-        parts = []
-        for amount in sorted(account_amounts + category_amounts):
+        accounts, categories = self.parts(in_budget_id)
+        rows: list[dict[str, typing.Any]]
+        rows = []
+        for amount in sorted(chain(accounts.values(), categories.values())):
             account = pop_by_amount_(accounts, amount)
             category = pop_by_amount_(categories, amount)
             if account or category:
-                parts.append({'account': account, 'category': category,
-                              'amount': amount})
-        return parts
+                rows.append({'account': account, 'category': category,
+                             'amount': amount})
+        return rows
 
     def auto_description(self, in_account: BaseAccount):
         if self.description:
@@ -187,16 +228,25 @@ class TransactionPart(models.Model):
                                                name="m2m_%(class)s")]
     transaction: models.ForeignKey[Transaction]
     amount = models.BigIntegerField()
-    to: models.ForeignKey[BaseAccount]
+    to: BaseAccount
     to_id: int
 
-    def __str__(self):  # type: ignore
-        return f"{self.to} + {self.amount}"  # type: ignore
+    @ classmethod
+    def update(cls, transaction: Transaction, to: BaseAccount, amount: int):
+        if amount == 0:
+            cls.objects.filter(transaction=transaction, to=to).delete()
+        else:
+            cls.objects.update_or_create(
+                transaction=transaction, to=to, defaults={'amount': amount})
+
+    def __str__(self):
+        return f"{self.to} + {self.amount}"
 
 
 class TransactionAccountPart(TransactionPart):
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="account_parts")
+    to: Account
     to = models.ForeignKey(Account, on_delete=models.PROTECT,
                            related_name="entries")  # type: ignore
 
@@ -204,6 +254,7 @@ class TransactionAccountPart(TransactionPart):
 class TransactionCategoryPart(TransactionPart):
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="category_parts")
+    to: Category
     to = models.ForeignKey(Category, on_delete=models.PROTECT,
                            related_name="entries")  # type: ignore
 
@@ -282,6 +333,6 @@ def accounts_overview(budget_id: int):
               for ((from_budget, to_budget), amount) in debt_map.items()
               if to_budget == budget_id] +
              [(Budget.objects.get(id=to_budget), amount)
-              for ((from_budget, to_budget), amount) in debt_map.items()
-              if from_budget == budget_id])
+             for ((from_budget, to_budget), amount) in debt_map.items()
+             if from_budget == budget_id])
     return (accounts, categories, debts)

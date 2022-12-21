@@ -1,6 +1,6 @@
 {% if account == None %}
 {% elif account.budget.id == budget_id %}
-<a href="{{ account.get_absolute_url }}">{{ account.name | default:account.budget.name }}</a>
+<a href="{{ account.get_absolute_url }}">{{ account.name | default:"Inbox" }}</a>
 {% elif account.kind == 'category' %}
 <i>[{{ account.budget.name }}]</i>
 {% else %}
