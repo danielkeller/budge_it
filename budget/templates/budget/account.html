@@ -19,7 +19,7 @@
     <th>Date</th>
     <th>Description</th>
     <th>Amount</th>
-    <th>{{ account.name | default:"Inbox" }}</th>
+    <th>Total</th>
     {% for entry in entries %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{entry.transaction.id}}">
         <td>{{entry.transaction.date}}</td>

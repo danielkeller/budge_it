@@ -10,9 +10,8 @@ from django.db.transaction import atomic
 from .models import (
     transactions_for_budget, transactions_for_balance, entries_for,
     accounts_overview,
-    Account, Category, Budget, Transaction)
-from .forms import (TransactionForm, TransactionPartFormSet,
-                    AccountForm, CategoryForm)
+    BaseAccount, Account, Category, Budget, Transaction)
+from .forms import (TransactionForm, TransactionPartFormSet, rename_form)
 
 
 def index(request: HttpRequest):
@@ -36,8 +35,8 @@ def budget(request: HttpRequest, budget_id: int):
 def account(request: HttpRequest, account_id: int):
     account = get_object_or_404(Account, id=account_id)
     if request.method == 'POST':
-        return rename_account(request, account)
-    form = AccountForm(instance=account)
+        return rename(request, account)
+    form = rename_form(instance=account)
     data = {'budget': account.budget_id}
     context = {'entries': entries_for(account), 'account': account,
                'form': form, 'data': data}
@@ -47,8 +46,8 @@ def account(request: HttpRequest, account_id: int):
 def category(request: HttpRequest, category_id: int):
     category = get_object_or_404(Category, id=category_id)
     if request.method == 'POST':
-        return rename_category(request, category)
-    form = AccountForm(instance=category)
+        return rename(request, category)
+    form = rename_form(instance=category)
     data = {'budget': category.budget_id}
     context = {'entries': entries_for(category), 'account': category,
                'form': form, 'data': data}
@@ -63,15 +62,8 @@ def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
     return render(request, 'budget/budget.html', context)
 
 
-def rename_account(request: HttpRequest, account: Account):
-    form = AccountForm(instance=account, data=request.POST)
-    if form.is_valid():
-        form.save()
-    return HttpResponseRedirect(request.get_full_path())
-
-
-def rename_category(request: HttpRequest, category: Category):
-    form = CategoryForm(instance=category, data=request.POST)
+def rename(request: HttpRequest, account: BaseAccount):
+    form = rename_form(instance=account, data=request.POST)
     if form.is_valid():
         form.save()
     return HttpResponseRedirect(request.get_full_path())

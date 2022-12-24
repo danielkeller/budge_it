@@ -1,11 +1,11 @@
-from typing import Any
+from typing import Any, Union, Mapping
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.forms import ValidationError
 
-from .models import (Budget, Account, Category, Transaction)
+from .models import (Budget, Account, Category, Transaction, BaseAccount)
 
 
 class AccountChoiceField(forms.ModelChoiceField):
@@ -98,15 +98,22 @@ class TransactionForm(forms.ModelForm):
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
 
 
+class BudgetForm(forms.ModelForm):
+    class Meta:  # type: ignore
+        model = Budget
+        fields = ('name',)
+    name = forms.CharField(required=True)
+
+
 class AccountForm(forms.ModelForm):
     class Meta:  # type: ignore
-        model = Account
+        model = BaseAccount
         fields = ('name',)
     name = forms.CharField(required=True)
 
 
-class CategoryForm(forms.ModelForm):
-    class Meta:  # type: ignore
-        model = Category
-        fields = ('name',)
-    name = forms.CharField(required=True)
+def rename_form(*, instance: BaseAccount,
+                data: Union[Mapping[str, Any], None] = None) -> forms.ModelForm:
+    if instance.ishidden():
+        return BudgetForm(instance=instance.budget, data=data)
+    return AccountForm(instance=instance, data=data)
