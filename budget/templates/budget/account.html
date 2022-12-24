@@ -7,13 +7,13 @@
 <p><a href="{% url 'overview' account.budget_id %}">Overview</a></p>
 {% url 'budget' account.budget_id as budget_url %}
 <p><a href="{{ budget_url }}">See all transactions</a></p>
-<p>
-<form method="post">
-    {{ form.name }}
-    {% csrf_token %}
-    <input type="submit" value="Rename">
-</form>
-</p>
+<div>
+    <form method="post">
+        {{ form.name }}
+        {% csrf_token %}
+        <input type="submit" value="Rename">
+    </form>
+</div>
 <input type="button" value="Add transaction" id="new">
 <table id="table">
     <th>Date</th>
