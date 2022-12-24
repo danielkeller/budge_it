@@ -14,6 +14,7 @@ addEventListener("DOMContentLoaded", function () {
 });
 
 function key(event) {
+    if (document.activeElement.type === "text") return;
     if (event.key === "j" || event.key === "ArrowDown") {
         const current = currentRow();
         if (current && current.nextElementSibling) {

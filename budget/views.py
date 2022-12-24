@@ -11,7 +11,8 @@ from .models import (
     transactions_for_budget, transactions_for_balance, entries_for,
     accounts_overview,
     Account, Category, Budget, Transaction)
-from .forms import TransactionForm, TransactionPartFormSet
+from .forms import (TransactionForm, TransactionPartFormSet,
+                    AccountForm, CategoryForm)
 
 
 def index(request: HttpRequest):
@@ -34,17 +35,23 @@ def budget(request: HttpRequest, budget_id: int):
 
 def account(request: HttpRequest, account_id: int):
     account = get_object_or_404(Account, id=account_id)
+    if request.method == 'POST':
+        return rename_account(request, account)
+    form = AccountForm(instance=account)
     data = {'budget': account.budget_id}
-    context = {'entries': entries_for(
-        account), 'account': account, 'data': data}
+    context = {'entries': entries_for(account), 'account': account,
+               'form': form, 'data': data}
     return render(request, 'budget/account.html', context)
 
 
 def category(request: HttpRequest, category_id: int):
     category = get_object_or_404(Category, id=category_id)
+    if request.method == 'POST':
+        return rename_category(request, category)
+    form = AccountForm(instance=category)
     data = {'budget': category.budget_id}
-    context = {'entries': entries_for(
-        category), 'account': category, 'data': data}
+    context = {'entries': entries_for(category), 'account': category,
+               'form': form, 'data': data}
     return render(request, 'budget/account.html', context)
 
 
@@ -54,6 +61,20 @@ def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
     transactions = transactions_for_balance(budget_id_1, budget_id_2)
     context = {'transactions': transactions, 'budget_id': budget_id_1}
     return render(request, 'budget/budget.html', context)
+
+
+def rename_account(request: HttpRequest, account: Account):
+    form = AccountForm(instance=account, data=request.POST)
+    if form.is_valid():
+        form.save()
+    return HttpResponseRedirect(request.get_full_path())
+
+
+def rename_category(request: HttpRequest, category: Category):
+    form = CategoryForm(instance=category, data=request.POST)
+    if form.is_valid():
+        form.save()
+    return HttpResponseRedirect(request.get_full_path())
 
 
 def edit(request: HttpRequest, budget_id: int,
@@ -72,7 +93,7 @@ def edit(request: HttpRequest, budget_id: int,
             with atomic():
                 instance = form.save()
                 formset.save(instance=instance)
-            return HttpResponseRedirect(request.GET['back'])
+            return HttpResponseRedirect(request.GET.get('back', '/'))
     else:
         form = TransactionForm(instance=transaction)
         formset = TransactionPartFormSet(
@@ -106,4 +127,4 @@ def delete(request: HttpRequest, transaction_id: int):
     if request.method != 'POST':
         return HttpResponseBadRequest('Wrong method')
     get_object_or_404(Transaction, id=transaction_id).delete()
-    return HttpResponseRedirect(request.GET['next'])
+    return HttpResponseRedirect(request.GET.get('back', '/'))

@@ -95,5 +95,18 @@ class TransactionForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date', 'description')
-
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+
+
+class AccountForm(forms.ModelForm):
+    class Meta:  # type: ignore
+        model = Account
+        fields = ('name',)
+    name = forms.CharField(required=True)
+
+
+class CategoryForm(forms.ModelForm):
+    class Meta:  # type: ignore
+        model = Category
+        fields = ('name',)
+    name = forms.CharField(required=True)
