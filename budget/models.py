@@ -1,5 +1,5 @@
 from typing import Optional, Iterable, TypeVar, Type
-from collections import defaultdict
+from collections import defaultdict, deque
 import functools
 from itertools import chain
 import typing
@@ -195,14 +195,13 @@ class Transaction(models.Model):
 
 
 def combine_debts(owed: 'dict[int, int]'):
-    amounts = sorted((amount, budget) for (budget, amount) in owed.items()
-                     if amount != 0)
+    amounts = deque(sorted((amount, budget) for (budget, amount) in owed.items()
+                           if amount != 0))
     result: 'dict[tuple[int, int], int]' = {}
     amount, from_budget = 0, 0
     while amounts or amount:
         if not amount:
-            # FIXME: This is a Schlemiel the painter's algorithm
-            amount, from_budget = amounts.pop(0)
+            amount, from_budget = amounts.popleft()
         if not amounts:
             raise ValueError("Debts do not sum to zero")
         other, to_budget = amounts.pop()
