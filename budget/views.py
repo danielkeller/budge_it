@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, TypeVar, Type
 
 from django.db.models import Q
 from django.shortcuts import render
@@ -32,28 +32,6 @@ def budget(request: HttpRequest, budget_id: int):
     return render(request, 'budget/budget.html', context)
 
 
-def account(request: HttpRequest, account_id: int):
-    account = get_object_or_404(Account, id=account_id)
-    if request.method == 'POST':
-        return rename(request, account)
-    form = rename_form(instance=account)
-    data = {'budget': account.budget_id}
-    context = {'entries': entries_for(account), 'account': account,
-               'form': form, 'data': data}
-    return render(request, 'budget/account.html', context)
-
-
-def category(request: HttpRequest, category_id: int):
-    category = get_object_or_404(Category, id=category_id)
-    if request.method == 'POST':
-        return rename(request, category)
-    form = rename_form(instance=category)
-    data = {'budget': category.budget_id}
-    context = {'entries': entries_for(category), 'account': category,
-               'form': form, 'data': data}
-    return render(request, 'budget/account.html', context)
-
-
 def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
     get_object_or_404(Budget, id=budget_id_1)
     get_object_or_404(Budget, id=budget_id_2)
@@ -62,11 +40,26 @@ def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
     return render(request, 'budget/budget.html', context)
 
 
-def rename(request: HttpRequest, account: BaseAccount):
-    form = rename_form(instance=account, data=request.POST)
-    if form.is_valid():
-        form.save()
-    return HttpResponseRedirect(request.get_full_path())
+def account(request: HttpRequest, account_id: int):
+    return account_impl(request, Account, account_id)
+
+
+def category(request: HttpRequest, category_id: int):
+    return account_impl(request, Category, category_id)
+
+
+def account_impl(request: HttpRequest, type: Type[BaseAccount], id: int):
+    account = get_object_or_404(type, id=id)
+    if request.method == 'POST':
+        form = rename_form(instance=account, data=request.POST)
+        if form.is_valid():
+            form.save()
+        return HttpResponseRedirect(request.get_full_path())
+    form = rename_form(instance=account)
+    data = {'budget': account.budget_id}
+    context = {'entries': entries_for(account), 'account': account,
+               'form': form, 'data': data}
+    return render(request, 'budget/account.html', context)
 
 
 def edit(request: HttpRequest, budget_id: int,
