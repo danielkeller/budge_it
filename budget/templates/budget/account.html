@@ -35,12 +35,13 @@
                         <th>Category</th>
                         <th>Amount</th>
                         {% for part in entry.transaction|transaction_display:account.budget_id %}
-                        <tr class="{% cycle 'a' 'b' as rowcolor %}">
+                        <tr class="{% cycle 'a' 'b' %}">
                             <td>{% account_in_budget part.account account.budget_id %}</td>
                             <td>{% account_in_budget part.category account.budget_id %}</td>
                             <td>{{part.amount}}</td>
                         </tr>
                         {% endfor %}
+                        {% resetcycle %}
                     </table>
                 </div>
             </div>

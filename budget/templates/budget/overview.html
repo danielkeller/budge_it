@@ -9,24 +9,42 @@
     <th>Category</th>
     <th>Balance</th>
     {% for category in categories %}
-    <tr class="{% cycle 'a' 'b' %}">
+    <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{% account_in_budget category budget_id %}</td>
         <td>{{ category.balance |default:0 }}</td>
     </tr>
     {% endfor %}
+
+    <tr class="{% cycle rowcolor %}">
+        <td>
+            <form method="post" action="{% url 'new_category' budget_id %}">
+                <input type="submit" value="New Category">{% csrf_token %}
+            </form>
+        </td>
+        <td></td>
+    </tr>
 </table>
 <table>
     <th>Account</th>
     <th>Balance</th>
     {% for account in accounts %}
-    <tr class="{% cycle 'a' 'b' %}">
+    <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{% account_in_budget account budget_id %}</td>
         <td>{{ account.balance |default:0 }}</td>
     </tr>
     {% endfor %}
 
+    <tr class="{% cycle rowcolor %}">
+        <td>
+            <form method="post" action="{% url 'new_account' budget_id %}">
+                <input type="submit" value="New Account">{% csrf_token %}
+            </form>
+        </td>
+        <td></td>
+    </tr>
+
     {% for budget, amount in debts %}
-    <tr class="{% cycle 'a' 'b' %}">
+    <tr class="{% cycle rowcolor %}">
         <td><a href="{% url 'balance' budget_id budget.id %}">Owed by {{ budget }}</a></td>
         <td>{{ amount }}</td>
     </tr>

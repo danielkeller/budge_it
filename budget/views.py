@@ -62,6 +62,21 @@ def account_impl(request: HttpRequest, type: Type[BaseAccount], id: int):
     return render(request, 'budget/account.html', context)
 
 
+def new_account(request: HttpRequest, budget_id: int):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
+    account = Account.objects.create(budget_id=budget_id, name="New Account")
+    return HttpResponseRedirect(account.get_absolute_url())
+
+
+def new_category(request: HttpRequest, budget_id: int):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
+    category = Category.objects.create(
+        budget_id=budget_id, name="New Category")
+    return HttpResponseRedirect(category.get_absolute_url())
+
+
 def edit(request: HttpRequest, budget_id: int,
          transaction_id: Optional[int] = None):
     budget = get_object_or_404(Budget, id=budget_id)
