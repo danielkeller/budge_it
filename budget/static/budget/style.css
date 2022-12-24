@@ -22,11 +22,17 @@ th {
     float: right;
 }
 
+.line {
+    /* Make line drawing characters fit precisely */
+    line-height: 1em;
+    font-weight: bold;
+}
+
 .transaction-detail {
     /* Allow table to fill screen width */
     position: absolute;
-    /* Move past the 1px of padding and 1px of border */
-    margin-left: 4px;
+    /* Move past the 2px of padding and 1px of border */
+    margin-left: 3px;
     display: none;
 }
 
