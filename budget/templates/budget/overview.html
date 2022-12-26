@@ -14,7 +14,10 @@
         <td>{{ category.balance |default:0 }}</td>
     </tr>
     {% endfor %}
-
+    <tr class="{% cycle rowcolor %}">
+        <td>Total</td>
+        <td>{{ total }}</td>
+    </tr>
     <tr class="{% cycle rowcolor %}">
         <td>
             <form method="post" action="{% url 'new_category' budget_id %}">
@@ -33,7 +36,16 @@
         <td>{{ account.balance |default:0 }}</td>
     </tr>
     {% endfor %}
-
+    {% for budget, amount in debts %}
+    <tr class="{% cycle rowcolor %}">
+        <td><a href="{% url 'balance' budget_id budget.id %}">Owed by {{ budget }}</a></td>
+        <td>{{ amount }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="{% cycle rowcolor %}">
+        <td>Total</td>
+        <td>{{ total }}</td>
+    </tr>
     <tr class="{% cycle rowcolor %}">
         <td>
             <form method="post" action="{% url 'new_account' budget_id %}">
@@ -42,11 +54,4 @@
         </td>
         <td></td>
     </tr>
-
-    {% for budget, amount in debts %}
-    <tr class="{% cycle rowcolor %}">
-        <td><a href="{% url 'balance' budget_id budget.id %}">Owed by {{ budget }}</a></td>
-        <td>{{ amount }}</td>
-    </tr>
-    {% endfor %}
 </table>

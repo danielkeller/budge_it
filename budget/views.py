@@ -21,8 +21,9 @@ def index(request: HttpRequest):
 def overview(request: HttpRequest, budget_id: int):
     get_object_or_404(Budget, id=budget_id)
     accounts, categories, debts = accounts_overview(budget_id)
+    total = sum(account.balance for account in accounts)
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'budget_id': budget_id}
+               'total': total, 'budget_id': budget_id}
     return render(request, 'budget/overview.html', context)
 
 

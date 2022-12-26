@@ -321,10 +321,10 @@ def transactions_for_balance(budget_id_1: int, budget_id_2: int
 def accounts_overview(budget_id: int):
     accounts = (Account.objects
                 .filter(budget_id=budget_id)
-                .annotate(balance=Sum('entries__amount')))
+                .annotate(balance=Sum('entries__amount', default=0)))
     categories = (Category.objects
                   .filter(budget_id=budget_id)
-                  .annotate(balance=Sum('entries__amount')))
+                  .annotate(balance=Sum('entries__amount', default=0)))
     transactions = transactions_for_budget(budget_id)
     debt_map = functools.reduce(
         sum_debts, (transaction.debts() for transaction in transactions))
