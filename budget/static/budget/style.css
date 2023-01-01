@@ -44,6 +44,15 @@ form.edit {
     display: inline;
 }
 
+.tdinput {
+    background-color: white;
+    line-height: 1;
+}
+
+.tdinput input {
+    border: none;
+}
+
 .transaction-detail-table {
     margin: 0 16px;
 }

@@ -11,8 +11,8 @@
             <th>Note</th>
         </tr>
         <tr>
-            <td>{{ form.date }}</td>
-            <td>{{ form.description }}</td>
+            <td class="tdinput">{{ form.date }}</td>
+            <td class="tdinput">{{ form.description }}</td>
         </tr>
     </table>
     <table id="parts">
@@ -24,14 +24,14 @@
         </tr>
         {% for form in formset %}
         <tr>
-            <td>
+            <td class="tdinput">
                 {{ form.account }}<input list="account-list" size="12">
             </td>
-            <td>
+            <td class="tdinput">
                 {{ form.category }}<input list="category-list" size="12">
-            </td>
-            <td>{{ form.transferred }}</td>
-            <td>{{ form.moved }}</td>
+            </td class="tdinput">
+            <td class="tdinput">{{ form.transferred }}</td>
+            <td class="tdinput">{{ form.moved }}</td>
         </tr>
         {% endfor %}
         <tr id="adder-row" style="text-align:right;">
