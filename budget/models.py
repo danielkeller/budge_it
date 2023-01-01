@@ -116,6 +116,13 @@ class Transaction(models.Model):
     categories = models.ManyToManyField(
         Category, through='TransactionCategoryPart',
         through_fields=('transaction', 'to'))
+
+    class Kind(models.TextChoices):
+        TRANSACTION = 'T', 'Transaction'
+        BUDGETING = 'B', 'Budgeting'
+    kind = models.CharField(max_length=1, choices=Kind.choices,
+                            default=Kind.TRANSACTION)
+
     running_sum: int  # TODO this is gross, put in view logic
 
     def __str__(self):
