@@ -21,7 +21,8 @@
     <th>Amount</th>
     <th>Total</th>
     {% for entry in entries %}
-    <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{entry.transaction.id}}">
+    <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{entry.transaction.id}}"
+        data-kind="{{entry.transaction.kind}}">
         <td>{{entry.transaction.date}}</td>
         <td>{{entry.transaction|transaction_description:account}}</td>
         <td>{{entry.amount}}</td>

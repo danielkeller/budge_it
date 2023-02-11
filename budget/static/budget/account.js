@@ -54,8 +54,9 @@ function edit() {
         const id = current.dataset.id;
         const back = encodeURIComponent(
             window.location.pathname + window.location.hash);
+        const ui = current.dataset.kind === 'T' ? 'transaction' : 'budgeting';
         window.location.href =
-            `/transaction/${data.budget}/${id}/?back=${back}`;
+            `/${ui}/${data.budget}/${id}/?back=${back}`;
     }
 }
 
