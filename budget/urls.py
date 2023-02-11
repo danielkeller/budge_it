@@ -19,4 +19,8 @@ urlpatterns = [
          views.edit, name='create'),
     path('transaction/<int:transaction_id>/delete/',
          views.delete, name='delete'),
+    path('budgeting/<int:budget_id>/<int:transaction_id>/',
+         views.edit_budgeting, name='edit_budgeting'),
+    path('budgeting/<int:budget_id>/',
+         views.edit_budgeting, name='create_budgeting'),
 ]

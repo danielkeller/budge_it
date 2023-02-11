@@ -1,9 +1,9 @@
-from typing import Optional, TypeVar, Type
+from typing import Optional, Type
 
 from django.db.models import Q
 from django.shortcuts import render
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
-                         HttpResponseBadRequest)
+                         HttpResponseBadRequest, HttpResponseNotFound)
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
 
@@ -11,7 +11,8 @@ from .models import (
     transactions_for_budget, transactions_for_balance, entries_for,
     accounts_overview,
     BaseAccount, Account, Category, Budget, Transaction)
-from .forms import (TransactionForm, TransactionPartFormSet, rename_form)
+from .forms import (TransactionForm, TransactionPartFormSet,
+                    BudgetingForm, rename_form)
 
 
 def index(request: HttpRequest):
@@ -129,3 +130,31 @@ def delete(request: HttpRequest, transaction_id: int):
         return HttpResponseBadRequest('Wrong method')
     get_object_or_404(Transaction, id=transaction_id).delete()
     return HttpResponseRedirect(request.GET.get('back', '/'))
+
+
+def edit_budgeting(request: HttpRequest, budget_id: int,
+                   transaction_id: Optional[int] = None):
+    budget = get_object_or_404(Budget, id=budget_id)
+    if transaction_id == None:
+        transaction = Transaction(kind=Transaction.Kind.BUDGETING)
+    else:
+        transaction = get_object_or_404(Transaction, id=transaction_id)
+        if transaction.kind != Transaction.Kind.BUDGETING:
+            return HttpResponseNotFound()
+
+    if request.method == 'POST':
+        form = BudgetingForm(budget, instance=transaction, data=request.POST)
+        if form.is_valid():
+            with atomic():
+                form.save()
+            return HttpResponseRedirect(request.GET.get('back', '/'))
+    else:
+        form = BudgetingForm(budget, instance=transaction)
+
+    parts = dict(transaction.category_parts.values_list('to', 'amount'))
+    categories = [(category, parts.get(category.id, 0))
+                  for category in budget.category_set.all()]
+    data = {'budget': budget_id}
+    context = {'categories': categories, 'form': form,
+               'transaction_id': transaction_id, 'data': data}
+    return render(request, 'budget/budgeting.html', context)

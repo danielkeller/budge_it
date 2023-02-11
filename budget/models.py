@@ -155,13 +155,14 @@ class Transaction(models.Model):
         return (accounts, categories)
 
     def set_parts(self, in_budget_id: int,
-                  parts: 'tuple[dict[Account, int], dict[Category, int]]'):
-        residual = self.residual_parts_(in_budget_id)
-        for account in residual[0].keys() | parts[0].keys():
-            amount = parts[0].get(account, 0) - residual[0].get(account, 0)
+                  accounts: 'dict[Account, int]', categories: 'dict[Category, int]'):
+        res_accounts, res_categories = self.residual_parts_(in_budget_id)
+        for account in res_accounts.keys() | accounts.keys():
+            amount = accounts.get(account, 0) - res_accounts.get(account, 0)
             TransactionAccountPart.update(self, account, amount)
-        for category in residual[1].keys() | parts[1].keys():
-            amount = parts[1].get(category, 0) - residual[1].get(category, 0)
+        for category in res_categories.keys() | categories.keys():
+            amount = (categories.get(category, 0) -
+                      res_categories.get(category, 0))
             TransactionCategoryPart.update(self, category, amount)
 
     def tabular(self, in_budget_id: int):
@@ -237,7 +238,7 @@ class TransactionPart(models.Model):
     to: BaseAccount
     to_id: int
 
-    @ classmethod
+    @classmethod
     def update(cls, transaction: Transaction, to: BaseAccount, amount: int):
         if amount == 0:
             cls.objects.filter(transaction=transaction, to=to).delete()

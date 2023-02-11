@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.forms import ValidationError
 
-from .models import (Budget, Account, Category, Transaction, BaseAccount)
+from .models import (Budget, BaseAccount, Account, Category, Transaction)
 
 
 class AccountChoiceField(forms.ModelChoiceField):
@@ -84,11 +84,50 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
                     and form.cleaned_data.get('moved')):
                 categories[form.cleaned_data['category']
                            ] = form.cleaned_data['moved']
-        instance.set_parts(self.budget.id, (accounts, categories))
+        instance.set_parts(self.budget.id, accounts, categories)
 
 
 TransactionPartFormSet = forms.formset_factory(
     TransactionPartForm, formset=BaseTransactionPartFormSet, extra=2)
+
+
+class BudgetingForm(forms.ModelForm):
+    class Meta:  # type: ignore
+        model = Transaction
+        fields = ('date', 'description')
+    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+
+    def __init__(self, budget: Budget, *args: Any,
+                 instance: Transaction, **kwargs: Any):
+        super().__init__(*args, instance=instance, **kwargs)
+        self.budget = budget
+        for category in budget.category_set.all():
+            self.fields[str(category.id)] = forms.DecimalField(
+                required=False, widget=forms.TextInput(attrs={'size': 7}))
+        if instance:
+            for part in instance.category_parts.all():
+                self.initial[str(part.to_id)] = part.amount
+
+    def rows(self):
+        for category in self.budget.category_set.all():
+            yield category.name, self[str(category.id)]
+
+    def clean(self):
+        if any(self.errors):
+            return
+        total = 0
+        for category in self.budget.category_set.all():
+            total += self.cleaned_data[str(category.id)] or 0
+        if total:
+            raise ValidationError("Amounts do not sum to zero")
+
+    @transaction.atomic
+    def save(self, commit: bool = False):
+        super().save(commit=True)
+        categories = {}
+        for category in self.budget.category_set.all():
+            categories[category] = self.cleaned_data[str(category.id)] or 0
+        self.instance.set_parts(self.budget.id, {}, categories)
 
 
 class TransactionForm(forms.ModelForm):
