@@ -277,7 +277,7 @@ def transactions_for_budget(budget_id: int) -> Iterable[Transaction]:
     qs = (Transaction.objects
           .filter(filter)
           .distinct()
-          .order_by('date')
+          .order_by('date', '-kind')
           .prefetch_related('account_parts', 'category_parts',
                             'accounts__budget', 'categories__budget'))
     total = 0
@@ -291,7 +291,7 @@ def transactions_for_budget(budget_id: int) -> Iterable[Transaction]:
 
 def entries_for(account: BaseAccount) -> Iterable[TransactionPart]:
     qs = (account.entries
-          .order_by('transaction__date')
+          .order_by('transaction__date', '-transaction__kind')
           .prefetch_related('transaction__account_parts__to__budget',
                             'transaction__category_parts__to__budget'))
     total = 0
@@ -310,7 +310,7 @@ def transactions_for_balance(budget_id_1: int, budget_id_2: int
     qs = (Transaction.objects
           .filter(filter)
           .distinct()
-          .order_by('date')
+          .order_by('date', '-kind')
           .prefetch_related('account_parts', 'category_parts',
                             'accounts__budget', 'categories__budget'))
     total = 0

@@ -109,7 +109,7 @@ class BudgetingForm(forms.ModelForm):
                 self.initial[str(part.to_id)] = part.amount
 
     def rows(self):
-        for category in self.budget.category_set.all():
+        for category in self.budget.category_set.order_by('name'):
             yield category.name, self[str(category.id)]
 
     def clean(self):
