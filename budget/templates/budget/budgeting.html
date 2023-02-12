@@ -2,7 +2,7 @@
 
 <!DOCTYPE html>
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
-<script src="{% static 'budget/editor.js' %}"></script>
+<script src="{% static 'budget/budgeting.js' %}"></script>
 
 <form class="edit" action="{{ request.get_full_path }}" method="post">
     <table>
@@ -23,7 +23,7 @@
         {% for name, input in form.rows %}
         <tr>
             <td>{{ name|default:"Inbox" }}</td>
-            <td class="tdinput">{{ input }}</td>
+            <td class="tdinput" data-inbox="{{name|yesno:",1"}}">{{ input }}</td>
         </tr>
         {% endfor %}
     </table>
