@@ -1,11 +1,13 @@
-from typing import Any, Union, Mapping
+from typing import Any, Union, Mapping, Optional, Type, Iterable
+from datetime import date
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.forms import ValidationError
 
-from .models import (Budget, BaseAccount, Account, Category, Transaction)
+from .models import (Budget, BaseAccount, Account, Category,
+                     Transaction, budgeting_transactions)
 
 
 class AccountChoiceField(forms.ModelChoiceField):
@@ -95,15 +97,15 @@ class BudgetingForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date', 'description')
-    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    date = forms.DateField(widget=forms.HiddenInput())
 
-    def __init__(self, budget: Budget, *args: Any,
-                 instance: Transaction, **kwargs: Any):
+    def __init__(self, *args: Any,
+                 budget: Budget, instance: Optional[Transaction] = None, **kwargs: Any):
         super().__init__(*args, instance=instance, **kwargs)
         self.budget = budget
         for category in budget.category_set.all():
             self.fields[str(category.id)] = forms.DecimalField(
-                required=False, widget=forms.TextInput(attrs={'size': 7}))
+                required=False, widget=forms.TextInput(attrs={'size': 5}))
         if instance:
             for part in instance.category_parts.all():
                 self.initial[str(part.to_id)] = part.amount
@@ -114,20 +116,45 @@ class BudgetingForm(forms.ModelForm):
 
     def clean(self):
         if any(self.errors):
-            return
+            return self.cleaned_data
         total = 0
         for category in self.budget.category_set.all():
             total += self.cleaned_data[str(category.id)] or 0
         if total:
             raise ValidationError("Amounts do not sum to zero")
+        return self.cleaned_data
 
-    @transaction.atomic
     def save(self, commit: bool = False):
+        self.instance.kind = Transaction.Kind.BUDGETING
         super().save(commit=True)
         categories = {}
         for category in self.budget.category_set.all():
             categories[category] = self.cleaned_data[str(category.id)] or 0
         self.instance.set_parts(self.budget.id, {}, categories)
+
+
+class BaseBudgetingFormSet(forms.BaseModelFormSet):
+    forms_by_date: 'dict[date, BudgetingForm]'
+
+    def __init__(self, budget: Budget, *args: Any,
+                 dates: 'Iterable[date]' = [], **kwargs: Any):
+        queryset = budgeting_transactions(budget.id)
+        extras = set(dates) - {transaction.month for transaction in queryset}
+        initial = [{'date': date} for date in sorted(extras)]
+        self.extra = len(initial)
+        super().__init__(*args, initial=initial, form_kwargs={'budget': budget},
+                         queryset=queryset, **kwargs)
+        self.forms_by_date = {form.instance.month or extras.pop(): form
+                              for form in self.forms}
+
+    @transaction.atomic
+    def save(self, commit: bool = False):
+        super().save(commit)
+
+
+BudgetingFormSet: 'Type[BaseBudgetingFormSet]'
+BudgetingFormSet = forms.modelformset_factory(  # type: ignore
+    Transaction, BudgetingForm, formset=BaseBudgetingFormSet, extra=0)
 
 
 class TransactionForm(forms.ModelForm):

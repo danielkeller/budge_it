@@ -3,9 +3,11 @@ from collections import defaultdict, deque
 import functools
 from itertools import chain
 import typing
+from datetime import date
 
 from django.db import models
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, F
+from django.db.models.functions import Trunc
 from django.urls import reverse
 
 BaseAccountT = TypeVar('BaseAccountT', bound='BaseAccount')
@@ -127,6 +129,14 @@ class Transaction(models.Model):
 
     def __str__(self):
         return str(self.date) + " " + self.description[0:100]
+
+    @property
+    def month(self) -> 'Optional[date]':
+        return self.date and self.date.replace(day=1)
+
+    @month.setter
+    def month(self, value: 'Optional[date]'):
+        self.date = value and value.replace(day=1)
 
     # TODO: Maybe put this in the non-database wrapper thingy (proxy model?)
     def debts(self):
@@ -343,3 +353,26 @@ def accounts_overview(budget_id: int):
              for ((from_budget, to_budget), amount) in debt_map.items()
              if from_budget == budget_id])
     return (accounts, categories, debts)
+
+
+def category_history(budget_id: int):
+    return (TransactionCategoryPart.objects
+            .filter(to__budget_id=budget_id,
+                    transaction__kind=Transaction.Kind.TRANSACTION)
+            .values('to', month=Trunc(F('transaction__date'), 'month'))
+            .annotate(total=Sum('amount')))
+    # return (TransactionCategoryPart.objects
+    #         .filter(to__budget_id=budget_id)
+    #         .values('to',
+    #                 kind=F('transaction__kind'),
+    #                 budgeting=Case(
+    #                     When(transaction__kind=Transaction.Kind.BUDGETING, then='transaction_id')),
+    #                 month=Trunc(F('transaction__date'), 'month'))
+    #         .annotate(total=Sum('amount')))
+
+
+def budgeting_transactions(budget_id: int):
+    return (Transaction.objects
+            .filter(kind=Transaction.Kind.BUDGETING,
+                    category_parts__to__budget_id=budget_id)
+            .distinct())

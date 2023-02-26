@@ -11,6 +11,7 @@ urlpatterns = [
     path('account/<int:budget_id>/new/', views.new_account, name='new_account'),
     path('category/<int:budget_id>/new/',
          views.new_category, name='new_category'),
+    path('history/<int:budget_id>/', views.history, name='history'),
     path('balance/<int:budget_id_1>/to/<int:budget_id_2>/', views.balance,
          name='balance'),
     path('transaction/<int:budget_id>/<int:transaction_id>/',

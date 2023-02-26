@@ -1,4 +1,4 @@
-from typing import Optional, Type
+from typing import Optional, Type, Any
 
 from django.db.models import Q
 from django.shortcuts import render
@@ -9,10 +9,10 @@ from django.db.transaction import atomic
 
 from .models import (
     transactions_for_budget, transactions_for_balance, entries_for,
-    accounts_overview,
+    accounts_overview, category_history,
     BaseAccount, Account, Category, Budget, Transaction)
 from .forms import (TransactionForm, TransactionPartFormSet,
-                    BudgetingForm, rename_form)
+                    BudgetingForm, BudgetingFormSet, rename_form)
 
 
 def index(request: HttpRequest):
@@ -143,13 +143,14 @@ def edit_budgeting(request: HttpRequest, budget_id: int,
             return HttpResponseNotFound()
 
     if request.method == 'POST':
-        form = BudgetingForm(budget, instance=transaction, data=request.POST)
+        form = BudgetingForm(
+            budget=budget, instance=transaction, data=request.POST)
         if form.is_valid():
             with atomic():
                 form.save()
             return HttpResponseRedirect(request.GET.get('back', '/'))
     else:
-        form = BudgetingForm(budget, instance=transaction)
+        form = BudgetingForm(budget=budget, instance=transaction)
 
     parts = dict(transaction.category_parts.values_list('to', 'amount'))
     categories = [(category, parts.get(category.id, 0))
@@ -158,3 +159,38 @@ def edit_budgeting(request: HttpRequest, budget_id: int,
     context = {'categories': categories, 'form': form,
                'transaction_id': transaction_id, 'data': data}
     return render(request, 'budget/budgeting.html', context)
+
+
+def history(request: HttpRequest, budget_id: int):
+    budget = get_object_or_404(Budget, id=budget_id)
+
+    history = category_history(budget_id)
+    categories = budget.category_set.order_by('name')
+    months = sorted({entry['month'] for entry in history})
+
+    # Initial is supposed to be the same between GET and POST, so there is
+    # theoretically a race condition here if someone adds a transaction. At
+    # worst it will create a new empty budgeting transaction though.
+    if request.method == 'POST':
+        formset = BudgetingFormSet(budget, dates=months, data=request.POST)
+        if formset.is_valid():
+            formset.save()
+            return HttpResponseRedirect(request.get_full_path())
+    else:
+        formset = BudgetingFormSet(budget, dates=months)
+
+    cells = {(entry['month'], entry['to']): entry['total']
+             for entry in history}
+    grid = [(category,
+             [(formset.forms_by_date[month][str(category.id)],
+               cells.get((month, category.id)))
+              for month in months])
+            for category in categories]
+
+    # budgets = {transaction.month: transaction.id
+    #            for transaction in budgeting_transactions(budget_id)}
+    data = {}
+    context: 'dict[str, Any]'
+    context = {'budget_id': budget_id, 'formset': formset,
+               'months': months, 'grid': grid, 'data': data}
+    return render(request, 'budget/history.html', context)
