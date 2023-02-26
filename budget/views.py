@@ -187,8 +187,6 @@ def history(request: HttpRequest, budget_id: int):
               for month in months])
             for category in categories]
 
-    # budgets = {transaction.month: transaction.id
-    #            for transaction in budgeting_transactions(budget_id)}
     data = {}
     context: 'dict[str, Any]'
     context = {'budget_id': budget_id, 'formset': formset,

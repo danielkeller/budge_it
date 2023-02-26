@@ -2,12 +2,13 @@
 
 <!DOCTYPE html>
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+<script src="{% static 'budget/history.js' %}"></script>
 
 <p><a href="{% url 'overview' budget_id %}">Overview</a></p>
 <p><a href="{% url 'budget' budget_id %}">See all transactions</a></p>
 
 <form action="{{ request.get_full_path }}" method="post">
-    <table>
+    <table id="table">
         <tr>
             <th></th>
             {% for month in months %}
@@ -23,12 +24,12 @@
             {% endfor %}
         </tr>
         {% for category, row in grid %}
-        <tr data-category="{{category.id}}">
+        <tr data-category="{{category.id}}" data-inbox="{{category.name|yesno:",1"}}">
             <td>{{ category.name|default:"Inbox" }}</td>
             {% for field, total in row %}
             <td class="tdinput">{{field}}</td>
-            <td>{{total|default:""}}</td>
-            <td></td>
+            <td class="spent">{{total|default:""}}</td>
+            <td class="total"></td>
             {% endfor %}
         </tr>
         {% endfor %}
