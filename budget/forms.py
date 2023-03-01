@@ -105,7 +105,8 @@ class BudgetingForm(forms.ModelForm):
         self.budget = budget
         for category in budget.category_set.all():
             self.fields[str(category.id)] = forms.DecimalField(
-                required=False, widget=forms.TextInput(attrs={'size': 5}))
+                required=False, widget=forms.TextInput(
+                    attrs={'size': 5, 'form': 'form'}))
         if instance:
             for part in instance.category_parts.all():
                 self.initial[str(part.to_id)] = part.amount
@@ -144,8 +145,9 @@ class BaseBudgetingFormSet(forms.BaseModelFormSet):
         self.extra = len(initial)
         super().__init__(*args, initial=initial, form_kwargs={'budget': budget},
                          queryset=queryset, **kwargs)
-        self.forms_by_date = {form.instance.month or extras.pop(): form
-                              for form in self.forms}
+        self.forms_by_date = {
+            form.instance.month or form.initial.get('date'): form
+            for form in self.forms}
 
     @transaction.atomic
     def save(self, commit: bool = False):

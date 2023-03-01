@@ -164,6 +164,7 @@ class Transaction(models.Model):
             categories[affected] += 0 if affected == part.to else part.amount
         return (accounts, categories)
 
+    # FIXME: With no parts, a transaction become inaccessible
     def set_parts(self, in_budget_id: int,
                   accounts: 'dict[Account, int]', categories: 'dict[Category, int]'):
         res_accounts, res_categories = self.residual_parts_(in_budget_id)

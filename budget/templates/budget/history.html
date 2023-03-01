@@ -5,35 +5,43 @@
 <script src="{% static 'budget/history.js' %}"></script>
 
 <p><a href="{% url 'overview' budget_id %}">Overview</a></p>
-<p><a href="{% url 'budget' budget_id %}">See all transactions</a></p>
 
-<form action="{{ request.get_full_path }}" method="post">
-    <table id="table">
-        <tr>
-            <th></th>
-            {% for month in months %}
-            <th colspan="3">{{ month|date:"M Y" }}</th>
-            {% endfor %}
-        </tr>
-        <tr>
-            <th></th>
-            {% for month in months %}
-            <th>Budgeted</th>
-            <th>Spent</th>
-            <th>Total</th>
-            {% endfor %}
-        </tr>
-        {% for category, row in grid %}
-        <tr data-category="{{category.id}}" data-inbox="{{category.name|yesno:",1"}}">
-            <td>{{ category.name|default:"Inbox" }}</td>
-            {% for field, total in row %}
-            <td class="tdinput">{{field}}</td>
-            <td class="spent">{{total|default:""}}</td>
-            <td class="total"></td>
-            {% endfor %}
-        </tr>
+<table id="table">
+    <tr>
+        <th><button id="add-prev" type="button">+</button></th>
+        {% for month in months %}
+        <th colspan="3">{{ month|date:"M Y" }}</th>
         {% endfor %}
-    </table>
+        <th><button id="add-next" type="button">+</button></th>
+    </tr>
+    <tr>
+        <th></th>
+        {% for month in months %}
+        <th>Budgeted</th>
+        <th>Spent</th>
+        <th>Total</th>
+        {% endfor %}
+        <th rowspan="{{grid|length|add:1}}"></th>
+    </tr>
+    {% for category, row in grid %}
+    <tr data-category="{{category.id}}">
+        <td>{{ category.name|default:"Inbox" }}</td>
+        {% for field, total in row %}
+        <td class="tdinput">{{field}}</td>
+        <td class="spent">{{total|default:""}}</td>
+        <td class="total"></td>
+        {% endfor %}
+    </tr>
+    {% endfor %}
+    <tr>
+        <td colspan="9999">
+            <form method="post" action="{% url 'new_category' budget_id %}">
+                <input type="submit" value="New Category">{% csrf_token %}
+            </form>
+        </td>
+    </tr>
+</table>
+<form action="{{ request.get_full_path }}" method="post" id="form">
     {% for form in formset %}
     {{ form.id }}
     {{ form.date }}

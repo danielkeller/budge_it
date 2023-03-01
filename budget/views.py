@@ -1,6 +1,7 @@
 from typing import Optional, Type, Any
+from datetime import date, timedelta
 
-from django.db.models import Q
+from django.db.models import Q, Min, Max
 from django.shortcuts import render
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
                          HttpResponseBadRequest, HttpResponseNotFound)
@@ -161,12 +162,25 @@ def edit_budgeting(request: HttpRequest, budget_id: int,
     return render(request, 'budget/budgeting.html', context)
 
 
+def months_between(start: date, end: date):
+    start = start.replace(day=1)
+    while start <= end:
+        yield start
+        start = (start + timedelta(days=31)).replace(day=1)
+
+
 def history(request: HttpRequest, budget_id: int):
     budget = get_object_or_404(Budget, id=budget_id)
+    inbox = budget.category_set.get(name='')
 
     history = category_history(budget_id)
     categories = budget.category_set.order_by('name')
-    months = sorted({entry['month'] for entry in history})
+    range = (Transaction.objects
+             .filter(categories__budget=budget)
+             .aggregate(Max('date'), Min('date')))
+    months = list(months_between(range['date__min'], range['date__max']))
+    prev_month = (months[0] - timedelta(days=1)).replace(day=1)
+    next_month = (months[-1] + timedelta(days=31)).replace(day=1)
 
     # Initial is supposed to be the same between GET and POST, so there is
     # theoretically a race condition here if someone adds a transaction. At
@@ -187,7 +201,8 @@ def history(request: HttpRequest, budget_id: int):
               for month in months])
             for category in categories]
 
-    data = {}
+    data = {'prev_month': prev_month, 'next_month': next_month,
+            'inbox': str(inbox.id)}
     context: 'dict[str, Any]'
     context = {'budget_id': budget_id, 'formset': formset,
                'months': months, 'grid': grid, 'data': data}
