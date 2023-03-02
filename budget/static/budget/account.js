@@ -51,11 +51,14 @@ function updateHash(event) {
 function edit() {
     const current = currentRow();
     if (current) {
-        const id = current.dataset.id;
         const back = encodeURIComponent(
             window.location.pathname + window.location.hash);
-        const ui = current.dataset.kind === 'T' ? 'transaction' : 'budgeting';
-        window.location.href = `/${ui}/${data.budget}/${id}/?back=${back}`;
+        if (current.dataset.kind === 'T') {
+            const id = current.dataset.id;
+            window.location.href = `/transaction/${data.budget}/${id}/?back=${back}`;
+        } else {
+            window.location.href = `/history/${data.budget}/?back=${back}`;
+        }
     }
 }
 

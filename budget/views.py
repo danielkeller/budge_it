@@ -189,7 +189,8 @@ def history(request: HttpRequest, budget_id: int):
         formset = BudgetingFormSet(budget, dates=months, data=request.POST)
         if formset.is_valid():
             formset.save()
-            return HttpResponseRedirect(request.get_full_path())
+            return HttpResponseRedirect(
+                request.GET.get('back', request.get_full_path()))
     else:
         formset = BudgetingFormSet(budget, dates=months)
 
