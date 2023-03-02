@@ -164,17 +164,21 @@ class Transaction(models.Model):
             categories[affected] += 0 if affected == part.to else part.amount
         return (accounts, categories)
 
-    # FIXME: With no parts, a transaction become inaccessible
     def set_parts(self, in_budget_id: int,
                   accounts: 'dict[Account, int]', categories: 'dict[Category, int]'):
         res_accounts, res_categories = self.residual_parts_(in_budget_id)
+        has_any_parts = False
         for account in res_accounts.keys() | accounts.keys():
             amount = accounts.get(account, 0) - res_accounts.get(account, 0)
+            has_any_parts |= amount != 0
             TransactionAccountPart.update(self, account, amount)
         for category in res_categories.keys() | categories.keys():
             amount = (categories.get(category, 0) -
                       res_categories.get(category, 0))
+            has_any_parts |= amount != 0
             TransactionCategoryPart.update(self, category, amount)
+        if not has_any_parts:
+            self.delete()
 
     def tabular(self, in_budget_id: int):
         def pop_by_amount_(parts: 'dict[BaseAccountT, int]', amount: int
