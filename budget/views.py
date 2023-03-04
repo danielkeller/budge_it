@@ -4,24 +4,33 @@ from datetime import date, timedelta
 from django.db.models import Q, Min, Max
 from django.shortcuts import render
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
-                         HttpResponseBadRequest, HttpResponseNotFound)
+                         HttpResponseBadRequest, Http404)
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
+from django.contrib.auth.decorators import login_required
 
 from .models import (
     transactions_for_budget, transactions_for_balance, entries_for,
     accounts_overview, category_history,
     BaseAccount, Account, Category, Budget, Transaction)
 from .forms import (TransactionForm, TransactionPartFormSet,
-                    BudgetingForm, BudgetingFormSet, rename_form)
+                    BudgetingFormSet, rename_form)
 
 
 def index(request: HttpRequest):
     return HttpResponse("TODO")
 
 
+def _get_allowed_budget_or_404(request: HttpRequest, budget_id: int):
+    budget = get_object_or_404(Budget, id=budget_id)
+    if request.user != budget.owner:
+        raise Http404()
+    return budget
+
+
+@login_required
 def overview(request: HttpRequest, budget_id: int):
-    get_object_or_404(Budget, id=budget_id)
+    _get_allowed_budget_or_404(request, budget_id)
     accounts, categories, debts = accounts_overview(budget_id)
     total = sum(category.balance for category in categories)
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
@@ -29,30 +38,38 @@ def overview(request: HttpRequest, budget_id: int):
     return render(request, 'budget/overview.html', context)
 
 
+@login_required
 def budget(request: HttpRequest, budget_id: int):
     transactions = transactions_for_budget(budget_id)
     context = {'transactions': transactions, 'budget_id': budget_id}
     return render(request, 'budget/budget.html', context)
 
 
+@login_required
 def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
-    get_object_or_404(Budget, id=budget_id_1)
+    _get_allowed_budget_or_404(request, budget_id_1)
     get_object_or_404(Budget, id=budget_id_2)
+    # FIXME: Display other people's transaction parts as a total instead of using
+    # account_in_budget
     transactions = transactions_for_balance(budget_id_1, budget_id_2)
     context = {'transactions': transactions, 'budget_id': budget_id_1}
     return render(request, 'budget/budget.html', context)
 
 
+@login_required
 def account(request: HttpRequest, account_id: int):
-    return account_impl(request, Account, account_id)
+    return _base_account(request, Account, account_id)
 
 
+@login_required
 def category(request: HttpRequest, category_id: int):
-    return account_impl(request, Category, category_id)
+    return _base_account(request, Category, category_id)
 
 
-def account_impl(request: HttpRequest, type: Type[BaseAccount], id: int):
+def _base_account(request: HttpRequest, type: Type[BaseAccount], id: int):
     account = get_object_or_404(type, id=id)
+    if request.user != account.budget.owner:
+        raise Http404()
     if request.method == 'POST':
         form = rename_form(instance=account, data=request.POST)
         if form.is_valid():
@@ -65,14 +82,18 @@ def account_impl(request: HttpRequest, type: Type[BaseAccount], id: int):
     return render(request, 'budget/account.html', context)
 
 
+@login_required
 def new_account(request: HttpRequest, budget_id: int):
+    _get_allowed_budget_or_404(request, budget_id)
     if request.method != 'POST':
         return HttpResponseBadRequest('Wrong method')
     account = Account.objects.create(budget_id=budget_id, name="New Account")
     return HttpResponseRedirect(account.get_absolute_url())
 
 
+@login_required
 def new_category(request: HttpRequest, budget_id: int):
+    _get_allowed_budget_or_404(request, budget_id)
     if request.method != 'POST':
         return HttpResponseBadRequest('Wrong method')
     category = Category.objects.create(
@@ -80,13 +101,16 @@ def new_category(request: HttpRequest, budget_id: int):
     return HttpResponseRedirect(category.get_absolute_url())
 
 
+@login_required
 def edit(request: HttpRequest, budget_id: int,
          transaction_id: Optional[int] = None):
-    budget = get_object_or_404(Budget, id=budget_id)
+    budget = _get_allowed_budget_or_404(request, budget_id)
     if transaction_id == None:
         transaction = None
     else:
         transaction = get_object_or_404(Transaction, id=transaction_id)
+        if not transaction.visible_from(budget_id):
+            raise Http404()
 
     if request.method == 'POST':
         form = TransactionForm(instance=transaction, data=request.POST)
@@ -126,51 +150,25 @@ def edit(request: HttpRequest, budget_id: int,
     return render(request, 'budget/edit.html', context)
 
 
+@login_required
 def delete(request: HttpRequest, transaction_id: int):
+    # FIXME: Delete from the perspective of one budget
     if request.method != 'POST':
         return HttpResponseBadRequest('Wrong method')
     get_object_or_404(Transaction, id=transaction_id).delete()
     return HttpResponseRedirect(request.GET.get('back', '/'))
 
 
-def edit_budgeting(request: HttpRequest, budget_id: int,
-                   transaction_id: Optional[int] = None):
-    budget = get_object_or_404(Budget, id=budget_id)
-    if transaction_id == None:
-        transaction = Transaction(kind=Transaction.Kind.BUDGETING)
-    else:
-        transaction = get_object_or_404(Transaction, id=transaction_id)
-        if transaction.kind != Transaction.Kind.BUDGETING:
-            return HttpResponseNotFound()
-
-    if request.method == 'POST':
-        form = BudgetingForm(
-            budget=budget, instance=transaction, data=request.POST)
-        if form.is_valid():
-            with atomic():
-                form.save()
-            return HttpResponseRedirect(request.GET.get('back', '/'))
-    else:
-        form = BudgetingForm(budget=budget, instance=transaction)
-
-    parts = dict(transaction.category_parts.values_list('to', 'amount'))
-    categories = [(category, parts.get(category.id, 0))
-                  for category in budget.category_set.all()]
-    data = {'budget': budget_id}
-    context = {'categories': categories, 'form': form,
-               'transaction_id': transaction_id, 'data': data}
-    return render(request, 'budget/budgeting.html', context)
-
-
-def months_between(start: date, end: date):
+def _months_between(start: date, end: date):
     start = start.replace(day=1)
     while start <= end:
         yield start
         start = (start + timedelta(days=31)).replace(day=1)
 
 
+@login_required
 def history(request: HttpRequest, budget_id: int):
-    budget = get_object_or_404(Budget, id=budget_id)
+    budget = _get_allowed_budget_or_404(request, budget_id)
     inbox = budget.category_set.get(name='')
 
     history = category_history(budget_id)
@@ -178,7 +176,7 @@ def history(request: HttpRequest, budget_id: int):
     range = (Transaction.objects
              .filter(categories__budget=budget)
              .aggregate(Max('date'), Min('date')))
-    months = list(months_between(range['date__min'], range['date__max']))
+    months = list(_months_between(range['date__min'], range['date__max']))
     prev_month = (months[0] - timedelta(days=1)).replace(day=1)
     next_month = (months[-1] + timedelta(days=31)).replace(day=1)
 

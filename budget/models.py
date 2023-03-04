@@ -9,6 +9,7 @@ from django.db import models
 from django.db.models import Q, Sum, F
 from django.db.models.functions import Trunc
 from django.urls import reverse
+from django.contrib.auth.models import User
 
 BaseAccountT = TypeVar('BaseAccountT', bound='BaseAccount')
 
@@ -18,8 +19,13 @@ class Budget(models.Model):
     name = models.CharField(max_length=100)
     account_set: 'models.Manager[Account]'
     category_set: 'models.Manager[Category]'
+    owner = models.ForeignKey(
+        User, blank=True, null=True, on_delete=models.SET_NULL)
+    writes: 'models.Manager[User]'
+    writers = models.ManyToManyField(  # type: ignore
+        User, blank=True, related_name="writer_set")
     # May be marked as external
-    # TODO: owner, currency
+    # TODO: currency
 
     def __str__(self):
         return self.name
@@ -145,6 +151,13 @@ class Transaction(models.Model):
                             ((part.to.budget_id, -part.amount)
                              for part in self.category_parts.all())))
         return combine_debts(owed)
+
+    # TODO: Construct these from the perspective of a user, not a budget.
+    # TODO: There may be some parts of the transaction that you can't see at all
+
+    def visible_from(self, budget_id: int):
+        return (self.accounts.filter(budget_id=budget_id).exists() or
+                self.categories.filter(budget_id=budget_id).exists())
 
     def parts(self, in_budget_id: int):
         accounts = sum_by((part.to.display_in(in_budget_id), part.amount)
@@ -280,11 +293,6 @@ class TransactionCategoryPart(TransactionPart):
     to = models.ForeignKey(Category, on_delete=models.PROTECT,
                            related_name="entries")  # type: ignore
 
-# Transaction.objects
-# .annotate(value_change=Sum('category_parts__amount',
-#                             filter=Q(categories__budget_id=budget_id)))
-# .exclude(value_change=0)
-
 
 def transactions_for_budget(budget_id: int) -> Iterable[Transaction]:
     filter = (Q(accounts__budget_id=budget_id) |
@@ -366,14 +374,6 @@ def category_history(budget_id: int):
                     transaction__kind=Transaction.Kind.TRANSACTION)
             .values('to', month=Trunc(F('transaction__date'), 'month'))
             .annotate(total=Sum('amount')))
-    # return (TransactionCategoryPart.objects
-    #         .filter(to__budget_id=budget_id)
-    #         .values('to',
-    #                 kind=F('transaction__kind'),
-    #                 budgeting=Case(
-    #                     When(transaction__kind=Transaction.Kind.BUDGETING, then='transaction_id')),
-    #                 month=Trunc(F('transaction__date'), 'month'))
-    #         .annotate(total=Sum('amount')))
 
 
 def budgeting_transactions(budget_id: int):
