@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
 <script src="{% static 'budget/history.js' %}"></script>
 
-<p><a href="{% url 'overview' budget_id %}">Overview</a></p>
+<div><a href="{% url 'overview' budget_id %}">Overview</a></div>
 
 <table id="table">
     <tr>
@@ -36,20 +36,22 @@
     <tr>
         <td colspan="9999">
             <form method="post" action="{% url 'new_category' budget_id %}">
-                <input type="submit" value="New Category">{% csrf_token %}
+                <button>New Category</button>{% csrf_token %}
             </form>
         </td>
     </tr>
 </table>
-<form action="{{ request.get_full_path }}" method="post" id="form">
-    {% for form in formset %}
-    {{ form.id }}
-    {{ form.date }}
-    {% endfor %}
-    {{ formset.management_form }}
-    {% csrf_token %}
-    <input id="submit-button" type="submit" value="Save">
-</form>
+<div>
+    <form action="{{ request.get_full_path }}" method="post" id="form">
+        {% for form in formset %}
+        {{ form.id }}
+        {{ form.date }}
+        {% endfor %}
+        {{ formset.management_form }}
+        {% csrf_token %}
+        <button>Save</button>
+    </form>
+</div>
 {{ data|json_script:"data" }}
 {{ form.errors|default:"" }}
 {{ formset.errors|default:"" }}
