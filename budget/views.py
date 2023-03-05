@@ -49,8 +49,6 @@ def budget(request: HttpRequest, budget_id: int):
 def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
     _get_allowed_budget_or_404(request, budget_id_1)
     get_object_or_404(Budget, id=budget_id_2)
-    # FIXME: Display other people's transaction parts as a total instead of using
-    # account_in_budget
     transactions = transactions_for_balance(budget_id_1, budget_id_2)
     context = {'transactions': transactions, 'budget_id': budget_id_1}
     return render(request, 'budget/budget.html', context)
@@ -127,11 +125,11 @@ def edit(request: HttpRequest, budget_id: int,
             budget, prefix="tx", instance=transaction)
 
     accounts = [(account.name_in_budget(budget_id), str(account.id))
-                for account in Account.objects.filter(
-                    Q(budget_id=budget_id) | Q(name=""))]
+                for account in Account.objects.filter(Q(budget_id=budget_id)
+                                                      | Q(name=""))]
     categories = [(category.name_in_budget(budget_id), str(category.id))
-                  for category in Category.objects.filter(
-        Q(budget_id=budget_id) | Q(name=""))]
+                  for category in Category.objects.filter(Q(budget_id=budget_id)
+                                                          | Q(name=""))]
     data = {
         'budget': budget_id,
         'accounts': accounts, 'categories': categories,
@@ -181,8 +179,8 @@ def history(request: HttpRequest, budget_id: int):
     next_month = (months[-1] + timedelta(days=31)).replace(day=1)
 
     # Initial is supposed to be the same between GET and POST, so there is
-    # theoretically a race condition here if someone adds a transaction. At
-    # worst it will create a new empty budgeting transaction though.
+    # theoretically a race condition here if someone adds a transaction. I
+    # don't think it will do anything bad though.
     if request.method == 'POST':
         formset = BudgetingFormSet(budget, dates=months, data=request.POST)
         if formset.is_valid():

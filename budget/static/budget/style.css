@@ -4,16 +4,38 @@
 
 html {
     background-color: #f8f8f8;
-    font: 14px/18px sans-serif;
+    --line-height: 1.5em;
+    font: 14px/var(--line-height) sans-serif;
 }
 
-table {
-    border-collapse: collapse;
+body {
+    margin: 0;
 }
 
 table,
 body>div {
-    margin: 16px 0;
+    margin: var(--line-height);
+}
+
+button,
+input {
+    font: inherit;
+    /* Precisely fit controls into a line of text */
+    height: var(--line-height);
+    vertical-align: bottom;
+}
+
+td button,
+td input {
+    height: var(--td-line-height);
+}
+
+button {
+    line-height: 0;
+}
+
+table {
+    border-collapse: collapse;
 }
 
 tr.a {
@@ -22,8 +44,13 @@ tr.a {
 
 td,
 th {
-    border: 1px solid #888;
-    padding: 1px 2px;
+    --td-border: 1px;
+    /* Make each table row take exactly one line */
+    --td-line-height: calc(var(--line-height) - var(--td-border));
+    line-height: var(--td-line-height);
+    --td-hpad: calc(var(--line-height) * 0.2);
+    border: var(--td-border) solid #888;
+    padding: 0 var(--td-hpad);
 }
 
 .detail-container {
@@ -32,17 +59,21 @@ th {
 }
 
 .line {
-    /* Make line drawing characters fit precisely */
-    line-height: 1em;
+    /* Align to bottom of row */
+    line-height: 1;
+    vertical-align: bottom;
     font-weight: bold;
 }
 
 .transaction-detail {
     /* Allow table to fill screen width */
     position: absolute;
-    /* Move past the 2px of padding and 1px of border */
-    margin-left: 3px;
+    margin-left: calc(var(--td-hpad) + var(--td-border));
     display: none;
+}
+
+.transaction-detail-table {
+    margin: 0 16px;
 }
 
 tr:focus-within .transaction-detail {
@@ -55,16 +86,14 @@ form.edit {
 
 .tdinput {
     background-color: white;
-    line-height: 1;
+    padding: 0;
 }
 
 .tdinput input {
     border: none;
+    padding: 0 calc(2 * var(--td-hpad));
     width: 100%;
-}
-
-.transaction-detail-table {
-    margin: 0 16px;
+    background-color: transparent;
 }
 
 .suggested {

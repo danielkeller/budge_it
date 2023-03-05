@@ -3,8 +3,8 @@
 <!DOCTYPE html>
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
 
-<p><a href="{% url 'budget' budget_id %}">See all transactions</a></p>
-<p><a href="{% url 'history' budget_id %}">Edit budget</a></p>
+<div><a href="{% url 'budget' budget_id %}">See all transactions</a></div>
+<div><a href="{% url 'history' budget_id %}">Edit budget</a></div>
 
 <table>
     <th>Category</th>
@@ -22,7 +22,7 @@
     <tr class="{% cycle rowcolor %}">
         <td>
             <form method="post" action="{% url 'new_category' budget_id %}">
-                <input type="submit" value="New Category">{% csrf_token %}
+                <button>New Category</button>{% csrf_token %}
             </form>
         </td>
         <td></td>
@@ -50,7 +50,7 @@
     <tr class="{% cycle rowcolor %}">
         <td>
             <form method="post" action="{% url 'new_account' budget_id %}">
-                <input type="submit" value="New Account">{% csrf_token %}
+                <button>New Category</button>{% csrf_token %}
             </form>
         </td>
         <td></td>
