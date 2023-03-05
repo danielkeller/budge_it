@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
 <script src="{% static 'budget/editor.js' %}"></script>
 
-<form class="edit" action="{{ request.get_full_path }}" method="post">
+<form id="form" class="edit" action="{{ request.get_full_path }}" method="post">
     <table>
         <tr>
             <th>Date</th>
@@ -38,21 +38,22 @@
             <td colspan="6"><button id="addrow" type="button">+</button></td>
         </tr>
     </table>
-    <div id="category-sum"></div>
-    <div id="account-sum"></div>
-    <div id="debt"></div>
-
     {{ formset.management_form }}
     {% csrf_token %}
-    <button id="submit-button">Save</button>
+</form>
+<div id="category-sum"></div>
+<div id="account-sum"></div>
+<div id="debt"></div>
+<div>
+    <button id="submit-button" form="form">Save</button>
     <button id="cancel" type="button">Cancel</button>
-</form>
-{% if transaction_id %}
-<form class="edit" action="{% url 'delete' transaction_id%}?next={{ request.GET.back|urlencode }}" method="post">
-    {% csrf_token %}
-    <button>Delete</button>
-</form>
-{% endif %}
+    {% if transaction_id %}
+    <form class="edit" action="{% url 'delete' transaction_id%}?next={{ request.GET.back|urlencode }}" method="post">
+        {% csrf_token %}
+        <button>Delete</button>
+    </form>
+    {% endif %}
+</div>
 <datalist id="account-list">
     {% for account, id in data.accounts %}
     <option value="{{ account }}"></option>
