@@ -3,7 +3,8 @@
 }
 
 html {
-    background-color: #f8f8f8;
+    color-scheme: light dark;
+    background-color: Canvas;
     --line-height: 1.5em;
     font: 14px/var(--line-height) sans-serif;
 }
@@ -40,6 +41,12 @@ table {
 
 tr.a {
     background-color: #e0f0eb;
+}
+
+@media (prefers-color-scheme: dark) {
+    tr.a {
+        background-color: #1e4438;
+    }
 }
 
 td,
@@ -85,7 +92,7 @@ form.edit {
 }
 
 .tdinput {
-    background-color: white;
+    background-color: Field;
     padding: 0;
 }
 
@@ -97,6 +104,6 @@ form.edit {
 }
 
 .suggested {
-    color: gray;
+    color: GrayText;
     font-style: italic;
 }
