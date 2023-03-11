@@ -6,16 +6,23 @@ html {
     color-scheme: light dark;
     background-color: Canvas;
     --line-height: 1.5em;
+    --td-border: 1px;
     font: 14px/var(--line-height) sans-serif;
 }
 
 body {
     margin: 0;
+    margin-bottom: var(--line-height);
 }
 
-table,
-body>div {
+body>div,
+table {
     margin: var(--line-height);
+    margin-bottom: 0;
+}
+
+table {
+    margin-top: calc(var(--line-height) - var(--td-border));
 }
 
 button,
@@ -51,7 +58,6 @@ tr.a {
 
 td,
 th {
-    --td-border: 1px;
     /* Make each table row take exactly one line */
     --td-line-height: calc(var(--line-height) - var(--td-border));
     line-height: var(--td-line-height);
@@ -80,7 +86,7 @@ th {
 }
 
 .transaction-detail-table {
-    margin: 0 16px;
+    margin: 0 var(--line-height);
 }
 
 tr:focus-within .transaction-detail {
