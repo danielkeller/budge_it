@@ -23,7 +23,7 @@ def index(request: HttpRequest):
 
 def _get_allowed_budget_or_404(request: HttpRequest, budget_id: int):
     budget = get_object_or_404(Budget, id=budget_id)
-    if request.user != budget.owner:
+    if not budget.view_permission(request.user):
         raise Http404()
     return budget
 
@@ -66,7 +66,8 @@ def category(request: HttpRequest, category_id: int):
 
 def _base_account(request: HttpRequest, type: Type[BaseAccount], id: int):
     account = get_object_or_404(type, id=id)
-    if request.user != account.budget.owner:
+    budget = account.budget
+    if not budget.view_permission(request.user):
         raise Http404()
     if request.method == 'POST':
         form = rename_form(instance=account, data=request.POST)
@@ -74,7 +75,7 @@ def _base_account(request: HttpRequest, type: Type[BaseAccount], id: int):
             form.save()
         return HttpResponseRedirect(request.get_full_path())
     form = rename_form(instance=account)
-    data = {'budget': account.budget_id}
+    data = {'budget': budget.id}
     context = {'entries': entries_for(account), 'account': account,
                'form': form, 'data': data}
     return render(request, 'budget/account.html', context)

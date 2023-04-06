@@ -1,4 +1,4 @@
-from typing import Optional, Iterable, TypeVar, Type
+from typing import Optional, Iterable, TypeVar, Type, Union
 from collections import defaultdict, deque
 import functools
 from itertools import chain
@@ -9,22 +9,32 @@ from django.db import models
 from django.db.models import Q, Sum, F
 from django.db.models.functions import Trunc
 from django.urls import reverse
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
 BaseAccountT = TypeVar('BaseAccountT', bound='BaseAccount')
 
 
 class Budget(models.Model):
+    class Meta:  # type: ignore
+        constraints = [models.CheckConstraint(
+            check=Q(budget_of__isnull=True) | Q(payee_of__isnull=True),
+            name="cant_be_payee_and_budget")]
+
     id: models.BigAutoField
     name = models.CharField(max_length=100)
     account_set: 'models.Manager[Account]'
     category_set: 'models.Manager[Category]'
-    owner = models.ForeignKey(
+
+    # This can easily be relaxed into a ForeignKey if we want to allow multiple
+    # budgets
+    budget_of = models.OneToOneField(
         User, blank=True, null=True, on_delete=models.SET_NULL)
-    writes: 'models.Manager[User]'
-    writers = models.ManyToManyField(  # type: ignore
-        User, blank=True, related_name="writer_set")
-    # May be marked as external
+    payee_of = models.ForeignKey(
+        User, blank=True, null=True, on_delete=models.SET_NULL,
+        related_name="payee_set")
+    friends: 'models.Manager[Budget]'
+    friends = models.ManyToManyField('self',  blank=True)  # type: ignore
+
     # TODO: currency
 
     def __str__(self):
@@ -35,6 +45,9 @@ class Budget(models.Model):
 
     def get_hidden(self, cls: Type[BaseAccountT]) -> BaseAccountT:
         return cls.objects.get_or_create(name="", budget=self)[0]
+
+    def view_permission(self, user: Union[AbstractBaseUser, AnonymousUser]):
+        return user.is_authenticated and user in (self.budget_of, self.payee_of)
 
 
 class BaseAccount(models.Model):

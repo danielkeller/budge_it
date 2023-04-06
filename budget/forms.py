@@ -5,12 +5,15 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.forms import ValidationError
+from django.contrib.auth.models import User
 
 from .models import (Budget, BaseAccount, Account, Category,
                      Transaction, budgeting_transactions)
 
 
 class AccountChoiceField(forms.ModelChoiceField):
+    user: User
+
     def to_python(self, value: Any):
         if value in self.empty_values:
             return None
@@ -21,7 +24,8 @@ class AccountChoiceField(forms.ModelChoiceField):
         if (self.queryset.model == Category
                 and value.startswith('[') and value.endswith(']')):
             value = value[1:-1]
-        budget, _ = Budget.objects.get_or_create(name=value)
+        budget, _ = Budget.objects.get_or_create(
+            name=value, payee_of=self.user)
         return budget.get_hidden(self.queryset.model)
 
 
@@ -55,10 +59,12 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
 
     def add_fields(self, form: TransactionPartForm, index: int):
         super().add_fields(form, index)
+        if not self.budget.budget_of:
+            raise ValueError("Not a real budget")
         # queryset is ˚*･༓ magic ༓･*˚ so it has to be set second
-        form.fields['account'].budget = self.budget
+        form.fields['account'].user = self.budget.budget_of
         form.fields['account'].queryset = Account.objects.all()
-        form.fields['category'].budget = self.budget
+        form.fields['category'].user = self.budget.budget_of
         form.fields['category'].queryset = Category.objects.all()
 
     def clean(self):
