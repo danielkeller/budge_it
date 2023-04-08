@@ -14,10 +14,10 @@ urlpatterns = [
     path('history/<int:budget_id>/', views.history, name='history'),
     path('balance/<int:budget_id_1>/to/<int:budget_id_2>/', views.balance,
          name='balance'),
-    path('transaction/<int:budget_id>/<int:transaction_id>/',
-         views.edit, name='edit'),
     path('transaction/<int:budget_id>/',
          views.edit, name='create'),
-    path('transaction/<int:transaction_id>/delete/',
+    path('transaction/<int:budget_id>/<int:transaction_id>/',
+         views.edit, name='edit'),
+    path('transaction/<int:budget_id>/<int:transaction_id>/delete/',
          views.delete, name='delete'),
 ]

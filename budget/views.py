@@ -145,16 +145,18 @@ def edit(request: HttpRequest, budget_id: int,
                      .prefetch_related('budget__category_set')}
     }
     context = {'formset': formset, 'form': form,
-               'transaction_id': transaction_id, 'data': data}
+               'budget_id': budget_id, 'transaction_id': transaction_id,
+               'data': data}
     return render(request, 'budget/edit.html', context)
 
 
 @login_required
-def delete(request: HttpRequest, transaction_id: int):
-    # FIXME: Delete from the perspective of one budget
+def delete(request: HttpRequest, budget_id: int, transaction_id: int):
     if request.method != 'POST':
         return HttpResponseBadRequest('Wrong method')
-    get_object_or_404(Transaction, id=transaction_id).delete()
+    _get_allowed_budget_or_404(request, budget_id)
+    transaction = get_object_or_404(Transaction, id=transaction_id)
+    transaction.set_parts(budget_id, {}, {})
     return HttpResponseRedirect(request.GET.get('back', '/'))
 
 

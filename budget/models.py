@@ -180,6 +180,9 @@ class Transaction(models.Model):
         return (accounts, categories)
 
     def residual_parts_(self, in_budget_id: int):
+        """Return the non-inbox transaction parts of all the other budgets,
+        accounted to the inbox of that budget. These are subtracted in
+        set_parts, so the remainder goes to the inbox."""
         accounts: defaultdict[Account, int] = defaultdict(int)
         categories: defaultdict[Category, int] = defaultdict(int)
         for part in self.account_parts.all():
@@ -192,6 +195,8 @@ class Transaction(models.Model):
 
     def set_parts(self, in_budget_id: int,
                   accounts: 'dict[Account, int]', categories: 'dict[Category, int]'):
+        """Set the contents of this transaction from the perspective of one
+        budget. 'accounts' and 'categories' are both expected to sum to zero."""
         res_accounts, res_categories = self.residual_parts_(in_budget_id)
         has_any_parts = False
         for account in res_accounts.keys() | accounts.keys():
