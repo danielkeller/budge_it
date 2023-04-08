@@ -2,9 +2,21 @@
     box-sizing: border-box;
 }
 
+@media (prefers-color-scheme: light) {
+    html {
+        --canvas: rgb(246, 246, 246)
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    html {
+        --canvas: rgb(50, 50, 50)
+    }
+}
+
 html {
     color-scheme: light dark;
-    background-color: Canvas;
+    background-color: var(--canvas);
     --line-height: 1.5em;
     --td-border: 1px;
     font: 14px/var(--line-height) sans-serif;
@@ -93,6 +105,10 @@ form.edit {
     display: inline;
 }
 
+/* The focus ring is on the same z-index as the input, so if an adjacent input
+   has a background it will cover part of it. Work around this by making enabled
+   inputs transparent and ones with a background on a lower z-index. */
+
 .tdinput {
     background-color: Field;
     padding: 0;
@@ -103,6 +119,13 @@ form.edit {
     padding: 0 calc(2 * var(--td-hpad));
     width: 100%;
     background-color: transparent;
+    position: relative;
+    z-index: 1;
+}
+
+.tdinput input:disabled {
+    background-color: var(--canvas);
+    z-index: 0;
 }
 
 .suggested {

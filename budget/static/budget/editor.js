@@ -76,6 +76,8 @@ function setUpRow(tr) {
     category = new Selector(category, data.categories, categoryChanged);
     if (category.value === String(data.external[account.value]))
         category.classList.add('suggested');
+    transferred.disabled = !account.value;
+    moved.disabled = !category.value;
     transferred.addEventListener('input', amountChanged);
     transferred.addEventListener('blur', suggestAmounts);
     moved.addEventListener('input', amountChanged);
@@ -101,8 +103,10 @@ function addRow(event) {
     category.value = '';
     category.name = `tx-${n}-category`;
     moved.value = '';
+    moved.disabled = true;
     moved.name = `tx-${n}-moved`;
     transferred.value = '';
+    transferred.disabled = true;
     transferred.name = `tx-${n}-transferred`;
     tbody.insertBefore(tr, adder_row);
     document.forms[0].elements["tx-TOTAL_FORMS"].value = rows.length;
@@ -137,12 +141,15 @@ function accountChanged({ target }) {
         }
     }
 
-    var { category } = rows[findRow(target)];
+    var { category, transferred } = rows[findRow(target)];
     unsuggest(category);
     if (target.value in data.external)
         suggest(category, data.external[target.value]);
     else if (target.value && !(target.value in data.account_budget))
         suggest(category, `[${target.value}]`);
+
+    if (!target.value) transferred.value = "";
+    transferred.disabled = !target.value;
 
     suggestAmounts();
 }
@@ -159,6 +166,10 @@ function categoryChanged({ target }) {
             }
         }
     }
+
+    var { moved } = rows[findRow(target)];
+    if (!target.value) moved.value = "";
+    moved.disabled = !target.value;
 
     suggestAmounts();
 }
