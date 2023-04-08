@@ -184,20 +184,16 @@ function suggestSums() {
     var category_total = 0;
     var to_account = [];
     var account_total = 0;
-    for (var { account, category, moved, transferred } of rows) {
-        if (category.value) {
-            if (moved.value) {
-                category_total += +moved.value;
-            } else {
-                to_category.push(moved);
-            }
+    for (var { moved, transferred } of rows) {
+        if (moved.value) {
+            category_total += +moved.value;
+        } else {
+            to_category.push(moved);
         }
-        if (account.value) {
-            if (transferred.value) {
-                account_total += +transferred.value;
-            } else {
-                to_account.push(transferred);
-            }
+        if (transferred.value) {
+            account_total += +transferred.value;
+        } else {
+            to_account.push(transferred);
         }
     }
     var result = false;
@@ -273,19 +269,16 @@ function checkValid() {
     var account_total = 0;
     var owed = {};
     for (var { account, category, moved, transferred } of rows) {
-        if (account.value) {
-            account_total += +transferred.value;
-            const budget = data.account_budget[account.value] || account.value;
-            if (!owed[budget]) owed[budget] = 0;
-            owed[budget] += +transferred.value;
-        }
-        if (category.value) {
-            category_total += +moved.value;
-            const budget = data.category_budget[category.value]
-                || stripBrackets(category.value);
-            if (!owed[budget]) owed[budget] = 0;
-            owed[budget] += -moved.value;
-        }
+        account_total += +transferred.value;
+        let budget = data.account_budget[account.value] || account.value;
+        if (!owed[budget]) owed[budget] = 0;
+        owed[budget] += +transferred.value;
+
+        category_total += +moved.value;
+        budget = data.category_budget[category.value]
+            || stripBrackets(category.value);
+        if (!owed[budget]) owed[budget] = 0;
+        owed[budget] += -moved.value;
     }
     valid = true;
     if (category_total && !isNaN(category_total)) {
