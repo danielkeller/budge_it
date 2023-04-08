@@ -47,7 +47,7 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
                  instance: Transaction, **kwargs: Any):
         self.budget = budget
         if instance:
-            initial = instance.tabular(budget.id)
+            initial = instance.tabular(budget)
             for row in initial:
                 if row['account']:
                     row['transferred'] = row['amount']
@@ -92,7 +92,7 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
                     and form.cleaned_data.get('moved')):
                 categories[form.cleaned_data['category']
                            ] = form.cleaned_data['moved']
-        instance.set_parts(self.budget.id, accounts, categories)
+        instance.set_parts(self.budget, accounts, categories)
 
 
 TransactionPartFormSet = forms.formset_factory(

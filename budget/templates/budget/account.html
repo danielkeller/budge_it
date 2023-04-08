@@ -35,10 +35,10 @@
                         <th>Account</th>
                         <th>Category</th>
                         <th>Amount</th>
-                        {% for part in entry.transaction|tabular:account.budget_id %}
+                        {% for part in entry.transaction|tabular:account.budget %}
                         <tr class="{% cycle 'a' 'b' %}">
-                            <td>{% account_in_budget part.account account.budget_id %}</td>
-                            <td>{% account_in_budget part.category account.budget_id %}</td>
+                            <td>{% account_in_budget part.account account.budget %}</td>
+                            <td>{% account_in_budget part.category account.budget %}</td>
                             <td>{{part.amount}}</td>
                         </tr>
                         {% endfor %}

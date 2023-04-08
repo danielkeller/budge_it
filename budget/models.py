@@ -46,8 +46,11 @@ class Budget(models.Model):
     def get_hidden(self, cls: Type[BaseAccountT]) -> BaseAccountT:
         return cls.objects.get_or_create(name="", budget=self)[0]
 
+    def owner(self):
+        return self.budget_of or self.payee_of
+
     def view_permission(self, user: Union[AbstractBaseUser, AnonymousUser]):
-        return user.is_authenticated and user in (self.budget_of, self.payee_of)
+        return user.is_authenticated and user == self.owner()
 
 
 class BaseAccount(models.Model):
@@ -77,8 +80,9 @@ class BaseAccount(models.Model):
         else:
             return f"{self.budget.name} - {str(self.name)}"
 
-    def name_in_budget(self, budget_id: int):
-        if self.budget_id == budget_id:
+    def name_in_budget(self, budget: Budget):
+        # This logic is duplicated in account_in_budget.html
+        if self.budget.budget_of == budget.owner():
             return self.name or "Inbox"
         if isinstance(self, Category):
             return f"[{self.budget.name}]"
@@ -87,13 +91,13 @@ class BaseAccount(models.Model):
     def to_hidden(self):
         if self.ishidden():
             return self
-        return self.budget.get_hidden(self.__class__)
+        return self.budget.get_hidden(type(self))
 
-    def display_in(self, budget_id: int):
-        if self.budget_id != budget_id:
-            return self.to_hidden()
-        else:
+    def display_in(self, budget: Budget):
+        if self.budget.owner() == budget.owner():
             return self
+        else:
+            return self.to_hidden()
 
 
 class Account(BaseAccount):
@@ -172,32 +176,32 @@ class Transaction(models.Model):
         return (self.accounts.filter(budget_id=budget_id).exists() or
                 self.categories.filter(budget_id=budget_id).exists())
 
-    def parts(self, in_budget_id: int):
-        accounts = sum_by((part.to.display_in(in_budget_id), part.amount)
+    def parts(self, in_budget: Budget):
+        accounts = sum_by((part.to.display_in(in_budget), part.amount)
                           for part in self.account_parts.all())
-        categories = sum_by((part.to.display_in(in_budget_id), part.amount)
+        categories = sum_by((part.to.display_in(in_budget), part.amount)
                             for part in self.category_parts.all())
         return (accounts, categories)
 
-    def residual_parts_(self, in_budget_id: int):
+    def residual_parts_(self, in_budget: Budget):
         """Return the non-inbox transaction parts of all the other budgets,
         accounted to the inbox of that budget. These are subtracted in
         set_parts, so the remainder goes to the inbox."""
         accounts: defaultdict[Account, int] = defaultdict(int)
         categories: defaultdict[Category, int] = defaultdict(int)
         for part in self.account_parts.all():
-            affected = part.to.display_in(in_budget_id)
+            affected = part.to.display_in(in_budget)
             accounts[affected] += 0 if affected == part.to else part.amount
         for part in self.category_parts.all():
-            affected = part.to.display_in(in_budget_id)
+            affected = part.to.display_in(in_budget)
             categories[affected] += 0 if affected == part.to else part.amount
         return (accounts, categories)
 
-    def set_parts(self, in_budget_id: int,
+    def set_parts(self, in_budget: Budget,
                   accounts: 'dict[Account, int]', categories: 'dict[Category, int]'):
         """Set the contents of this transaction from the perspective of one
         budget. 'accounts' and 'categories' are both expected to sum to zero."""
-        res_accounts, res_categories = self.residual_parts_(in_budget_id)
+        res_accounts, res_categories = self.residual_parts_(in_budget)
         has_any_parts = False
         for account in res_accounts.keys() | accounts.keys():
             amount = accounts.get(account, 0) - res_accounts.get(account, 0)
@@ -211,7 +215,7 @@ class Transaction(models.Model):
         if not has_any_parts:
             self.delete()
 
-    def tabular(self, in_budget_id: int):
+    def tabular(self, in_budget: Budget):
         def pop_by_amount_(parts: 'dict[BaseAccountT, int]', amount: int
                            ) -> Optional[BaseAccountT]:
             try:
@@ -222,7 +226,7 @@ class Transaction(models.Model):
             except StopIteration:
                 return None
 
-        accounts, categories = self.parts(in_budget_id)
+        accounts, categories = self.parts(in_budget)
         rows: list[dict[str, typing.Any]]
         rows = []
         for amount in sorted(chain(accounts.values(), categories.values())):
@@ -236,10 +240,10 @@ class Transaction(models.Model):
     def auto_description(self, in_account: BaseAccount):
         if self.description:
             return self.description
-        categories = [category.name_in_budget(in_account.budget_id)
+        categories = [category.name_in_budget(in_account.budget)
                       for category in self.categories.all()
                       if not category.ishidden() and category != in_account]
-        accounts = [account.name_in_budget(in_account.budget_id)
+        accounts = [account.name_in_budget(in_account.budget)
                     for account in self.accounts.all()
                     if account != in_account]
         names = accounts + categories

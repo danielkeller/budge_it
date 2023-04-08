@@ -125,10 +125,10 @@ def edit(request: HttpRequest, budget_id: int,
         formset = TransactionPartFormSet(
             budget, prefix="tx", instance=transaction)
 
-    accounts = [(account.name_in_budget(budget_id), str(account.id))
+    accounts = [(account.name_in_budget(budget), str(account.id))
                 for account in Account.objects.filter(Q(budget_id=budget_id)
                                                       | Q(name=""))]
-    categories = [(category.name_in_budget(budget_id), str(category.id))
+    categories = [(category.name_in_budget(budget), str(category.id))
                   for category in Category.objects.filter(Q(budget_id=budget_id)
                                                           | Q(name=""))]
     data = {
@@ -154,9 +154,9 @@ def edit(request: HttpRequest, budget_id: int,
 def delete(request: HttpRequest, budget_id: int, transaction_id: int):
     if request.method != 'POST':
         return HttpResponseBadRequest('Wrong method')
-    _get_allowed_budget_or_404(request, budget_id)
+    budget = _get_allowed_budget_or_404(request, budget_id)
     transaction = get_object_or_404(Transaction, id=transaction_id)
-    transaction.set_parts(budget_id, {}, {})
+    transaction.set_parts(budget, {}, {})
     return HttpResponseRedirect(request.GET.get('back', '/'))
 
 
