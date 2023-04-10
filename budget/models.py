@@ -1,4 +1,4 @@
-from typing import Optional, Iterable, TypeVar, Type, Union
+from typing import Optional, Iterable, TypeVar, Type, Union, Any
 from collections import defaultdict, deque
 import functools
 from itertools import chain
@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
 BaseAccountT = TypeVar('BaseAccountT', bound='BaseAccount')
+T = TypeVar('T')
 
 
 class Budget(models.Model):
@@ -32,8 +33,10 @@ class Budget(models.Model):
     payee_of = models.ForeignKey(
         User, blank=True, null=True, on_delete=models.SET_NULL,
         related_name="payee_set")
-    friends: 'models.Manager[Budget]'
-    friends = models.ManyToManyField('self',  blank=True)  # type: ignore
+
+    # Ignored for payees
+    friends: 'models.ManyToManyField[Budget, Any]'
+    friends = models.ManyToManyField('self',  blank=True)
 
     # TODO: currency
 
@@ -51,6 +54,71 @@ class Budget(models.Model):
 
     def view_permission(self, user: Union[AbstractBaseUser, AnonymousUser]):
         return user.is_authenticated and user == self.owner()
+
+
+class Permissions:
+    budget: Budget
+    budgets: 'set[Budget]'
+
+    def __init__(self, budget: Budget, budgets: 'Iterable[Budget]'):
+        if not budget:
+            raise ValueError('Budget is required')
+        self.budget, self.budgets = budget, set(budgets)
+
+    @functools.cached_property
+    def connectivity(self):
+        first = min(self.budgets, key=lambda budget: budget.id)
+        rest = set(self.budgets) - {first}
+        stack = [first]
+        result: 'dict[Budget, Budget]' = {}
+        while stack:
+            budget = stack.pop()
+            children = Permissions.visibility(budget, rest)
+            rest -= set(children)
+            stack.extend(children)
+            result.update({other: budget for other in children})
+        if rest:
+            raise ValueError('Budgets are disconnected')
+        reroot(result, self.budget)
+        return result
+
+    @functools.cached_property
+    def visible(self):
+        return set(Permissions.visibility(self.budget, self.budgets))
+
+    def display_in(self, account: BaseAccountT) -> BaseAccountT:
+        if self.budget.owner() == account.budget.owner():
+            return account
+        elif account.budget in self.visible:
+            return account.to_hidden()
+        else:
+            return self.connection(account.budget).get_hidden(type(account))
+
+    @staticmethod
+    def visibility(budget: Budget, budgets: 'Iterable[Budget]'):
+        ids = (budget.id for budget in budgets)
+        filter = Q(friends=budget)
+        if budget.owner():
+            filter |= (Q(friends__budget_of=budget.owner()) |
+                       Q(payee_of=budget.owner()) | Q(budget_of=budget.owner()))
+        return Budget.objects.filter(filter, id__in=ids).distinct().order_by('id')
+
+    def connection(self, there: Budget):
+        while there in self.connectivity:
+            if self.connectivity[there] == self.budget:
+                return there
+            there = self.connectivity[there]
+        raise ValueError('No connection')
+
+
+def reroot(tree: 'dict[T, T]', node: T):
+    if node in tree:
+        parent = tree[node]
+        del tree[node]
+        while parent:
+            parent2 = tree.get(parent)
+            tree[parent] = node
+            parent, node = parent2, parent
 
 
 class BaseAccount(models.Model):
@@ -93,12 +161,6 @@ class BaseAccount(models.Model):
             return self
         return self.budget.get_hidden(type(self))
 
-    def display_in(self, budget: Budget):
-        if self.budget.owner() == budget.owner():
-            return self
-        else:
-            return self.to_hidden()
-
 
 class Account(BaseAccount):
     """Accounts describe the physical ownership of money."""
@@ -116,15 +178,15 @@ class Category(BaseAccount):
         return 'category'
 
 
-T = TypeVar('T')
-
-
 def sum_by(input: 'Iterable[tuple[T, int]]') -> 'dict[T, int]':
     result: defaultdict[T, int] = defaultdict(int)
     for key, value in input:
         result[key] += value
-    return result
+    return {key: value for key, value in result.items() if value}
 
+
+# TODO: Consider creating a wrapper for a transaction from the perspective of
+# one budget
 
 class Transaction(models.Model):
     """A logical event involving moving money between accounts and categories"""
@@ -161,25 +223,27 @@ class Transaction(models.Model):
     def month(self, value: 'Optional[date]'):
         self.date = value and value.replace(day=1)
 
-    # TODO: Maybe put this in the non-database wrapper thingy (proxy model?)
+    @functools.cached_property
+    def budgets(self):
+        return set(Budget.objects.filter(Q(category__transaction=self)
+                                         | Q(account__transaction=self))
+                   .distinct())
+
     def debts(self):
         owed = sum_by(chain(((part.to.budget_id, part.amount)
-                            for part in self.account_parts.all()),
+                             for part in self.account_parts.all()),
                             ((part.to.budget_id, -part.amount)
-                             for part in self.category_parts.all())))
+                            for part in self.category_parts.all())))
         return combine_debts(owed)
 
-    # TODO: Construct these from the perspective of a user, not a budget.
-    # TODO: There may be some parts of the transaction that you can't see at all
-
-    def visible_from(self, budget_id: int):
-        return (self.accounts.filter(budget_id=budget_id).exists() or
-                self.categories.filter(budget_id=budget_id).exists())
+    def visible_from(self, budget: Budget):
+        return budget in self.budgets
 
     def parts(self, in_budget: Budget):
-        accounts = sum_by((part.to.display_in(in_budget), part.amount)
+        permissions = Permissions(in_budget, self.budgets)
+        accounts = sum_by((permissions.display_in(part.to), part.amount)
                           for part in self.account_parts.all())
-        categories = sum_by((part.to.display_in(in_budget), part.amount)
+        categories = sum_by((permissions.display_in(part.to), part.amount)
                             for part in self.category_parts.all())
         return (accounts, categories)
 
@@ -187,13 +251,14 @@ class Transaction(models.Model):
         """Return the non-inbox transaction parts of all the other budgets,
         accounted to the inbox of that budget. These are subtracted in
         set_parts, so the remainder goes to the inbox."""
+        permissions = Permissions(in_budget, self.budgets)
         accounts: defaultdict[Account, int] = defaultdict(int)
         categories: defaultdict[Category, int] = defaultdict(int)
         for part in self.account_parts.all():
-            affected = part.to.display_in(in_budget)
+            affected = permissions.display_in(part.to)
             accounts[affected] += 0 if affected == part.to else part.amount
         for part in self.category_parts.all():
-            affected = part.to.display_in(in_budget)
+            affected = permissions.display_in(part.to)
             categories[affected] += 0 if affected == part.to else part.amount
         return (accounts, categories)
 
@@ -240,13 +305,17 @@ class Transaction(models.Model):
     def auto_description(self, in_account: BaseAccount):
         if self.description:
             return self.description
-        categories = [category.name_in_budget(in_account.budget)
-                      for category in self.categories.all()
-                      if not category.ishidden() and category != in_account]
-        accounts = [account.name_in_budget(in_account.budget)
-                    for account in self.accounts.all()
-                    if account != in_account]
-        names = accounts + categories
+        accounts, categories = self.parts(in_account.budget)
+        names = (
+            [account.name_in_budget(in_account.budget)
+             for account in chain(accounts, categories)
+             if account.budget.budget_of == in_account.budget.owner()
+             and account != in_account] +
+            list({account.budget.name
+                  for account in chain(accounts, categories)
+                  if account.budget.budget_of != in_account.budget.owner()
+                  and account.budget != in_account.budget})
+        )
         if len(names) > 2:
             names = names[:2] + ['...']
         return ", ".join(names)

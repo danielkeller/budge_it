@@ -141,12 +141,14 @@ function accountChanged({ target }) {
         }
     }
 
-    var { category, transferred } = rows[findRow(target)];
+    var { category, transferred, moved } = rows[findRow(target)];
     unsuggest(category);
     if (target.value in data.external)
         suggest(category, data.external[target.value]);
     else if (target.value && !(target.value in data.account_budget))
         suggest(category, `[${target.value}]`);
+
+    moved.disabled = !category.value;
 
     if (!target.value) transferred.value = "";
     transferred.disabled = !target.value;
@@ -184,16 +186,20 @@ function suggestSums() {
     var category_total = 0;
     var to_account = [];
     var account_total = 0;
-    for (var { moved, transferred } of rows) {
-        if (moved.value) {
-            category_total += +moved.value;
-        } else {
-            to_category.push(moved);
+    for (var { account, category, moved, transferred } of rows) {
+        if (category.value) {
+            if (moved.value) {
+                category_total += +moved.value;
+            } else {
+                to_category.push(moved);
+            }
         }
-        if (transferred.value) {
-            account_total += +transferred.value;
-        } else {
-            to_account.push(transferred);
+        if (account.value) {
+            if (transferred.value) {
+                account_total += +transferred.value;
+            } else {
+                to_account.push(transferred);
+            }
         }
     }
     var result = false;

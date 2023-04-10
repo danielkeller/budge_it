@@ -30,18 +30,19 @@ def _get_allowed_budget_or_404(request: HttpRequest, budget_id: int):
 
 @login_required
 def overview(request: HttpRequest, budget_id: int):
-    _get_allowed_budget_or_404(request, budget_id)
+    budget = _get_allowed_budget_or_404(request, budget_id)
     accounts, categories, debts = accounts_overview(budget_id)
     total = sum(category.balance for category in categories)
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'total': total, 'budget_id': budget_id}
+               'total': total, 'budget': budget}
     return render(request, 'budget/overview.html', context)
 
 
 @login_required
 def budget(request: HttpRequest, budget_id: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
     transactions = transactions_for_budget(budget_id)
-    context = {'transactions': transactions, 'budget_id': budget_id}
+    context = {'transactions': transactions, 'budget': budget}
     return render(request, 'budget/budget.html', context)
 
 
@@ -108,7 +109,7 @@ def edit(request: HttpRequest, budget_id: int,
         transaction = None
     else:
         transaction = get_object_or_404(Transaction, id=transaction_id)
-        if not transaction.visible_from(budget_id):
+        if not transaction.visible_from(budget):
             raise Http404()
 
     if request.method == 'POST':
@@ -126,11 +127,11 @@ def edit(request: HttpRequest, budget_id: int,
             budget, prefix="tx", instance=transaction)
 
     accounts = [(account.name_in_budget(budget), str(account.id))
-                for account in Account.objects.filter(Q(budget_id=budget_id)
-                                                      | Q(name=""))]
+                for account in Account.objects.filter(
+                    Q(budget_id=budget_id) | Q(name=""))]
     categories = [(category.name_in_budget(budget), str(category.id))
-                  for category in Category.objects.filter(Q(budget_id=budget_id)
-                                                          | Q(name=""))]
+                  for category in Category.objects.filter(
+                      Q(budget_id=budget_id) | Q(name=""))]
     data = {
         'budget': budget_id,
         'accounts': accounts, 'categories': categories,

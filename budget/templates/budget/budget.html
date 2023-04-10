@@ -3,8 +3,8 @@
 <!DOCTYPE html>
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
 
-<p><a href="{% url 'overview' budget_id %}">Overview</a></p>
-{% url 'budget' budget_id as budget_url %}
+<p><a href="{% url 'overview' budget.id %}">Overview</a></p>
+{% url 'budget' budget.id as budget_url %}
 {% if request.get_full_path != budget_url %}
 <p><a href="{{ budget_url }}">See all transactions</a></p>
 {% endif %}
@@ -16,7 +16,7 @@
     <th>Amount</th>
     <th>Total</th>
     {% for transaction in transactions %}
-    {% for part in transaction|tabular:budget_id %}
+    {% for part in transaction|tabular:budget %}
     {% if forloop.first %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{{transaction.date}}</td>
@@ -26,8 +26,8 @@
         <td></td>
         <td></td>
         {% endif %}
-        <td>{% account_in_budget part.account budget_id %}</td>
-        <td>{% account_in_budget part.category budget_id %}</td>
+        <td>{% account_in_budget part.account budget %}</td>
+        <td>{% account_in_budget part.category budget %}</td>
         <td>{{part.amount}}</td>
         <td>{% if forloop.first %}
             {{ transaction.running_sum }}

@@ -59,12 +59,10 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
 
     def add_fields(self, form: TransactionPartForm, index: int):
         super().add_fields(form, index)
-        if not self.budget.budget_of:
-            raise ValueError("Not a real budget")
         # queryset is ˚*･༓ magic ༓･*˚ so it has to be set second
-        form.fields['account'].user = self.budget.budget_of
+        form.fields['account'].user = self.budget.owner()
         form.fields['account'].queryset = Account.objects.all()
-        form.fields['category'].user = self.budget.budget_of
+        form.fields['category'].user = self.budget.owner()
         form.fields['category'].queryset = Category.objects.all()
 
     def clean(self):

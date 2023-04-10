@@ -3,16 +3,16 @@
 <!DOCTYPE html>
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
 
-<div><a href="{% url 'budget' budget_id %}">See all transactions</a></div>
-<div><a href="{% url 'history' budget_id %}">Edit budget</a></div>
+<div><a href="{% url 'budget' budget.id %}">See all transactions</a></div>
+<div><a href="{% url 'history' budget.id %}">Edit budget</a></div>
 
 <table>
     <th>Category</th>
     <th>Balance</th>
     {% for category in categories %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
-        <td>{% account_in_budget category budget_id %}</td>
-        <td>{{ category.balance |default:0 }}</td>
+        <td>{% account_in_budget category budget %}</td>
+        <td>{{ category.balance | default:0 }}</td>
     </tr>
     {% endfor %}
     <tr class="{% cycle rowcolor %}">
@@ -21,7 +21,7 @@
     </tr>
     <tr class="{% cycle rowcolor %}">
         <td>
-            <form method="post" action="{% url 'new_category' budget_id %}">
+            <form method="post" action="{% url 'new_category' budget.id %}">
                 <button>New Category</button>{% csrf_token %}
             </form>
         </td>
@@ -33,13 +33,13 @@
     <th>Balance</th>
     {% for account in accounts %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
-        <td>{% account_in_budget account budget_id %}</td>
+        <td>{% account_in_budget account budget %}</td>
         <td>{{ account.balance |default:0 }}</td>
     </tr>
     {% endfor %}
     {% for budget, amount in debts %}
     <tr class="{% cycle rowcolor %}">
-        <td><a href="{% url 'balance' budget_id budget.id %}">Owed by {{ budget }}</a></td>
+        <td><a href="{% url 'balance' budget.id budget.id %}">Owed by {{ budget }}</a></td>
         <td>{{ amount }}</td>
     </tr>
     {% endfor %}
@@ -49,7 +49,7 @@
     </tr>
     <tr class="{% cycle rowcolor %}">
         <td>
-            <form method="post" action="{% url 'new_account' budget_id %}">
+            <form method="post" action="{% url 'new_account' budget.id %}">
                 <button>New Category</button>{% csrf_token %}
             </form>
         </td>
