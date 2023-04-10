@@ -1,7 +1,7 @@
 from typing import Optional, Type, Any
 from datetime import date, timedelta
 
-from django.db.models import Q, Min, Max
+from django.db.models import Min, Max
 from django.shortcuts import render
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
                          HttpResponseBadRequest, Http404)
@@ -126,23 +126,20 @@ def edit(request: HttpRequest, budget_id: int,
         formset = TransactionPartFormSet(
             budget, prefix="tx", instance=transaction)
 
-    accounts = [(account.name_in_budget(budget), str(account.id))
-                for account in Account.objects.filter(
-                    Q(budget_id=budget_id) | Q(name=""))]
-    categories = [(category.name_in_budget(budget), str(category.id))
-                  for category in Category.objects.filter(
-                      Q(budget_id=budget_id) | Q(name=""))]
+    accounts = budget.visible_accounts(Account)
+    categories = budget.visible_accounts(Category)
     data = {
         'budget': budget_id,
-        'accounts': accounts, 'categories': categories,
-        'category_budget': dict(
-            Category.objects.values_list('id', 'budget_id')),
-        'account_budget': dict(
-            Account.objects.values_list('id', 'budget_id')),
-        'budget': {budget.id: budget.name for budget in Budget.objects.all()},
+        'accounts': [(account.name_for(budget.owner()), str(account.id))
+                     for account in accounts],
+        'categories': [(category.name_for(budget.owner()), str(category.id))
+                       for category in categories],
+        'category_budget': dict(categories.values_list('id', 'budget_id')),
+        'account_budget': dict(accounts.values_list('id', 'budget_id')),
+        'budget': dict(budget.visible_budgets().values_list('id', 'name')),
         'external': {account.id: account.budget.get_hidden(Category).id
                      for account
-                     in Account.objects.filter(name='')
+                     in accounts.filter(name='')
                      .prefetch_related('budget__category_set')}
     }
     context = {'formset': formset, 'form': form,

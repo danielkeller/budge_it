@@ -55,6 +55,21 @@ class Budget(models.Model):
     def view_permission(self, user: Union[AbstractBaseUser, AnonymousUser]):
         return user.is_authenticated and user == self.owner()
 
+    def visible_budgets(self):
+        filter = Q(friends=self)
+        if self.owner():
+            filter |= (Q(friends__budget_of=self.owner()) |
+                       Q(payee_of=self.owner()) | Q(budget_of=self.owner()))
+        return Budget.objects.filter(filter).distinct()
+
+    def visible_accounts(self, cls: Type[BaseAccountT]):
+        filter = Q(budget__friends=self) & Q(name='')
+        if self.owner():
+            filter |= Q(budget__friends__budget_of=self.owner()) & Q(name='')
+            filter |= (Q(budget__payee_of=self.owner()) |
+                       Q(budget__budget_of=self.owner()))
+        return cls.objects.filter(filter).distinct()
+
 
 class Permissions:
     budget: Budget
@@ -97,11 +112,7 @@ class Permissions:
     @staticmethod
     def visibility(budget: Budget, budgets: 'Iterable[Budget]'):
         ids = (budget.id for budget in budgets)
-        filter = Q(friends=budget)
-        if budget.owner():
-            filter |= (Q(friends__budget_of=budget.owner()) |
-                       Q(payee_of=budget.owner()) | Q(budget_of=budget.owner()))
-        return Budget.objects.filter(filter, id__in=ids).distinct().order_by('id')
+        return budget.visible_budgets().filter(id__in=ids).order_by('id')
 
     def connection(self, there: Budget):
         while there in self.connectivity:
@@ -148,9 +159,9 @@ class BaseAccount(models.Model):
         else:
             return f"{self.budget.name} - {str(self.name)}"
 
-    def name_in_budget(self, budget: Budget):
+    def name_for(self, user: Optional[User]):
         # This logic is duplicated in account_in_budget.html
-        if self.budget.budget_of == budget.owner():
+        if self.budget.budget_of == user:
             return self.name or "Inbox"
         if isinstance(self, Category):
             return f"[{self.budget.name}]"
@@ -307,7 +318,7 @@ class Transaction(models.Model):
             return self.description
         accounts, categories = self.parts(in_account.budget)
         names = (
-            [account.name_in_budget(in_account.budget)
+            [account.name_for(in_account.budget.owner())
              for account in chain(accounts, categories)
              if account.budget.budget_of == in_account.budget.owner()
              and account != in_account] +
