@@ -15,6 +15,7 @@ addEventListener("DOMContentLoaded", function () {
     document.forms[0].addEventListener('submit', onSubmit);
     document.addEventListener("keydown", key);
     setUpRows();
+    checkValid();
 });
 
 function key(event) {
@@ -183,31 +184,31 @@ function amountChanged({ target }) {
 
 function suggestSums() {
     var to_category = [];
-    var category_total = 0;
+    var category_total = Decimal.zero;
     var to_account = [];
-    var account_total = 0;
+    var account_total = Decimal.zero;
     for (var { account, category, moved, transferred } of rows) {
         if (category.value) {
             if (moved.value) {
-                category_total += +moved.value;
+                category_total = category_total.plus(moved.value);
             } else {
                 to_category.push(moved);
             }
         }
         if (account.value) {
             if (transferred.value) {
-                account_total += +transferred.value;
+                account_total = account_total.plus(transferred.value);
             } else {
                 to_account.push(transferred);
             }
         }
     }
     var result = false;
-    if (!isNaN(-category_total) && to_category.length === 1) {
-        result |= suggest(to_category[0], -category_total);
+    if (category_total.isFinite() && to_category.length === 1) {
+        result |= suggest(to_category[0], category_total.negate());
     }
-    if (!isNaN(-account_total) && to_account.length === 1) {
-        result |= suggest(to_account[0], -account_total);
+    if (account_total.isFinite() && to_account.length === 1) {
+        result |= suggest(to_account[0], account_total.negate());
     }
     return result;
 }
@@ -219,9 +220,9 @@ function suggestRowConsistency(options) {
         if (options?.onlyExternal &&
             category.value !== String(data.external[account.value]))
             continue;
-        if (transferred.value && !isNaN(transferred.value))
+        if (transferred.value && Decimal.parse(transferred.value).isFinite())
             result |= suggest(moved, transferred.value);
-        if (moved.value && !isNaN(moved.value))
+        if (moved.value && Decimal.parse(moved.value).isFinite())
             result |= suggest(transferred, moved.value);
     }
     return result;
@@ -243,22 +244,22 @@ function suggestAmounts() {
 }
 
 function combineDebts(owed) {
-    var amounts = Object.entries(owed).filter(o => o[1])
-        .sort((a, b) => a[1] - b[1]);
+    var amounts = Object.entries(owed).filter(o => o[1].ne(0))
+        .sort((a, b) => a[1].cmp(b[1]));
     var result = [];
-    var [from, amount] = ['', 0];
-    while (amounts.length || amount) {
-        if (!amount)
+    var [from, amount] = ['', Decimal.zero];
+    while (amounts.length || amount.ne(0)) {
+        if (amount.eq(0))
             [from, amount] = amounts.shift();
         if (!amounts.length)
             return [];  // Debts do not sum to zero
         const [to, other] = amounts.pop();
-        const result_amount = Math.min(-amount, other);
+        const result_amount = amount.negate().min(other);
         result.push([from, to, result_amount]);
-        amount += other;
-        if (amount > 0) {
+        amount = amount.plus(other);
+        if (amount.gt(0)) {
             amounts.push([to, amount]);
-            amount = 0;
+            amount = Decimal.zero;
         }
     }
     return result;
@@ -271,29 +272,29 @@ function stripBrackets(value) {
 }
 
 function checkValid() {
-    var category_total = 0;
-    var account_total = 0;
+    var category_total = Decimal.zero;
+    var account_total = Decimal.zero;
     var owed = {};
     for (var { account, category, moved, transferred } of rows) {
-        account_total += +transferred.value;
+        account_total = account_total.plus(transferred.value);
         let budget = data.account_budget[account.value] || account.value;
-        if (!owed[budget]) owed[budget] = 0;
-        owed[budget] += +transferred.value;
+        if (!owed[budget]) owed[budget] = Decimal.zero;
+        owed[budget] = owed[budget].plus(transferred.value);
 
-        category_total += +moved.value;
+        category_total = category_total.plus(moved.value);
         budget = data.category_budget[category.value]
             || stripBrackets(category.value);
-        if (!owed[budget]) owed[budget] = 0;
-        owed[budget] += -moved.value;
+        if (!owed[budget]) owed[budget] = Decimal.zero;
+        owed[budget] = owed[budget].minus(moved.value);
     }
     valid = true;
-    if (category_total && !isNaN(category_total)) {
+    if (category_total.ne(0) && category_total.isFinite()) {
         category_sum.innerText = category_total + ' left to categorize';
         valid = false;
     } else {
         category_sum.innerText = '';
     }
-    if (account_total && !isNaN(account_total)) {
+    if (account_total.ne(0) && account_total.isFinite()) {
         account_sum.innerText = account_total + ' left to account for';
         valid = false;
     } else {

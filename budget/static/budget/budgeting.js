@@ -18,12 +18,12 @@ addEventListener("DOMContentLoaded", function () {
 });
 
 function fixInbox() {
-    var total = 0;
+    var total = Decimal.zero;
     for (const row of window.rows) {
-        total += +row.value;
+        total = total.plus(row.value);
     }
-    if (!isNaN(total) && total !== 0) {
-        window.inbox.value = -total;
+    if (total.isFinite() && total.ne(0)) {
+        window.inbox.value = total.negate();
     } else {
         window.inbox.value = "";
     }
