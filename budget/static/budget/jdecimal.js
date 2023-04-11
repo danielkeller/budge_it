@@ -1,7 +1,5 @@
 "use strict";
 
-const re = /^(-?[0-9]*)\.?([0-9]*)$/;
-
 // The "j" is for "jank"
 class Decimal {
     e = 0;
@@ -9,9 +7,9 @@ class Decimal {
 
     constructor() { }
     static parse(string) {
-        const match = string.match(re);
-        if (!match) return Decimal.NaN;
-        const [, int, frac] = match;
+        const match = string.trim().match(Decimal.#re);
+        let [, int, frac] = match.filter(c => c !== undefined);
+        int = int.replaceAll(/[,.' ]/g, "");
         return Decimal.#fromParts(frac.length, +(int + frac));
     }
     static zero = new Decimal();
@@ -20,9 +18,9 @@ class Decimal {
     toString() {
         if (!isFinite(this.m)) return this.m;
         const int = Math.trunc(this.m / (10 ** this.e));
-        let frac = Math.abs(this.m % (10 ** this.e));
+        let frac = Math.abs(this.m % (10 ** this.e)) || '';
         frac = frac.toString().padStart(this.e, '0');
-        return `${int}.${frac}`
+        return `${int}${Decimal.#point}${frac}`
     }
 
     plus(other) {
@@ -40,6 +38,9 @@ class Decimal {
     min(other) { return this.lt(other) ? this : other; }
     isFinite() { return isFinite(this.m); }
 
+    static #point = new Intl.NumberFormat().formatToParts(1.1)[1].value;
+    static #re =
+        new RegExp(`(.*)[,.·]([0-9]{0,2})$|(.*)\\${Decimal.#point}([0-9]*)$|(.*)()$`);
     static #fromParts(e, m) {
         let result = new Decimal();
         result.e = e;
