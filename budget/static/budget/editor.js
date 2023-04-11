@@ -221,9 +221,9 @@ function suggestRowConsistency(options) {
             category.value !== String(data.external[account.value]))
             continue;
         if (transferred.value && Decimal.parse(transferred.value).isFinite())
-            result |= suggest(moved, transferred.value);
+            result |= suggest(moved, Decimal.parse(transferred.value));
         if (moved.value && Decimal.parse(moved.value).isFinite())
-            result |= suggest(transferred, moved.value);
+            result |= suggest(transferred, Decimal.parse(moved.value));
     }
     return result;
 }
