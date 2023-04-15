@@ -31,9 +31,9 @@ addEventListener("DOMContentLoaded", function () {
                         })
                 }
                 cell.input = input;
-            } else if (td.className === "spent") {
+            } else if (td.classList.contains("spent")) {
                 cell.spent = +td.textContent;
-            } else if (td.className === "total") {
+            } else if (td.classList.contains("total")) {
                 cell.total = td;
                 row.push(cell);
                 cell = {};

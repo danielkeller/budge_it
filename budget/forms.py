@@ -35,9 +35,9 @@ class TransactionPartForm(forms.Form):
     category = AccountChoiceField(
         required=False, queryset=None, empty_label='', widget=forms.HiddenInput)
     transferred = forms.DecimalField(
-        required=False, widget=forms.TextInput(attrs={'size': 7}))
+        required=False, widget=forms.TextInput(attrs={'class': 'number'}))
     moved = forms.DecimalField(
-        required=False, widget=forms.TextInput(attrs={'size': 7}))
+        required=False, widget=forms.TextInput(attrs={'class': 'number'}))
 
 
 class BaseTransactionPartFormSet(forms.BaseFormSet):
@@ -110,7 +110,7 @@ class BudgetingForm(forms.ModelForm):
         for category in budget.category_set.all():
             self.fields[str(category.id)] = forms.DecimalField(
                 required=False, widget=forms.TextInput(
-                    attrs={'size': 5, 'form': 'form'}))
+                    attrs={'class': 'number', 'form': 'form'}))
         if instance:
             for part in instance.category_parts.all():
                 self.initial[str(part.to_id)] = part.amount

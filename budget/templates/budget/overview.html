@@ -12,12 +12,12 @@
     {% for category in categories %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{% account_in_budget category budget %}</td>
-        <td>{{ category.balance | default:0 }}</td>
+        <td class="number">{{ category.balance | default:0 }}</td>
     </tr>
     {% endfor %}
     <tr class="{% cycle rowcolor %}">
         <td>Total</td>
-        <td>{{ total }}</td>
+        <td class="number">{{ total }}</td>
     </tr>
     <tr class="{% cycle rowcolor %}">
         <td>
@@ -34,18 +34,18 @@
     {% for account in accounts %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{% account_in_budget account budget %}</td>
-        <td>{{ account.balance |default:0 }}</td>
+        <td class="number">{{ account.balance |default:0 }}</td>
     </tr>
     {% endfor %}
     {% for budget, amount in debts %}
     <tr class="{% cycle rowcolor %}">
         <td><a href="{% url 'balance' budget.id budget.id %}">Owed by {{ budget }}</a></td>
-        <td>{{ amount }}</td>
+        <td class="number">{{ amount }}</td>
     </tr>
     {% endfor %}
     <tr class="{% cycle rowcolor %}">
         <td>Total</td>
-        <td>{{ total }}</td>
+        <td class="number">{{ total }}</td>
     </tr>
     <tr class="{% cycle rowcolor %}">
         <td>

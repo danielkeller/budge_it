@@ -25,9 +25,9 @@
         data-kind="{{entry.transaction.kind}}">
         <td>{{entry.transaction.date}}</td>
         <td>{{entry.transaction|transaction_description:account}}</td>
-        <td>{{entry.amount}}</td>
+        <td class="number">{{entry.amount}}</td>
         <td>
-            {{entry.running_sum}}
+            <div class="number">{{entry.running_sum}}</div>
             <div class="detail-container">
                 <div class="transaction-detail">
                     <span class="line">──┐</span>
@@ -39,7 +39,7 @@
                         <tr class="{% cycle 'a' 'b' %}">
                             <td>{% account_in_budget part.account account.budget %}</td>
                             <td>{% account_in_budget part.category account.budget %}</td>
-                            <td>{{part.amount}}</td>
+                            <td class="number">{{part.amount}}</td>
                         </tr>
                         {% endfor %}
                         {% resetcycle %}

@@ -28,8 +28,8 @@
         <td>{{ category.name|default:"Inbox" }}</td>
         {% for field, total in row %}
         <td class="tdinput">{{field}}</td>
-        <td class="spent">{{total|default:""}}</td>
-        <td class="total"></td>
+        <td class="spent number">{{total|default:""}}</td>
+        <td class="total number"></td>
         {% endfor %}
     </tr>
     {% endfor %}

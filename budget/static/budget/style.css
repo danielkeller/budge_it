@@ -145,3 +145,7 @@ form.edit {
     color: GrayText;
     font-style: italic;
 }
+
+.number {
+    text-align: right;
+}
