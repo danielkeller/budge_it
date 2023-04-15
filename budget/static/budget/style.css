@@ -4,13 +4,15 @@
 
 @media (prefers-color-scheme: light) {
     html {
-        --canvas: rgb(246, 246, 246)
+        --canvas: rgb(246, 246, 246);
+        --alt-canvas: #e0f0eb;
     }
 }
 
 @media (prefers-color-scheme: dark) {
     html {
-        --canvas: rgb(50, 50, 50)
+        --canvas: rgb(50, 50, 50);
+        --alt-canvas: #1e4438;
     }
 }
 
@@ -71,13 +73,7 @@ table {
 }
 
 tr.a {
-    background-color: #e0f0eb;
-}
-
-@media (prefers-color-scheme: dark) {
-    tr.a {
-        background-color: #1e4438;
-    }
+    background-color: var(--alt-canvas);
 }
 
 td,
