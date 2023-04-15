@@ -16,10 +16,10 @@
 </div>
 <div><button type="button" id="new">Add transaction</button></div>
 <table id="table">
-    <th>Date</th>
-    <th>Description</th>
-    <th>Amount</th>
-    <th>Total</th>
+    <th class="t5">Date</th>
+    <th class="t6">Description</th>
+    <th class="t4">Amount</th>
+    <th class="t4">Total</th>
     {% for entry in entries %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{entry.transaction.id}}"
         data-kind="{{entry.transaction.kind}}">
@@ -32,9 +32,9 @@
                 <div class="transaction-detail">
                     <span class="line">──┐</span>
                     <table class="transaction-detail-table">
-                        <th>Account</th>
-                        <th>Category</th>
-                        <th>Amount</th>
+                        <th class="t5">Account</th>
+                        <th class="t5">Category</th>
+                        <th class="t4">Amount</th>
                         {% for part in entry.transaction|tabular:account.budget %}
                         <tr class="{% cycle 'a' 'b' %}">
                             <td>{% account_in_budget part.account account.budget %}</td>

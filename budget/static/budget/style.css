@@ -54,6 +54,22 @@ table {
     border-collapse: collapse;
 }
 
+.t4 {
+    --cell-width: calc(4 * var(--line-height));
+}
+.t5 {
+    --cell-width: calc(5 * var(--line-height));
+}
+.t6 {
+    --cell-width: calc(6 * var(--line-height));
+}
+.t8 {
+    --cell-width: calc(8 * var(--line-height));
+}
+.t9 {
+    --cell-width: calc(9 * var(--line-height));
+}
+
 tr.a {
     background-color: #e0f0eb;
 }
@@ -69,6 +85,7 @@ th {
     /* Make each table row take exactly one line */
     --td-line-height: calc(var(--line-height) - var(--td-border));
     line-height: var(--td-line-height);
+    width: var(--cell-width);
     --td-hpad: calc(var(--line-height) * 0.2);
     border: var(--td-border) solid #888;
     padding: 0 var(--td-hpad);
