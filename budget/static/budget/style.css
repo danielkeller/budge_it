@@ -149,7 +149,3 @@ form.edit {
 .number {
     text-align: right;
 }
-
-span.number {
-    display: inline-block;
-}

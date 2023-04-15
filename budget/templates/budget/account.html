@@ -27,7 +27,6 @@
         <td>{{entry.transaction|transaction_description:account}}</td>
         <td class="number">{{entry.amount}}</td>
         <td>
-            <span class="number">{{entry.running_sum}}</span>
             <div class="detail-container">
                 <div class="transaction-detail">
                     <span class="line">──┐</span>
@@ -46,6 +45,7 @@
                     </table>
                 </div>
             </div>
+            <div class="number">{{entry.running_sum}}</div>
         </td>
     </tr>
     {% endfor %}
