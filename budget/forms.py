@@ -38,6 +38,10 @@ class TransactionPartForm(forms.Form):
         required=False, widget=forms.TextInput(attrs={'class': 'number'}))
     moved = forms.DecimalField(
         required=False, widget=forms.TextInput(attrs={'class': 'number'}))
+    # transferred_currency = forms.CharField(
+    #     required=False, widget=forms.HiddenInput)
+    # moved_currency = forms.CharField(
+    #     required=False, widget=forms.HiddenInput)
 
 
 class BaseTransactionPartFormSet(forms.BaseFormSet):

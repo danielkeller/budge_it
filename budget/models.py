@@ -28,8 +28,10 @@ class Budget(models.Model):
 
     # This can easily be relaxed into a ForeignKey if we want to allow multiple
     # budgets
+    budget_of_id: int
     budget_of = models.OneToOneField(
         User, blank=True, null=True, on_delete=models.SET_NULL)
+    payee_of_id: int
     payee_of = models.ForeignKey(
         User, blank=True, null=True, on_delete=models.SET_NULL,
         related_name="payee_set")
@@ -51,6 +53,11 @@ class Budget(models.Model):
 
     def owner(self):
         return self.budget_of or self.payee_of
+    
+    def main_budget(self):
+        if self.budget_of or not self.payee_of:
+            return self
+        return Budget.objects.get(budget_of_id=self.payee_of_id)
 
     def view_permission(self, user: Union[AbstractBaseUser, AnonymousUser]):
         return user.is_authenticated and user == self.owner()
@@ -142,7 +149,7 @@ class BaseAccount(models.Model):
     budget_id: int  # Sigh
     balance: int
     entries: 'models.Manager[TransactionPart]'
-    # TODO: read/write access
+    currency = models.CharField(max_length=5, blank=True)
 
     def kind(self) -> str:
         return ''

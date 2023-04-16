@@ -105,6 +105,7 @@ def new_category(request: HttpRequest, budget_id: int):
 def edit(request: HttpRequest, budget_id: int,
          transaction_id: Optional[int] = None):
     budget = _get_allowed_budget_or_404(request, budget_id)
+    budget = budget.main_budget()
     if transaction_id == None:
         transaction = None
     else:
