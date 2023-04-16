@@ -14,15 +14,25 @@ from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 BaseAccountT = TypeVar('BaseAccountT', bound='BaseAccount')
 T = TypeVar('T')
 
+class Id(models.Model):
+    """Distinct identity for budgets, accounts, and categories"""
+    id: models.BigAutoField
+    name = models.CharField(max_length=100, blank=True)
+    of_budget: 'models.OneToOneField[Budget]'
+    of_account: 'models.OneToOneField[Account]'
+    of_category: 'models.OneToOneField[Category]'
 
-class Budget(models.Model):
+
+class Budget(Id):
     class Meta:  # type: ignore
         constraints = [models.CheckConstraint(
             check=Q(budget_of__isnull=True) | Q(payee_of__isnull=True),
             name="cant_be_payee_and_budget")]
+        
+    id_ptr = models.OneToOneField(
+        Id, related_name='of_budget',
+        on_delete=models.CASCADE, parent_link=True)
 
-    id: models.BigAutoField
-    name = models.CharField(max_length=100)
     account_set: 'models.Manager[Account]'
     category_set: 'models.Manager[Category]'
 
@@ -139,12 +149,11 @@ def reroot(tree: 'dict[T, T]', node: T):
             parent, node = parent2, parent
 
 
-class BaseAccount(models.Model):
+class BaseAccount(Id):
     """BaseAccounts describe a generic place money can be"""
     class Meta:  # type: ignore
         abstract = True
-    id: models.BigAutoField
-    name = models.CharField(max_length=100, blank=True)
+    id_ptr: models.OneToOneField[Id]
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE)
     budget_id: int  # Sigh
     balance: int
@@ -182,6 +191,9 @@ class BaseAccount(models.Model):
 
 class Account(BaseAccount):
     """Accounts describe the physical ownership of money."""
+    id_ptr = models.OneToOneField(
+        Id, related_name='of_account',
+        on_delete=models.CASCADE, parent_link=True)
 
     def kind(self):
         return 'account'
@@ -191,6 +203,10 @@ class Category(BaseAccount):
     """Categories describe the conceptual ownership of money."""
     class Meta:  # type: ignore
         verbose_name_plural = "categories"
+
+    id_ptr = models.OneToOneField(
+        Id, related_name='of_category',
+        on_delete=models.CASCADE, parent_link=True)
 
     def kind(self):
         return 'category'

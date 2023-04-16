@@ -5,10 +5,12 @@ from .models import *
 
 class AccountInline(admin.TabularInline):  # type: ignore
     model = Account
+    fk_name = 'budget'
 
 
 class CategoryInline(admin.TabularInline):  # type: ignore
     model = Category
+    fk_name = 'budget'
 
 
 class BudgetAdmin(admin.ModelAdmin):  # type: ignore
