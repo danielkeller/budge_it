@@ -49,7 +49,7 @@
     <button id="submit-button" form="form">Save</button>
     <button id="cancel" type="button">Cancel</button>
     {% if transaction_id %}
-    <form class="edit" action="{% url 'delete' budget_id transaction_id%}?next={{ request.GET.back|urlencode }}"
+    <form class="edit" action="{% url 'delete' budget.id transaction_id%}?next={{ request.GET.back|urlencode }}"
         method="post">
         {% csrf_token %}
         <button>Delete</button>
@@ -57,13 +57,19 @@
     {% endif %}
 </div>
 <datalist id="account-list">
-    {% for account, id in data.accounts %}
-    <option value="{{ account }}"></option>
+    {% for account in budget.account_set.all %}
+    <option data-id="{{ account.id }}" value="{{ account.name|default:"Inbox" }}"></option>
+    {% endfor %}
+    {% for budget in payees %}
+    <option data-id="{{ budget.id }}" value="{{ budget }}"></option>
     {% endfor %}
 </datalist>
 <datalist id="category-list">
-    {% for category, id in data.categories %}
-    <option value="{{ category }}"></option>
+    {% for category in budget.category_set.all %}
+    <option data-id="{{ category.id }}" value="{{ category.name|default:"Inbox" }}"></option>
+    {% endfor %}
+    {% for budget in payees %}
+    <option data-id="{{ budget.id }}" value="[{{ budget }}]"></option>
     {% endfor %}
 </datalist>
 

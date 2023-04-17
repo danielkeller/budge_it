@@ -1,7 +1,7 @@
 from typing import Optional, Type, Any
 from datetime import date, timedelta
 
-from django.db.models import Min, Max
+from django.db.models import Min, Max, Value
 from django.shortcuts import render
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
                          HttpResponseBadRequest, Http404)
@@ -127,24 +127,16 @@ def edit(request: HttpRequest, budget_id: int,
         formset = TransactionPartFormSet(
             budget, prefix="tx", instance=transaction)
 
-    accounts = budget.visible_accounts(Account)
-    categories = budget.visible_accounts(Category)
+    budgets = budget.visible_budgets()
+    payees = budgets.exclude(id=budget.id)
     data = {
-        'budget': budget_id,
-        'accounts': [(account.name_for(budget.owner()), str(account.id))
-                     for account in accounts],
-        'categories': [(category.name_for(budget.owner()), str(category.id))
-                       for category in categories],
-        'category_budget': dict(categories.values_list('id', 'budget_id')),
-        'account_budget': dict(accounts.values_list('id', 'budget_id')),
-        'budget': dict(budget.visible_budgets().values_list('id', 'name')),
-        'external': {account.id: account.budget.get_hidden(Category).id
-                     for account
-                     in accounts.filter(name='')
-                     .prefetch_related('budget__category_set')}
+        'budget': budget.id,
+        'accounts': dict(budget.account_set.values_list('id', Value(0))),
+        'categories': dict(budget.category_set.values_list('id', Value(0))),
+        'budgets': dict(budgets.values_list('id', 'name'))
     }
-    context = {'formset': formset, 'form': form,
-               'budget_id': budget_id, 'transaction_id': transaction_id,
+    context = {'formset': formset, 'form': form, 'payees': payees,
+               'budget': budget, 'transaction_id': transaction_id,
                'data': data}
     return render(request, 'budget/edit.html', context)
 
@@ -169,7 +161,7 @@ def _months_between(start: date, end: date):
 @login_required
 def history(request: HttpRequest, budget_id: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
-    inbox = budget.category_set.get(name='')
+    inbox = budget.get_hidden(Category)
 
     history = category_history(budget_id)
     categories = budget.category_set.order_by('name')

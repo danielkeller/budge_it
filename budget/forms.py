@@ -7,33 +7,43 @@ from django.db import transaction
 from django.forms import ValidationError
 from django.contrib.auth.models import User
 
-from .models import (Budget, BaseAccount, Account, Category,
+from .models import (Id, Budget, BaseAccount, Account, Category,
                      Transaction, budgeting_transactions)
 
 
-class AccountChoiceField(forms.ModelChoiceField):
+class AccountChoiceField(forms.Field):
     user: User
+    type: Type[BaseAccount]
+
+    def __init__(self, *, type: Type[BaseAccount], **kwargs: Any):
+        self.type = type
+        super().__init__(**kwargs, widget=forms.HiddenInput)
+    
+    def prepare_value(self, value: Any):
+        if isinstance(value, str):
+            return value
+        if (isinstance(value, self.type)
+             and value.budget.budget_of != self.user):
+            return value.budget_id
+        return value and value.id
 
     def to_python(self, value: Any):
-        if value in self.empty_values:
+        if value == '':
             return None
         try:
-            return self.queryset.get(id=value)
-        except (TypeError, ValueError, self.queryset.model.DoesNotExist):
+            # TODO: permissions (?)
+            return self.type.get(value)
+        except (TypeError, ValueError, Id.DoesNotExist):
             pass
-        if (self.queryset.model == Category
+        if (self.type == Category
                 and value.startswith('[') and value.endswith(']')):
             value = value[1:-1]
-        budget, _ = Budget.objects.get_or_create(
-            name=value, payee_of=self.user)
-        return budget.get_hidden(self.queryset.model)
+        return Budget.objects.get_or_create(name=value, payee_of=self.user)[0]
 
 
 class TransactionPartForm(forms.Form):
-    account = AccountChoiceField(
-        required=False, queryset=None, empty_label='', widget=forms.HiddenInput)
-    category = AccountChoiceField(
-        required=False, queryset=None, empty_label='', widget=forms.HiddenInput)
+    account = AccountChoiceField(type=Account, required=False)
+    category = AccountChoiceField(type=Category, required=False)
     transferred = forms.DecimalField(
         required=False, widget=forms.TextInput(attrs={'class': 'number'}))
     moved = forms.DecimalField(
@@ -63,21 +73,24 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
 
     def add_fields(self, form: TransactionPartForm, index: int):
         super().add_fields(form, index)
-        # queryset is ˚*･༓ magic ༓･*˚ so it has to be set second
         form.fields['account'].user = self.budget.owner()
-        form.fields['account'].queryset = Account.objects.all()
         form.fields['category'].user = self.budget.owner()
-        form.fields['category'].queryset = Category.objects.all()
 
     def clean(self):
         if any(self.errors):
             return
         category_total, account_total = 0, 0
         for form in self.forms:
-            if form.cleaned_data.get('category'):
-                category_total += (form.cleaned_data.get('moved') or 0)
-            if form.cleaned_data.get('account'):
-                account_total += (form.cleaned_data.get('transferred') or 0)
+            category = form.cleaned_data.get('category')
+            if category:
+                if isinstance(category, Budget):
+                    form.cleaned_data['category'] = category.get_hidden(Category)
+                category_total += form.cleaned_data.get('moved', 0)
+            account = form.cleaned_data.get('account')
+            if account:
+                if isinstance(account, Budget):
+                    form.cleaned_data['account'] = account.get_hidden(Account)
+                account_total += form.cleaned_data.get('transferred', 0)
         if account_total or category_total:
             raise ValidationError("Amounts do not sum to zero")
 
@@ -86,14 +99,12 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
         accounts: dict[Account, int] = {}
         categories: dict[Category, int] = {}
         for form in self.forms:
-            if (form.cleaned_data.get('account')
-                    and form.cleaned_data.get('transferred')):
-                accounts[form.cleaned_data['account']
-                         ] = form.cleaned_data['transferred']
-            if (form.cleaned_data.get('category')
-                    and form.cleaned_data.get('moved')):
-                categories[form.cleaned_data['category']
-                           ] = form.cleaned_data['moved']
+            account = form.cleaned_data.get('account')
+            if account and form.cleaned_data.get('transferred'):
+                accounts[account] = form.cleaned_data['transferred']
+            category = form.cleaned_data.get('category')
+            if category and form.cleaned_data.get('moved'):
+                categories[category] = form.cleaned_data['moved']
         instance.set_parts(self.budget, accounts, categories)
 
 

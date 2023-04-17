@@ -9,6 +9,12 @@ addEventListener("DOMContentLoaded", function () {
     window.category_sum = document.getElementById("category-sum");
     window.account_sum = document.getElementById("account-sum");
     window.debt = document.getElementById("debt");
+    window.account_options = Array.from(
+        document.getElementById("account-list").options)
+        .map(option => [option.value, option.dataset.id]); 
+    window.category_options = Array.from(
+        document.getElementById("category-list").options)
+        .map(option => [option.value, option.dataset.id]);
 
     document.getElementById('addrow').addEventListener('click', addRow);
     document.getElementById('cancel').addEventListener('click', cancel);
@@ -26,7 +32,7 @@ function key(event) {
     } else if (event.key === "Enter") {
         if (document.activeElement.type !== "button"
             && document.activeElement.type !== "submit")
-            document.forms[0].submit();
+            if (valid) document.forms[0].submit();
     }
 }
 
@@ -73,9 +79,9 @@ function selectInput() {
 function setUpRow(tr) {
     var [account, category, [transferred], [moved]] =
         Array.prototype.map.call(tr.children, n => n.children);
-    account = new Selector(account, data.accounts, accountChanged);
-    category = new Selector(category, data.categories, categoryChanged);
-    if (category.value === String(data.external[account.value]))
+    account = new Selector(account, account_options, accountChanged);
+    category = new Selector(category, category_options, categoryChanged);
+    if (category.value === account.value)
         category.classList.add('suggested');
     transferred.disabled = !account.value;
     moved.disabled = !category.value;
@@ -144,9 +150,9 @@ function accountChanged({ target }) {
 
     var { category, transferred, moved } = rows[findRow(target)];
     unsuggest(category);
-    if (target.value in data.external)
-        suggest(category, data.external[target.value]);
-    else if (target.value && !(target.value in data.account_budget))
+    if (target.value in data.budgets)
+        suggest(category, target.value);
+    else if (target.value && !(target.value in data.accounts))
         suggest(category, `[${target.value}]`);
 
     moved.disabled = !category.value;
@@ -217,8 +223,7 @@ function suggestRowConsistency(options) {
     var result = false;
     for (var { account, category, moved, transferred } of rows) {
         if (!account.value || !category.value) { continue; }
-        if (options?.onlyExternal &&
-            category.value !== String(data.external[account.value]))
+        if (options?.onlyExternal && category.value !== account.value)
             continue;
         if (transferred.value && Decimal.parse(transferred.value).isFinite())
             result |= suggest(moved, Decimal.parse(transferred.value));
@@ -277,13 +282,14 @@ function checkValid() {
     var owed = {};
     for (var { account, category, moved, transferred } of rows) {
         account_total = account_total.plus(transferred.value);
-        let budget = data.account_budget[account.value] || account.value;
+        let budget = account.value in data.accounts
+            ? data.budget : account.value;
         if (!owed[budget]) owed[budget] = Decimal.zero;
         owed[budget] = owed[budget].plus(transferred.value);
 
         category_total = category_total.plus(moved.value);
-        budget = data.category_budget[category.value]
-            || stripBrackets(category.value);
+        budget = category.value in data.categories
+            ? data.budget : stripBrackets(category.value);
         if (!owed[budget]) owed[budget] = Decimal.zero;
         owed[budget] = owed[budget].minus(moved.value);
     }
@@ -302,7 +308,7 @@ function checkValid() {
     }
     debt.innerText = combineDebts(owed)
         .map(([from, to, amount]) =>
-            `${data.budget[to] || to} owes ${data.budget[from] || from} ${amount}`)
+            `${data.budgets[to] || to} owes ${data.budgets[from] || from} ${amount}`)
         .join(', ');
 
     document.getElementById("submit-button").disabled = !valid;

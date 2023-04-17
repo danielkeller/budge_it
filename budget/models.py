@@ -11,7 +11,6 @@ from django.db.models.functions import Trunc
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
-BaseAccountT = TypeVar('BaseAccountT', bound='BaseAccount')
 T = TypeVar('T')
 
 class Id(models.Model):
@@ -22,6 +21,9 @@ class Id(models.Model):
     of_account: 'models.OneToOneField[Account]'
     of_category: 'models.OneToOneField[Category]'
 
+    def __str__(self):
+        return self.name
+    
 
 class Budget(Id):
     class Meta:  # type: ignore
@@ -52,13 +54,10 @@ class Budget(Id):
 
     # TODO: currency
 
-    def __str__(self):
-        return self.name
-
     def get_absolute_url(self):
         return reverse('budget', kwargs={'budget_id': self.id})
 
-    def get_hidden(self, cls: Type[BaseAccountT]) -> BaseAccountT:
+    def get_hidden(self, cls: 'Type[BaseAccountT]') -> 'BaseAccountT':
         return cls.objects.get_or_create(name="", budget=self)[0]
 
     def owner(self):
@@ -79,7 +78,7 @@ class Budget(Id):
                        Q(payee_of=self.owner()) | Q(budget_of=self.owner()))
         return Budget.objects.filter(filter).distinct()
 
-    def visible_accounts(self, cls: Type[BaseAccountT]):
+    def visible_accounts(self, cls: 'Type[BaseAccountT]'):
         filter = Q(budget__friends=self) & Q(name='')
         if self.owner():
             filter |= Q(budget__friends__budget_of=self.owner()) & Q(name='')
@@ -118,7 +117,7 @@ class Permissions:
     def visible(self):
         return set(Permissions.visibility(self.budget, self.budgets))
 
-    def display_in(self, account: BaseAccountT) -> BaseAccountT:
+    def display_in(self, account: 'BaseAccountT') -> 'BaseAccountT':
         if self.budget.owner() == account.budget.owner():
             return account
         elif account.budget in self.visible:
@@ -175,6 +174,13 @@ class BaseAccount(Id):
         else:
             return f"{self.budget.name} - {str(self.name)}"
 
+    @classmethod
+    def get(cls, id: int):
+        try:
+            return cls.objects.get(id=id)
+        except cls.DoesNotExist:
+            return Budget.objects.get(id=id)
+        
     def name_for(self, user: Optional[User]):
         # This logic is duplicated in account_in_budget.html
         if self.budget.budget_of == user:
@@ -187,6 +193,9 @@ class BaseAccount(Id):
         if self.ishidden():
             return self
         return self.budget.get_hidden(type(self))
+
+
+BaseAccountT = TypeVar('BaseAccountT', bound=BaseAccount)
 
 
 class Account(BaseAccount):
@@ -483,7 +492,7 @@ def accounts_overview(budget_id: int):
                   .annotate(balance=Sum('entries__amount', default=0)))
     transactions = transactions_for_budget(budget_id)
     debt_map = functools.reduce(
-        sum_debts, (transaction.debts() for transaction in transactions))
+        sum_debts, (transaction.debts() for transaction in transactions), {})
     debts = ([(Budget.objects.get(id=from_budget), -amount)
               for ((from_budget, to_budget), amount) in debt_map.items()
               if to_budget == budget_id] +
