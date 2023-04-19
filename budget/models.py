@@ -13,6 +13,7 @@ from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
 T = TypeVar('T')
 
+
 class Id(models.Model):
     """Distinct identity for budgets, accounts, and categories"""
     id: models.BigAutoField
@@ -23,14 +24,14 @@ class Id(models.Model):
 
     def __str__(self):
         return self.name
-    
+
 
 class Budget(Id):
     class Meta:  # type: ignore
         constraints = [models.CheckConstraint(
             check=Q(budget_of__isnull=True) | Q(payee_of__isnull=True),
             name="cant_be_payee_and_budget")]
-        
+
     id_ptr = models.OneToOneField(
         Id, related_name='of_budget',
         on_delete=models.CASCADE, parent_link=True)
@@ -62,7 +63,7 @@ class Budget(Id):
 
     def owner(self):
         return self.budget_of or self.payee_of
-    
+
     def main_budget(self):
         if self.budget_of or not self.payee_of:
             return self
@@ -174,13 +175,6 @@ class BaseAccount(Id):
         else:
             return f"{self.budget.name} - {str(self.name)}"
 
-    @classmethod
-    def get(cls, id: int):
-        try:
-            return cls.objects.get(id=id)
-        except cls.DoesNotExist:
-            return Budget.objects.get(id=id)
-        
     def name_for(self, user: Optional[User]):
         # This logic is duplicated in account_in_budget.html
         if self.budget.budget_of == user:

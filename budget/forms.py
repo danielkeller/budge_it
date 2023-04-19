@@ -18,12 +18,12 @@ class AccountChoiceField(forms.Field):
     def __init__(self, *, type: Type[BaseAccount], **kwargs: Any):
         self.type = type
         super().__init__(**kwargs, widget=forms.HiddenInput)
-    
+
     def prepare_value(self, value: Any):
         if isinstance(value, str):
             return value
         if (isinstance(value, self.type)
-             and value.budget.budget_of != self.user):
+                and value.budget.budget_of != self.user):
             return value.budget_id
         return value and value.id
 
@@ -31,14 +31,19 @@ class AccountChoiceField(forms.Field):
         if value == '':
             return None
         try:
-            # TODO: permissions (?)
-            return self.type.get(value)
+            return self.type.objects.get(id=value)
+        except (TypeError, ValueError, self.type.DoesNotExist):
+            pass
+        try:
+            return Budget.objects.get(id=value).get_hidden(self.type)
         except (TypeError, ValueError, Id.DoesNotExist):
             pass
         if (self.type == Category
                 and value.startswith('[') and value.endswith(']')):
             value = value[1:-1]
-        return Budget.objects.get_or_create(name=value, payee_of=self.user)[0]
+        return (Budget.objects
+                .get_or_create(name=value, payee_of=self.user)[0]
+                .get_hidden(self.type))
 
 
 class TransactionPartForm(forms.Form):
@@ -48,10 +53,6 @@ class TransactionPartForm(forms.Form):
         required=False, widget=forms.TextInput(attrs={'class': 'number'}))
     moved = forms.DecimalField(
         required=False, widget=forms.TextInput(attrs={'class': 'number'}))
-    # transferred_currency = forms.CharField(
-    #     required=False, widget=forms.HiddenInput)
-    # moved_currency = forms.CharField(
-    #     required=False, widget=forms.HiddenInput)
 
 
 class BaseTransactionPartFormSet(forms.BaseFormSet):
@@ -81,15 +82,9 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
             return
         category_total, account_total = 0, 0
         for form in self.forms:
-            category = form.cleaned_data.get('category')
-            if category:
-                if isinstance(category, Budget):
-                    form.cleaned_data['category'] = category.get_hidden(Category)
+            if form.cleaned_data.get('category'):
                 category_total += form.cleaned_data.get('moved', 0)
-            account = form.cleaned_data.get('account')
-            if account:
-                if isinstance(account, Budget):
-                    form.cleaned_data['account'] = account.get_hidden(Account)
+            if form.cleaned_data.get('account'):
                 account_total += form.cleaned_data.get('transferred', 0)
         if account_total or category_total:
             raise ValidationError("Amounts do not sum to zero")
