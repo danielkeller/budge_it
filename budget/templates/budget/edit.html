@@ -16,12 +16,12 @@
             <td class="tdinput t9">{{ form.description }}</td>
         </tr>
     </table>
-    <table id="parts" class="t5">
+    <table id="parts">
         <tr>
-            <th>Account</th>
-            <th>Category</th>
-            <th>Transferred</th>
-            <th>Categorized</th>
+            <th class="t5">Account</th>
+            <th class="t5">Category</th>
+            <th class="t6">Transferred</th>
+            <th class="t6">Categorized</th>
         </tr>
         {% for form in formset %}
         <tr>
@@ -31,8 +31,18 @@
             <td class="tdinput">
                 {{ form.category }}<input list="category-list">
             </td class="tdinput">
-            <td class="tdinput">{{ form.transferred }}</td>
-            <td class="tdinput">{{ form.moved }}</td>
+            <td class="tdinput">
+                {{ form.transferred_currency }}
+                {{ form.transferred }}
+                <span></span>
+                <input class="number">
+            </td>
+            <td class="tdinput">
+                {{ form.moved_currency }}
+                {{ form.moved }}
+                <span></span>
+                <input class="number">
+            </td>
         </tr>
         {% endfor %}
         <tr id="adder-row" style="text-align:right;">

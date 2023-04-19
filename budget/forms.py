@@ -50,9 +50,13 @@ class TransactionPartForm(forms.Form):
     account = AccountChoiceField(type=Account, required=False)
     category = AccountChoiceField(type=Category, required=False)
     transferred = forms.DecimalField(
-        required=False, widget=forms.TextInput(attrs={'class': 'number'}))
+        required=False, widget=forms.HiddenInput)
     moved = forms.DecimalField(
-        required=False, widget=forms.TextInput(attrs={'class': 'number'}))
+        required=False, widget=forms.HiddenInput)
+    transferred_currency = forms.CharField(
+        required=False, widget=forms.HiddenInput)
+    moved_currency = forms.CharField(
+        required=False, widget=forms.HiddenInput)
 
 
 class BaseTransactionPartFormSet(forms.BaseFormSet):
@@ -66,8 +70,10 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
             for row in initial:
                 if row['account']:
                     row['transferred'] = row['amount']
+                    row['transferred_currency'] = row['account'].currency
                 if row['category']:
                     row['moved'] = row['amount']
+                    row['moved_currency'] = row['category'].currency
         else:
             initial = None
         super().__init__(*args, initial=initial, **kwargs)
@@ -89,7 +95,7 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
         if account_total or category_total:
             raise ValidationError("Amounts do not sum to zero")
 
-    @transaction.atomic
+    @ transaction.atomic
     def save(self, *, instance: Transaction):
         accounts: dict[Account, int] = {}
         categories: dict[Category, int] = {}
@@ -163,7 +169,7 @@ class BaseBudgetingFormSet(forms.BaseModelFormSet):
             form.instance.month or form.initial.get('date'): form
             for form in self.forms}
 
-    @transaction.atomic
+    @ transaction.atomic
     def save(self, commit: bool = False):
         super().save(commit)
 

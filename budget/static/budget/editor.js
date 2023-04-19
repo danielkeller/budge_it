@@ -11,7 +11,7 @@ addEventListener("DOMContentLoaded", function () {
     window.debt = document.getElementById("debt");
     window.account_options = Array.from(
         document.getElementById("account-list").options)
-        .map(option => [option.value, option.dataset.id]); 
+        .map(option => [option.value, option.dataset.id]);
     window.category_options = Array.from(
         document.getElementById("category-list").options)
         .map(option => [option.value, option.dataset.id]);
@@ -51,38 +51,92 @@ function findRow(input) {
 }
 
 class Selector {
+    #visible; #hidden; #options; #oninput;
     constructor([hidden, visible], options, oninput) {
-        this.visible = visible;
-        this.hidden = hidden;
-        this.options = options;
-        this.oninput = oninput;
-        visible.addEventListener('input', selectInput.bind(this));
+        this.#visible = visible;
+        this.#hidden = hidden;
+        this.#options = options;
+        this.#oninput = oninput;
+        visible.addEventListener('input', this.#selectInput.bind(this));
         this.value = this.value;
     }
     set value(value) {
         value = String(value);
-        this.hidden.value = value;
-        const option = this.options.find(([_, optvalue]) => optvalue === value);
-        this.visible.value = option ? option[0] : value;
+        this.#hidden.value = value;
+        const option = this.#options.find(([_, optvalue]) => optvalue === value);
+        this.#visible.value = option ? option[0] : value;
     }
-    get value() { return this.hidden.value; }
-    set name(name) { this.hidden.name = name; }
-    get classList() { return this.visible.classList; }
-    focus(args) { this.visible.focus(args); }
+    get value() { return this.#hidden.value; }
+    set name(name) { this.#hidden.name = name; }
+    get active() { return document.activeElement === this.#visible; }
+    get classList() { return this.#visible.classList; }
+    focus(args) { this.#visible.focus(args); }
+    #selectInput() {
+        const option = this.#options.find(([name, _]) => name === this.#visible.value);
+        this.#hidden.value = option ? option[1] : this.#visible.value;
+        this.#oninput({ target: this })
+    }
 }
-function selectInput() {
-    const option = this.options.find(([name, _]) => name === this.visible.value);
-    this.hidden.value = option ? option[1] : this.visible.value;
-    this.oninput({ target: this })
+
+class CurrencyInput {
+    #currency; #amount; #span; #input; #currencyFixed;
+    constructor([currency, amount, span, input], currencyFixed) {
+        this.#currency = currency;
+        this.#amount = amount;
+        this.#span = span;
+        this.#input = input;
+        this.#currencyFixed = currencyFixed;
+        this.#refresh();
+        this.#input.addEventListener('input', this.#parse.bind(this));
+    }
+    #refresh() {
+        if (this.#currencyFixed) {
+            this.#span.innerText = this.#currency.value;
+            this.#span.className = "suggested currency";
+            this.#input.value = this.#amount.value;
+        } else {
+            this.#span.innerText = "";
+            this.#span.className = "";
+            this.#input.value = this.#currency.value + " " + this.#amount.value;
+        }
+    }
+    static #re = /(\p{L}*)\s*(.*)/u;
+    #parse() {
+        if (this.#currencyFixed) {
+            this.#amount.value = this.#input.value;
+        } else {
+            let [, currency, amount] = this.#input.value.match(CurrencyInput.#re);
+            this.#currency.value = currency;
+            this.#amount.value = amount;
+        }
+    }
+    clear() { this.#amount.value = this.#currency.value = ""; this.#refresh(); }
+    set value(value) { this.#amount.value = value; this.#refresh(); }
+    get value() { return this.#amount.value; }
+    set currency(value) { this.#currency.value = value; this.#refresh(); }
+    get currency() { return this.#currency.value; }
+    set currencyFixed(value) { this.#currencyFixed = value; this.#refresh(); }
+    get currencyFixed() { return this.#currencyFixed; }
+    get active() { return document.activeElement === this.#input; }
+
+    addEventListener(...args) { this.#input.addEventListener(...args); }
+    get classList() { return this.#input.classList; }
+    set disabled(value) { this.#input.disabled = value; }
+    set name(value) {
+        this.#amount.name = value;
+        this.#currency.name = value + "_currency";
+    }
 }
 
 function setUpRow(tr) {
-    var [account, category, [transferred], [moved]] =
+    var [account, category, transferred, moved] =
         Array.prototype.map.call(tr.children, n => n.children);
     account = new Selector(account, account_options, accountChanged);
     category = new Selector(category, category_options, categoryChanged);
     if (category.value === account.value)
         category.classList.add('suggested');
+    transferred = new CurrencyInput(transferred, account.value in data.accounts);
+    moved = new CurrencyInput(moved, category.value in data.categories);
     transferred.disabled = !account.value;
     moved.disabled = !category.value;
     transferred.addEventListener('input', amountChanged);
@@ -109,10 +163,10 @@ function addRow(event) {
     account.name = `tx-${n}-account`;
     category.value = '';
     category.name = `tx-${n}-category`;
-    moved.value = '';
+    moved.clear();
     moved.disabled = true;
     moved.name = `tx-${n}-moved`;
-    transferred.value = '';
+    transferred.clear();
     transferred.disabled = true;
     transferred.name = `tx-${n}-transferred`;
     tbody.insertBefore(tr, adder_row);
@@ -129,7 +183,7 @@ function unsuggest(element) {
     }
 }
 function suggest(element, value) {
-    if (element.value === "" && document.activeElement !== element) {
+    if (element.value === "" && !element.active) {
         element.value = value;
         element.classList.add('suggested');
         return true;
@@ -157,7 +211,7 @@ function accountChanged({ target }) {
 
     moved.disabled = !category.value;
 
-    if (!target.value) transferred.value = "";
+    if (!target.value) transferred.clear();
     transferred.disabled = !target.value;
 
     suggestAmounts();
@@ -189,29 +243,36 @@ function amountChanged({ target }) {
 }
 
 function suggestSums() {
-    var to_category = [];
-    var category_total = Decimal.zero;
-    var to_account = [];
-    var account_total = Decimal.zero;
+    var to_category = {};
+    var category_total = {};
+    var to_account = {};
+    var account_total = {};
     for (var { account, category, moved, transferred } of rows) {
         if (category.value) {
             if (moved.value) {
-                category_total = category_total.plus(moved.value);
+                category_total[moved.currency] =
+                    (category_total[moved.currency] || Decimal.zero)
+                        .plus(moved.value);
             } else {
-                to_category.push(moved);
+                to_category[moved.currency].push(moved);
             }
         }
         if (account.value) {
             if (transferred.value) {
-                account_total = account_total.plus(transferred.value);
+                account_total[transferred.currency] =
+                    (account_total[transferred.currency] || Decimal.zero)
+                        .plus(transferred.value);
             } else {
-                to_account.push(transferred);
+                to_account[transferred.currency].push(transferred);
             }
         }
     }
     var result = false;
-    if (category_total.isFinite() && to_category.length === 1) {
-        result |= suggest(to_category[0], category_total.negate());
+    for (const currency of Object.keys(category_total)) {
+        const to = 
+        if (category_total.isFinite() && to_category.length === 1) {
+            result |= suggest(to_category[0], category_total.negate());
+        }
     }
     if (account_total.isFinite() && to_account.length === 1) {
         result |= suggest(to_account[0], account_total.negate());

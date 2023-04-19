@@ -59,15 +59,19 @@ table {
 .t4 {
     --cell-width: calc(4 * var(--line-height));
 }
+
 .t5 {
     --cell-width: calc(5 * var(--line-height));
 }
+
 .t6 {
     --cell-width: calc(6 * var(--line-height));
 }
+
 .t8 {
     --cell-width: calc(8 * var(--line-height));
 }
+
 .t9 {
     --cell-width: calc(9 * var(--line-height));
 }
@@ -151,4 +155,13 @@ form.edit {
 
 .number {
     text-align: right;
+}
+
+.currency {
+    position: absolute;
+    padding-left: calc(2 * var(--td-hpad));
+}
+
+.currency+input {
+    padding-left: calc(2 * var(--td-hpad) + 4ch);
 }

@@ -344,7 +344,7 @@ class Transaction(models.Model):
             return self.description
         accounts, categories = self.parts(in_account.budget)
         names = (
-            [account.name_for(in_account.budget.owner())
+            [account.name or "Inbox"
              for account in chain(accounts, categories)
              if account.budget.budget_of == in_account.budget.owner()
              and account != in_account] +
