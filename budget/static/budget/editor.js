@@ -68,7 +68,20 @@ class Selector {
     }
     get value() { return this.#hidden.value; }
     set name(name) { this.#hidden.name = name; }
-    get active() { return document.activeElement === this.#visible; }
+    unsuggest() {
+        if (this.classList.contains('suggested')) {
+            this.value = '';
+            this.classList.remove('suggested');
+        }
+    }
+    suggest(value) {
+        if (this.value === "" && document.activeElement !== this.#visible) {
+            this.value = value;
+            this.classList.add('suggested');
+            return true;
+        }
+        return false;
+    }
     get classList() { return this.#visible.classList; }
     focus(args) { this.#visible.focus(args); }
     #selectInput() {
@@ -100,7 +113,7 @@ class CurrencyInput {
             this.#input.value = this.#currency.value + " " + this.#amount.value;
         }
     }
-    static #re = /(\p{L}*)\s*(.*)/u;
+    static #re = /\s*(\p{L}*)\s*(.*)\s*/u;
     #parse() {
         if (this.#currencyFixed) {
             this.#amount.value = this.#input.value;
@@ -117,10 +130,31 @@ class CurrencyInput {
     get currency() { return this.#currency.value; }
     set currencyFixed(value) { this.#currencyFixed = value; this.#refresh(); }
     get currencyFixed() { return this.#currencyFixed; }
-    get active() { return document.activeElement === this.#input; }
+    get classList() { return this.#input.classList; }
+    unsuggest() {
+        if (this.classList.contains('suggested')) {
+            this.clear();
+            this.classList.remove('suggested');
+        }
+    }
+    suggest(value) {
+        if (this.value === "" && document.activeElement !== this.#input) {
+            this.value = value;
+            this.classList.add('suggested');
+            return true;
+        }
+        return false;
+    }
+    suggestCurrency(value) {
+        if (this.currency === "" && document.activeElement !== this.#input) {
+            this.currency = value;
+            this.classList.add('suggested');
+            return true;
+        }
+        return false;
+    }
 
     addEventListener(...args) { this.#input.addEventListener(...args); }
-    get classList() { return this.#input.classList; }
     set disabled(value) { this.#input.disabled = value; }
     set name(value) {
         this.#amount.name = value;
@@ -176,21 +210,6 @@ function addRow(event) {
     }
 }
 
-function unsuggest(element) {
-    if (element.classList.contains('suggested')) {
-        element.value = '';
-        element.classList.remove('suggested');
-    }
-}
-function suggest(element, value) {
-    if (element.value === "" && !element.active) {
-        element.value = value;
-        element.classList.add('suggested');
-        return true;
-    }
-    return false;
-}
-
 function accountChanged({ target }) {
     // Enforce uniqueness
     if (target.value) {
@@ -203,11 +222,11 @@ function accountChanged({ target }) {
     }
 
     var { category, transferred, moved } = rows[findRow(target)];
-    unsuggest(category);
+    category.unsuggest();
     if (target.value in data.budgets)
-        suggest(category, target.value);
+        category.suggest(target.value);
     else if (target.value && !(target.value in data.accounts))
-        suggest(category, `[${target.value}]`);
+        category.suggest(`[${target.value}]`);
 
     moved.disabled = !category.value;
 
@@ -242,40 +261,56 @@ function amountChanged({ target }) {
     suggestAmounts();
 }
 
+function suggestCurrenciesColumn() {
+    const currencies = new Set(rows
+        .filter(({ account }) => account.value)
+        .map(({ transferred }) => transferred.currency)
+        .concat(rows
+            .filter(({ category }) => category.value)
+            .map(({ moved }) => moved.currency)));
+    if (currencies.delete("") && currencies.size === 1) {
+        const currency = currencies.values().next().value;
+        for (var { account, category, moved, transferred } of rows) {
+            if (category.value) moved.suggestCurrency(currency);
+            if (account.value) transferred.suggestCurrency(currency);
+        }
+    }
+}
+
 function suggestSums() {
-    var to_category = {};
-    var category_total = {};
-    var to_account = {};
-    var account_total = {};
-    for (var { account, category, moved, transferred } of rows) {
-        if (category.value) {
-            if (moved.value) {
-                category_total[moved.currency] =
-                    (category_total[moved.currency] || Decimal.zero)
-                        .plus(moved.value);
-            } else {
-                to_category[moved.currency].push(moved);
-            }
-        }
-        if (account.value) {
-            if (transferred.value) {
-                account_total[transferred.currency] =
-                    (account_total[transferred.currency] || Decimal.zero)
-                        .plus(transferred.value);
-            } else {
-                to_account[transferred.currency].push(transferred);
-            }
-        }
-    }
+    suggestCurrenciesColumn();
     var result = false;
-    for (const currency of Object.keys(category_total)) {
-        const to = 
-        if (category_total.isFinite() && to_category.length === 1) {
-            result |= suggest(to_category[0], category_total.negate());
+    const currencies = new Set(
+        rows.flatMap(({ transferred, moved }) =>
+            [transferred.currency, moved.currency]));
+
+    for (const currency of currencies) {
+        var to_category = [];
+        var category_total = Decimal.zero;
+        var to_account = [];
+        var account_total = Decimal.zero;
+        for (var { account, category, moved, transferred } of rows) {
+            if (category.value && moved.currency === currency) {
+                if (moved.value) {
+                    category_total = category_total.plus(moved.value);
+                } else {
+                    to_category.push(moved);
+                }
+            }
+            if (account.value && transferred.currency === currency) {
+                if (transferred.value) {
+                    account_total = account_total.plus(transferred.value);
+                } else {
+                    to_account.push(transferred);
+                }
+            }
         }
-    }
-    if (account_total.isFinite() && to_account.length === 1) {
-        result |= suggest(to_account[0], account_total.negate());
+        if (category_total.isFinite() && to_category.length === 1) {
+            result |= to_category[0].suggest(category_total.negate());
+        }
+        if (account_total.isFinite() && to_account.length === 1) {
+            result |= to_account[0].suggest(account_total.negate());
+        }
     }
     return result;
 }
@@ -286,18 +321,24 @@ function suggestRowConsistency(options) {
         if (!account.value || !category.value) { continue; }
         if (options?.onlyExternal && category.value !== account.value)
             continue;
+        if (transferred.currency && !moved.currency)
+            moved.suggestCurrency(transferred.currency);
+        if (moved.currency && !transferred.currency)
+            transferred.suggestCurrency(moved.currency);
+        if (moved.currency !== transferred.currency)
+            continue;
         if (transferred.value && Decimal.parse(transferred.value).isFinite())
-            result |= suggest(moved, Decimal.parse(transferred.value));
+            result |= moved.suggest(Decimal.parse(transferred.value));
         if (moved.value && Decimal.parse(moved.value).isFinite())
-            result |= suggest(transferred, Decimal.parse(moved.value));
+            result |= transferred.suggest(Decimal.parse(moved.value));
     }
     return result;
 }
 
 function suggestAmounts() {
     for (var { moved, transferred } of rows) {
-        unsuggest(moved);
-        unsuggest(transferred);
+        moved.unsuggest();
+        transferred.unsuggest();
     }
     // Try to make progress with each one, with this priority
     do {
