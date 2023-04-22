@@ -139,7 +139,11 @@ class CurrencyInput {
     get value() { return this.#amount.value; }
     set currency(value) { this.#currency.value = value; this.#refresh(); }
     get currency() { return this.#currency.value; }
-    set currencyFixed(value) { this.#currencyFixed = value; this.#refresh(); }
+    set currencyFixed(value) {
+        this.#currencyFixed = value;
+        if (value) this.#currencySuggested = false;
+        this.#refresh();
+    }
     get currencyFixed() { return this.#currencyFixed; }
     get classList() { return this.#input.classList; }
     unsuggest() {
@@ -253,7 +257,9 @@ function accountChanged({ target }) {
 
     if (!target.value) transferred.clear();
     transferred.disabled = !target.value;
-    transferred.currencyFixed = target.value in data.accounts;
+    const currency = data.accounts[target.value];
+    if (currency) transferred.currency = currency;
+    transferred.currencyFixed = !!currency;
 
     suggestAmounts();
 }
@@ -274,7 +280,9 @@ function categoryChanged({ target }) {
     var { moved } = rows[findRow(target)];
     if (!target.value) moved.value = "";
     moved.disabled = !target.value;
-    moved.currencyFixed = target.value in data.categories;
+    const currency = data.categories[target.value];
+    if (currency) moved.currency = currency;
+    moved.currencyFixed = !!currency;
 
     suggestAmounts();
 }
@@ -329,10 +337,18 @@ function suggestSums() {
             }
         }
         if (category_total.isFinite() && to_category.length === 1) {
-            result |= to_category[0].suggest(category_total.negate());
+            if (category_total.eq(Decimal.zero)) {
+                result |= to_category[0].suggest("");
+            } else {
+                result |= to_category[0].suggest(category_total.negate());
+            }
         }
         if (account_total.isFinite() && to_account.length === 1) {
-            result |= to_account[0].suggest(account_total.negate());
+            if (account_total.eq(Decimal.zero)) {
+                result |= to_account[0].suggest("");
+            } else {
+                result |= to_account[0].suggest(account_total.negate());
+            }
         }
     }
     return result;

@@ -1,6 +1,7 @@
 "use strict";
 
 addEventListener("DOMContentLoaded", function () {
+    formatCurrencies();
     window.data = JSON.parse(document.getElementById('data').textContent);
     document.addEventListener("keydown", key);
     window.tbody = document.getElementById("table").children[0];
@@ -63,6 +64,7 @@ function edit() {
 }
 
 function create() {
+    // TODO: This should auto fill the account
     const back = encodeURIComponent(
         window.location.pathname + window.location.hash);
     window.location.href =

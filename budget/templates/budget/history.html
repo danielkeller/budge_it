@@ -2,6 +2,8 @@
 
 <!DOCTYPE html>
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+<script src="{% static 'budget/util.js' %}"></script>
+<script src="{% static 'budget/jdecimal.js' %}"></script>
 <script src="{% static 'budget/history.js' %}"></script>
 
 <div><a href="{% url 'overview' budget_id %}">Overview</a></div>
@@ -27,8 +29,9 @@
     <tr data-category="{{category.id}}">
         <td>{{ category.name|default:"Inbox" }}</td>
         {% for field, total in row %}
-        <td class="tdinput">{{field}}</td>
-        <td class="spent number">{{total|default:""}}</td>
+        <td class="t5 tdinput">{{field}}</td>
+        <td class="spent number" data-currency="{{category.currency}}" data-value="{{total|default:0}}">
+            {{total|default:""}}</td>
         <td class="total number"></td>
         {% endfor %}
     </tr>

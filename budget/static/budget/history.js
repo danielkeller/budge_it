@@ -5,6 +5,7 @@ const dtf = new Intl.DateTimeFormat(navigator.language,
     { month: "short", year: "numeric", timeZone: "UTC" })
 
 addEventListener("DOMContentLoaded", function () {
+    formatCurrencies();
     window.data = JSON.parse(document.getElementById("data").textContent);
     window.form = document.getElementById("form");
     window.num_input = document.getElementById("id_form-TOTAL_FORMS");
@@ -19,20 +20,15 @@ addEventListener("DOMContentLoaded", function () {
             const j = row.length;
             const input = td.children[0];
             if (input) {
-                if (category === data.inbox) {
+                if (data.inboxes.includes(category)) {
                     input.classList.add("suggested");
                     input.readOnly = true;
                 } else {
-                    input.addEventListener('input',
-                        () => {
-                            updateRow(category);
-                            updateColumn(j);
-                            updateRow(data.inbox);
-                        })
+                    input.addEventListener('input', () => edited(j, category));
                 }
                 cell.input = input;
             } else if (td.classList.contains("spent")) {
-                cell.spent = +td.textContent;
+                cell.spent = Decimal.parse(td.dataset.value);
             } else if (td.classList.contains("total")) {
                 cell.total = td;
                 row.push(cell);
@@ -47,26 +43,35 @@ addEventListener("DOMContentLoaded", function () {
     document.getElementById('add-prev').addEventListener('click', newColumnPrev);
 });
 
+function edited(j, category) {
+    updateRow(category);
+    updateColumn(j);
+    for (const inbox of data.inboxes)
+        updateRow(inbox);
+}
+
 function updateColumn(j) {
-    var sum = 0;
-    var inbox;
-    for (const row of Object.values(window.rows)) {
-        const { input } = row[j];
-        if (input.readOnly) {
-            inbox = input;
-        } else {
-            sum += +input.value;
+    for (const inbox of data.inboxes) {
+        const currency = data.currencies[inbox];
+        var sum = Decimal.zero;
+        for (const [id, row] of Object.entries(rows)) {
+            const { input } = row[j];
+            if (data.currencies[id] === currency && id !== inbox) {
+                sum = sum.plus(input.value);
+            }
         }
+        rows[inbox][j].input.value =
+            !sum.isFinite() || sum.eq(0) ? '' : sum.negate();
     }
-    inbox.value = isNaN(sum) || sum === 0 ? '' : -sum;
 }
 
 function updateRow(i) {
-    var sum = 0;
-    for (const { input, spent, total } of window.rows[i]) {
-        if (!isNaN(input.value)) sum += +input.value;
-        sum += spent;
-        total.textContent = sum || "";
+    var sum = Decimal.zero;
+    for (const { input, spent, total } of rows[i]) {
+        if (Decimal.parse(input.value).isFinite())
+            sum = sum.plus(input.value);
+        sum = sum.plus(spent);
+        total.textContent = formatCurrency(sum.toFloat(), data.currencies[i]);
     }
 }
 

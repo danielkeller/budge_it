@@ -22,6 +22,9 @@ class Decimal {
         frac = frac.toString().padStart(this.e, '0');
         return `${int}${Decimal.#point}${frac}`
     }
+    toFloat() { // not valueOf since this loses information
+        return this.m / (10 ** this.e);
+    }
 
     plus(other) {
         other = Decimal.#coerce(other);

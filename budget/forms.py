@@ -35,15 +35,13 @@ class AccountChoiceField(forms.Field):
         except (TypeError, ValueError, self.type.DoesNotExist):
             pass
         try:
-            return Budget.objects.get(id=value).get_hidden(self.type)
+            return Budget.objects.get(id=value)
         except (TypeError, ValueError, Id.DoesNotExist):
             pass
         if (self.type == Category
                 and value.startswith('[') and value.endswith(']')):
             value = value[1:-1]
-        return (Budget.objects
-                .get_or_create(name=value, payee_of=self.user)[0]
-                .get_hidden(self.type))
+        return Budget.objects.get_or_create(name=value, payee_of=self.user)[0]
 
 
 class TransactionPartForm(forms.Form):
@@ -57,6 +55,16 @@ class TransactionPartForm(forms.Form):
         required=False, widget=forms.HiddenInput)
     moved_currency = forms.CharField(
         required=False, widget=forms.HiddenInput)
+
+    def clean(self):
+        data = self.cleaned_data
+        if isinstance(data.get('account'), Budget):
+            currency = data.get('transferred_currency', '')
+            data['account'] = data['account'].get_hidden(Account, currency)
+        if isinstance(data.get('category'), Budget):
+            currency = data.get('moved_currency', '')
+            data['category'] = data['category'].get_hidden(Category, currency)
+        return data
 
 
 class BaseTransactionPartFormSet(forms.BaseFormSet):
@@ -88,14 +96,16 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
             return
         category_total, account_total = 0, 0
         for form in self.forms:
-            if form.cleaned_data.get('category'):
+            category = form.cleaned_data.get('category')
+            account = form.cleaned_data.get('account')
+            if category:
                 category_total += form.cleaned_data.get('moved', 0)
-            if form.cleaned_data.get('account'):
+            if account:
                 account_total += form.cleaned_data.get('transferred', 0)
         if account_total or category_total:
             raise ValidationError("Amounts do not sum to zero")
 
-    @ transaction.atomic
+    @transaction.atomic
     def save(self, *, instance: Transaction):
         accounts: dict[Account, int] = {}
         categories: dict[Category, int] = {}

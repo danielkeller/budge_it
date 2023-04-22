@@ -2,6 +2,8 @@
 
 <!DOCTYPE html>
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+<script src="{% static 'budget/util.js' %}"></script>
+<script src="{% static 'budget/overview.js' %}"></script>
 
 <div><a href="{% url 'budget' budget.id %}">See all transactions</a></div>
 <div><a href="{% url 'history' budget.id %}">Edit budget</a></div>
@@ -12,13 +14,17 @@
     {% for category in categories %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{% account_in_budget category budget %}</td>
-        <td class="number">{{ category.balance | default:0 }}</td>
+        <td class="number" data-currency="{{ category.currency }}">
+            {{ category.balance | default:0 }}
+        </td>
     </tr>
     {% endfor %}
+    {% for currency, total in totals.items %}
     <tr class="{% cycle rowcolor %}">
         <td>Total</td>
-        <td class="number">{{ total }}</td>
+        <td class="number" data-currency="{{ currency }}">{{ total }}</td>
     </tr>
+    {% endfor %}
     <tr class="{% cycle rowcolor %}">
         <td>
             <form method="post" action="{% url 'new_category' budget.id %}">
@@ -34,19 +40,23 @@
     {% for account in accounts %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{% account_in_budget account budget %}</td>
-        <td class="number">{{ account.balance |default:0 }}</td>
+        <td class="number" data-currency="{{ account.currency }}">
+            {{ account.balance | default:0 }}
+        </td>
     </tr>
     {% endfor %}
-    {% for budget, amount in debts %}
+    {% for currency, budget, amount in debts %}
     <tr class="{% cycle rowcolor %}">
         <td><a href="{% url 'balance' budget.id budget.id %}">Owed by {{ budget }}</a></td>
-        <td class="number">{{ amount }}</td>
+        <td class="number" data-currency="{{ currency }}">{{ amount }}</td>
     </tr>
     {% endfor %}
+    {% for currency, total in totals.items %}
     <tr class="{% cycle rowcolor %}">
         <td>Total</td>
-        <td class="number">{{ total }}</td>
+        <td class="number" data-currency="{{ currency }}">{{ total }}</td>
     </tr>
+    {% endfor %}
     <tr class="{% cycle rowcolor %}">
         <td>
             <form method="post" action="{% url 'new_account' budget.id %}">

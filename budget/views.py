@@ -1,7 +1,7 @@
 from typing import Optional, Type, Any
 from datetime import date, timedelta
 
-from django.db.models import Min, Max, Value
+from django.db.models import Min, Max
 from django.shortcuts import render
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
                          HttpResponseBadRequest, Http404)
@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 
 from .models import (
     transactions_for_budget, transactions_for_balance, entries_for,
-    accounts_overview, category_history,
+    accounts_overview, category_history, sum_by,
     BaseAccount, Account, Category, Budget, Transaction)
 from .forms import (TransactionForm, TransactionPartFormSet,
                     BudgetingFormSet, rename_form)
@@ -32,9 +32,10 @@ def _get_allowed_budget_or_404(request: HttpRequest, budget_id: int):
 def overview(request: HttpRequest, budget_id: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
     accounts, categories, debts = accounts_overview(budget_id)
-    total = sum(category.balance for category in categories)
+    totals = sum_by((category.currency, category.balance)
+                    for category in categories)
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'total': total, 'budget': budget}
+               'totals': totals, 'budget': budget}
     return render(request, 'budget/overview.html', context)
 
 
@@ -131,8 +132,8 @@ def edit(request: HttpRequest, budget_id: int,
     payees = budgets.exclude(id=budget.id)
     data = {
         'budget': budget.id,
-        'accounts': dict(budget.account_set.values_list('id', Value(0))),
-        'categories': dict(budget.category_set.values_list('id', Value(0))),
+        'accounts': dict(budget.account_set.values_list('id', 'currency')),
+        'categories': dict(budget.category_set.values_list('id', 'currency')),
         'budgets': dict(budgets.values_list('id', 'name'))
     }
     context = {'formset': formset, 'form': form, 'payees': payees,
@@ -161,16 +162,11 @@ def _months_between(start: date, end: date):
 @login_required
 def history(request: HttpRequest, budget_id: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
-    inbox = budget.get_hidden(Category)
 
-    history = category_history(budget_id)
-    categories = budget.category_set.order_by('name')
     range = (Transaction.objects
              .filter(categories__budget=budget)
              .aggregate(Max('date'), Min('date')))
     months = list(_months_between(range['date__min'], range['date__max']))
-    prev_month = (months[0] - timedelta(days=1)).replace(day=1)
-    next_month = (months[-1] + timedelta(days=31)).replace(day=1)
 
     # Initial is supposed to be the same between GET and POST, so there is
     # theoretically a race condition here if someone adds a transaction. I
@@ -184,16 +180,26 @@ def history(request: HttpRequest, budget_id: int):
     else:
         formset = BudgetingFormSet(budget, dates=months)
 
+    history = category_history(budget_id)
+    categories = budget.category_set.all()
+    currencies = categories.values_list('currency', flat=True).distinct()
+    inboxes = [budget.get_hidden(Category, currency)
+               for currency in currencies]
+
     cells = {(entry['month'], entry['to']): entry['total']
              for entry in history}
     grid = [(category,
              [(formset.forms_by_date[month][str(category.id)],
                cells.get((month, category.id)))
               for month in months])
-            for category in categories]
+            for category in categories.order_by('name')]
+
+    prev_month = (months[0] - timedelta(days=1)).replace(day=1)
+    next_month = (months[-1] + timedelta(days=31)).replace(day=1)
 
     data = {'prev_month': prev_month, 'next_month': next_month,
-            'inbox': str(inbox.id)}
+            'currencies': dict(categories.values_list('id', 'currency')),
+            'inboxes': [str(inbox.id) for inbox in inboxes]}
     context: 'dict[str, Any]'
     context = {'budget_id': budget_id, 'formset': formset,
                'months': months, 'grid': grid, 'data': data}

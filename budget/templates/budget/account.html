@@ -2,6 +2,7 @@
 
 <!DOCTYPE html>
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+<script src="{% static 'budget/util.js' %}"></script>
 <script src="{% static 'budget/account.js' %}"></script>
 
 <div><a href="{% url 'overview' account.budget_id %}">Overview</a></div>
@@ -18,7 +19,7 @@
 <table id="table">
     <th class="t6">Date</th>
     <th class="t6">Description</th>
-    <th class="t4">Amount</th>
+    <th class="t4">{{ account.currency }}</th>
     <th class="t4">Total</th>
     {% for entry in entries %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{entry.transaction.id}}"
@@ -38,7 +39,10 @@
                         <tr class="{% cycle 'a' 'b' %}">
                             <td>{% account_in_budget part.account account.budget %}</td>
                             <td>{% account_in_budget part.category account.budget %}</td>
-                            <td class="number">{{part.amount}}</td>
+                            <td class="number"
+                                data-currency="{% firstof part.account.currency part.category.currency %}">
+                                {{part.amount}}
+                            </td>
                         </tr>
                         {% endfor %}
                         {% resetcycle %}

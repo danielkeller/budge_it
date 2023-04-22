@@ -58,8 +58,10 @@ class Budget(Id):
     def get_absolute_url(self):
         return reverse('budget', kwargs={'budget_id': self.id})
 
-    def get_hidden(self, cls: 'Type[BaseAccountT]') -> 'BaseAccountT':
-        return cls.objects.get_or_create(name="", budget=self)[0]
+    def get_hidden(self, cls: 'Type[BaseAccountT]', currency: str
+                   ) -> 'BaseAccountT':
+        return cls.objects.get_or_create(name="", budget=self,
+                                         currency=currency)[0]
 
     def owner(self):
         return self.budget_of or self.payee_of
@@ -124,7 +126,8 @@ class Permissions:
         elif account.budget in self.visible:
             return account.to_hidden()
         else:
-            return self.connection(account.budget).get_hidden(type(account))
+            return (self.connection(account.budget)
+                    .get_hidden(type(account), account.currency))
 
     @staticmethod
     def visibility(budget: Budget, budgets: 'Iterable[Budget]'):
@@ -171,9 +174,9 @@ class BaseAccount(Id):
 
     def __str__(self):
         if self.ishidden():
-            return self.budget.name
+            return f"{self.budget.name} ({self.currency})"
         else:
-            return f"{self.budget.name} - {str(self.name)}"
+            return f"{self.budget.name} - {str(self.name)}  ({self.currency})"
 
     def name_for(self, user: Optional[User]):
         # This logic is duplicated in account_in_budget.html
@@ -186,7 +189,7 @@ class BaseAccount(Id):
     def to_hidden(self):
         if self.ishidden():
             return self
-        return self.budget.get_hidden(type(self))
+        return self.budget.get_hidden(type(self), self.currency)
 
 
 BaseAccountT = TypeVar('BaseAccountT', bound=BaseAccount)
@@ -267,10 +270,14 @@ class Transaction(models.Model):
                    .distinct())
 
     def debts(self):
-        owed = sum_by(chain(((part.to.budget_id, part.amount)
-                             for part in self.account_parts.all()),
-                            ((part.to.budget_id, -part.amount)
-                            for part in self.category_parts.all())))
+        owed = sum_by(chain(
+            (((part.to.budget_id, part.to.currency), part.amount)
+             for part in self.account_parts.all()),
+            (((part.to.budget_id, part.to.currency), -part.amount)
+             for part in self.category_parts.all())))
+        owed = {currency: {debt[0][0]: debt[1] for debt in owed.items()
+                           if debt[0][1] == currency}
+                for currency in {to[1] for to in owed}}
         return combine_debts(owed)
 
     def visible_from(self, budget: Budget):
@@ -318,22 +325,25 @@ class Transaction(models.Model):
             self.delete()
 
     def tabular(self, in_budget: Budget):
-        def pop_by_amount_(parts: 'dict[BaseAccountT, int]', amount: int
-                           ) -> Optional[BaseAccountT]:
+        def pop_by_(parts: 'dict[BaseAccountT, int]',
+                    currency: str, amount: int):
             try:
                 result = next(part for (part, value) in parts.items()
-                              if value == amount)
+                              if value == amount and part.currency == currency)
                 del parts[result]
                 return result
             except StopIteration:
                 return None
 
         accounts, categories = self.parts(in_budget)
-        rows: list[dict[str, typing.Any]]
+        amounts = sorted((account.currency, amount)
+                         for account, amount
+                         in chain(accounts.items(), categories.items()))
+        rows: list[dict[str, Any]]
         rows = []
-        for amount in sorted(chain(accounts.values(), categories.values())):
-            account = pop_by_amount_(accounts, amount)
-            category = pop_by_amount_(categories, amount)
+        for currency, amount in amounts:
+            account = pop_by_(accounts, currency, amount)
+            category = pop_by_(categories, currency, amount)
             if account or category:
                 rows.append({'account': account, 'category': category,
                              'amount': amount})
@@ -358,28 +368,30 @@ class Transaction(models.Model):
         return ", ".join(names)
 
 
-def combine_debts(owed: 'dict[int, int]'):
-    amounts = deque(sorted((amount, budget) for (budget, amount) in owed.items()
-                           if amount != 0))
-    result: 'dict[tuple[int, int], int]' = {}
-    amount, from_budget = 0, 0
-    while amounts or amount:
-        if not amount:
-            amount, from_budget = amounts.popleft()
-        if not amounts:
-            raise ValueError("Debts do not sum to zero")
-        other, to_budget = amounts.pop()
-        result_amount = min(-amount, other)
-        result[(from_budget, to_budget)] = result_amount
-        amount += other
-        if amount > 0:
-            amounts.append((amount, to_budget))
-            amount = 0
+def combine_debts(owed: 'dict[str, dict[int, int]]'):
+    result: 'dict[tuple[str, int, int], int]' = {}
+    for currency, debts in owed.items():
+        amounts = deque(sorted((amount, budget)
+                               for (budget, amount) in debts.items()
+                               if amount != 0))
+        amount, from_budget = 0, 0
+        while amounts or amount:
+            if not amount:
+                amount, from_budget = amounts.popleft()
+            if not amounts:
+                raise ValueError("Debts do not sum to zero")
+            other, to_budget = amounts.pop()
+            result_amount = min(-amount, other)
+            result[(currency, from_budget, to_budget)] = result_amount
+            amount += other
+            if amount > 0:
+                amounts.append((amount, to_budget))
+                amount = 0
     return result
 
 
-def sum_debts(debts_1: 'dict[tuple[int, int], int]',
-              debts_2: 'dict[tuple[int, int], int]'):
+def sum_debts(debts_1: 'dict[tuple[str, int, int], int]',
+              debts_2: 'dict[tuple[str, int, int], int]'):
     keys = debts_1.keys() | debts_2.keys()
     return {key: debts_1.get(key, 0) + debts_2.get(key, 0) for key in keys}
 
@@ -394,7 +406,7 @@ class TransactionPart(models.Model):
     to: BaseAccount
     to_id: int
 
-    @classmethod
+    @ classmethod
     def update(cls, transaction: Transaction, to: BaseAccount, amount: int):
         if amount == 0:
             cls.objects.filter(transaction=transaction, to=to).delete()
@@ -458,6 +470,7 @@ def transactions_for_balance(budget_id_1: int, budget_id_2: int
               Q(categories__budget_id=budget_id_2) |
               Q(accounts__budget_id=budget_id_2) &
               Q(categories__budget_id=budget_id_1))
+    return []  # TODO
     qs = (Transaction.objects
           .filter(filter)
           .distinct()
@@ -487,11 +500,13 @@ def accounts_overview(budget_id: int):
     transactions = transactions_for_budget(budget_id)
     debt_map = functools.reduce(
         sum_debts, (transaction.debts() for transaction in transactions), {})
-    debts = ([(Budget.objects.get(id=from_budget), -amount)
-              for ((from_budget, to_budget), amount) in debt_map.items()
+    debts = ([(currency, Budget.objects.get(id=from_budget), -amount)
+              for ((currency, from_budget, to_budget), amount)
+              in debt_map.items()
               if to_budget == budget_id] +
-             [(Budget.objects.get(id=to_budget), amount)
-             for ((from_budget, to_budget), amount) in debt_map.items()
+             [(currency, Budget.objects.get(id=to_budget), amount)
+             for ((currency, from_budget, to_budget), amount)
+             in debt_map.items()
              if from_budget == budget_id])
     return (accounts, categories, debts)
 
