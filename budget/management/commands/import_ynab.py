@@ -32,7 +32,6 @@ class Command(BaseCommand):
         description = raw_transaction["Memo"] if isinstance(raw_transaction["Memo"], str) else "" #combine?
 
         transaction = Transaction(date = date, kind = kind, description = description)
-        transaction.save()
 
         transaction_account_parts = {}
         transaction_category_parts = {}
@@ -59,6 +58,8 @@ class Command(BaseCommand):
             transaction_category_parts[payee_category] = raw_transaction["Outflow"] - raw_transaction["Inflow"]
 
         transaction.set_parts(accounts = transaction_account_parts, categories = transaction_category_parts, in_budget = target_budget)
+        transaction.save()
+
         return None
 
 def YNAB_string_to_date(ynab_string):
