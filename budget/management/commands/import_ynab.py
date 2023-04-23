@@ -11,7 +11,8 @@ class Command(BaseCommand):
     help = "Import a YNAB budget"
 
     def handle(self, *args: Any, **options: Any):
-        target_budget = Budget.objects.get(name="ynabimport") 
+        user = User.objects.get(username = "admin")
+        target_budget, _ = Budget.objects.get_or_create(name="ynabimport", budget_of = user) 
 
         register_filename = "../Swiss Budget as of 2023-04-22 21-35 - Register.csv"
         register_df = pd.read_csv(register_filename)
@@ -43,7 +44,8 @@ class Command(BaseCommand):
             transaction_account_parts[account] = raw_transaction["Inflow"] - raw_transaction["Outflow"]
 
             payee, _ = Budget.objects.get_or_create(
-                    name = raw_transaction["Payee"]
+                    name = raw_transaction["Payee"],
+                    payee_of = target_budget.budget_of
             )
             payee_account = payee.get_hidden(Account, currency = "")
             transaction_account_parts[payee_account] = raw_transaction["Outflow"] - raw_transaction["Inflow"]
