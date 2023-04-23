@@ -15,7 +15,7 @@ class Command(BaseCommand):
         target_budget, _ = Budget.objects.get_or_create(name="ynabimport", budget_of = user) 
 
         register_filename = "../Swiss Budget as of 2023-04-22 21-35 - Register.csv"
-        register_df = pd.read_csv(register_filename)
+        register_df = pd.read_csv(register_filename)[::-1]
 
         it = register_df.iterrows()
         for it, raw_transaction in it: #TODO make a generator that combines split transactions from ynab into a single budge-it transaction
