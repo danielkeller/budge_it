@@ -58,7 +58,7 @@ class Command(BaseCommand):
 
             raw_payee = raw_transaction_part["Payee"]
             raw_payee = raw_payee if isinstance(raw_payee, str) else "BLANK"
-            if raw_payee.startswith(ynab_transfer_prefix):
+            if raw_payee.startswith(ynab_transfer_prefix): #Transfer between owned accounts
                 raw_transfer_account = raw_payee.removeprefix(ynab_transfer_prefix)
                 if raw_account == raw_transfer_account:
                     raise Exception(f'Account "{raw_account}" and Transfer Account "{raw_transfer_account}" are identical')
@@ -71,7 +71,7 @@ class Command(BaseCommand):
                         )
                 transaction_account_parts[transfer_account] += raw_transaction_part_outflow
 
-            else:
+            else: #Payment to external payee
                 payee, _ = Budget.objects.get_or_create(
                         name = raw_payee,
                         payee_of = target_budget.budget_of
@@ -83,9 +83,11 @@ class Command(BaseCommand):
                         budget_id = target_budget.id, 
                         name = raw_transaction_part["Category Group/Category"]
                         )
-                transaction_category_parts[category] = raw_transaction_part_inflow
+                transaction_category_parts[category] += raw_transaction_part_inflow
                 payee_category = payee.get_hidden(Category, currency = "")
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
+            assert sum(transaction_category_parts.values()) == 0
+            assert sum(transaction_account_parts.values()) == 0
 
         transaction.save()
         try:
