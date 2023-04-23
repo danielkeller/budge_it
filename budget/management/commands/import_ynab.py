@@ -42,7 +42,7 @@ class Command(BaseCommand):
             account, _ = Account.objects.get_or_create(
                     budget_id = target_budget.id, 
                     name = raw_account
-            )
+                    )
             transaction_account_parts[account] = raw_transaction_inflow
 
             raw_payee = raw_transaction["Payee"]
@@ -53,25 +53,25 @@ class Command(BaseCommand):
                     raise Exception(f'Account "{raw_account}" and Transfer Account "{raw_transfer_account}" are identical')
                 elif raw_account < raw_transfer_account: #don't want to duplicate transfers: skip these ones
                     return None
-                
+
                 transfer_account, _ = Account.objects.get_or_create(
-                    budget_id = target_budget.id, 
-                    name = raw_transfer_account
-                )
+                        budget_id = target_budget.id, 
+                        name = raw_transfer_account
+                        )
                 transaction_account_parts[transfer_account] = raw_transaction_outflow
 
             else:
                 payee, _ = Budget.objects.get_or_create(
                         name = raw_payee,
                         payee_of = target_budget.budget_of
-                )
+                        )
                 payee_account = payee.get_hidden(Account, currency = "")
                 transaction_account_parts[payee_account] = raw_transaction_outflow
 
                 category, _ = Category.objects.get_or_create(
                         budget_id = target_budget.id, 
                         name = raw_transaction["Category Group/Category"]
-                )
+                        )
                 transaction_category_parts[category] = raw_transaction_inflow
                 payee_category = payee.get_hidden(Category, currency = "")
                 transaction_category_parts[payee_category] = raw_transaction_outflow
