@@ -16,6 +16,10 @@ class Command(BaseCommand):
 
         register_filename = "../Swiss Budget as of 2023-04-22 21-35 - Register.csv"
         register_df = pd.read_csv(register_filename)[::-1]
+        register_df.drop(columns = ["Flag"])
+
+        register_df["TotalInflow"] = ((register_df["Inflow"] - register_df["Outflow"])*100).astype(int) #TODO how to get currency unit?
+        register_df.drop(columns = ["Inflow", "Outflow"])
 
         it = register_df.iterrows()
         for it, raw_transaction in it: #TODO make a generator that combines split transactions from ynab into a single budge-it transaction
@@ -36,7 +40,7 @@ class Command(BaseCommand):
         transaction_account_parts = defaultdict(lambda: 0)
         transaction_category_parts = defaultdict(lambda: 0)
         for raw_transaction in raw_transactions:
-            raw_transaction_inflow = (raw_transaction["Inflow"] - raw_transaction["Outflow"])*100 #TODO how to get currency unit?
+            raw_transaction_inflow = raw_transaction["TotalInflow"]
             raw_transaction_outflow = -raw_transaction_inflow
 
             raw_account = raw_transaction["Account"]
