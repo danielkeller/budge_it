@@ -1,11 +1,10 @@
-
 from django.db import transaction
-from django.core.management.base import BaseCommand, CommandParser
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.management.base import BaseCommand
 from budget.models import *
 import pandas as pd
 import datetime
 
+ynab_transfer_prefix = "Transfer : "
 
 class Command(BaseCommand):
     help = "Import a YNAB budget"
@@ -36,27 +35,48 @@ class Command(BaseCommand):
         transaction_account_parts = {}
         transaction_category_parts = {}
         for raw_transaction in raw_transactions:
+            raw_transaction_inflow = (raw_transaction["Inflow"] - raw_transaction["Outflow"])*100 #TODO how to get currency unit?
+            raw_transaction_outflow = -raw_transaction_inflow
+
+            raw_account = raw_transaction["Account"]
             account, _ = Account.objects.get_or_create(
                     budget_id = target_budget.id, 
-                    name = raw_transaction["Account"]
+                    name = raw_account
             )
-            transaction_account_parts[account] = raw_transaction["Inflow"] - raw_transaction["Outflow"]
+            transaction_account_parts[account] = raw_transaction_inflow
 
-            payee, _ = Budget.objects.get_or_create(
-                    name = raw_transaction["Payee"],
-                    payee_of = target_budget.budget_of
-            )
-            payee_account = payee.get_hidden(Account, currency = "")
-            transaction_account_parts[payee_account] = raw_transaction["Outflow"] - raw_transaction["Inflow"]
-
-            category, _ = Category.objects.get_or_create(
+            raw_payee = raw_transaction["Payee"]
+            raw_payee = raw_payee if isinstance(raw_payee, str) else "BLANK"
+            if raw_payee.startswith(ynab_transfer_prefix):
+                raw_transfer_account = raw_payee.removeprefix(ynab_transfer_prefix)
+                if raw_account == raw_transfer_account:
+                    raise Exception(f'Account "{raw_account}" and Transfer Account "{raw_transfer_account}" are identical')
+                elif raw_account < raw_transfer_account: #don't want to duplicate transfers: skip these ones
+                    return None
+                
+                transfer_account, _ = Account.objects.get_or_create(
                     budget_id = target_budget.id, 
-                    name = raw_transaction["Category Group/Category"]
-            )
-            transaction_category_parts[category] = raw_transaction["Inflow"] - raw_transaction["Outflow"]
-            payee_category = payee.get_hidden(Category, currency = "")
-            transaction_category_parts[payee_category] = raw_transaction["Outflow"] - raw_transaction["Inflow"]
+                    name = raw_transfer_account
+                )
+                transaction_account_parts[transfer_account] = raw_transaction_outflow
 
+            else:
+                payee, _ = Budget.objects.get_or_create(
+                        name = raw_payee,
+                        payee_of = target_budget.budget_of
+                )
+                payee_account = payee.get_hidden(Account, currency = "")
+                transaction_account_parts[payee_account] = raw_transaction_outflow
+
+                category, _ = Category.objects.get_or_create(
+                        budget_id = target_budget.id, 
+                        name = raw_transaction["Category Group/Category"]
+                )
+                transaction_category_parts[category] = raw_transaction_inflow
+                payee_category = payee.get_hidden(Category, currency = "")
+                transaction_category_parts[payee_category] = raw_transaction_outflow
+
+        transaction.save()
         transaction.set_parts(accounts = transaction_account_parts, categories = transaction_category_parts, in_budget = target_budget)
         transaction.save()
 
