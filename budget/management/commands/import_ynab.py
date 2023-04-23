@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.core.management.base import BaseCommand
 from budget.models import *
+from collections import defaultdict
 import pandas as pd
 import datetime
 
@@ -32,8 +33,8 @@ class Command(BaseCommand):
 
         transaction = Transaction(date = date, kind = kind, description = description)
 
-        transaction_account_parts = {}
-        transaction_category_parts = {}
+        transaction_account_parts = defaultdict(lambda: 0)
+        transaction_category_parts = defaultdict(lambda: 0)
         for raw_transaction in raw_transactions:
             raw_transaction_inflow = (raw_transaction["Inflow"] - raw_transaction["Outflow"])*100 #TODO how to get currency unit?
             raw_transaction_outflow = -raw_transaction_inflow
@@ -43,7 +44,7 @@ class Command(BaseCommand):
                     budget_id = target_budget.id, 
                     name = raw_account
                     )
-            transaction_account_parts[account] = raw_transaction_inflow
+            transaction_account_parts[account] += raw_transaction_inflow
 
             raw_payee = raw_transaction["Payee"]
             raw_payee = raw_payee if isinstance(raw_payee, str) else "BLANK"
@@ -58,7 +59,7 @@ class Command(BaseCommand):
                         budget_id = target_budget.id, 
                         name = raw_transfer_account
                         )
-                transaction_account_parts[transfer_account] = raw_transaction_outflow
+                transaction_account_parts[transfer_account] += raw_transaction_outflow
 
             else:
                 payee, _ = Budget.objects.get_or_create(
@@ -66,7 +67,7 @@ class Command(BaseCommand):
                         payee_of = target_budget.budget_of
                         )
                 payee_account = payee.get_hidden(Account, currency = "")
-                transaction_account_parts[payee_account] = raw_transaction_outflow
+                transaction_account_parts[payee_account] += raw_transaction_outflow
 
                 category, _ = Category.objects.get_or_create(
                         budget_id = target_budget.id, 
