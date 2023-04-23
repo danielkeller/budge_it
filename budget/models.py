@@ -56,7 +56,7 @@ class Budget(Id):
     # TODO: currency
 
     def get_absolute_url(self):
-        return reverse('budget', kwargs={'budget_id': self.id})
+        return reverse('overview', kwargs={'budget_id': self.id})
 
     def get_hidden(self, cls: 'Type[BaseAccountT]', currency: str
                    ) -> 'BaseAccountT':
