@@ -36,11 +36,10 @@ class Command(BaseCommand):
     @transaction.atomic
     def save(self, target_budget, raw_transaction_parts):
         first_raw_transaction_part = raw_transaction_parts[0]
-
         date = YNAB_string_to_date(first_raw_transaction_part["Date"]) #filter for past dates
-        kind = Transaction.Kind.TRANSACTION
 
-        description = ", ".join([re.sub("Split \(.*\) ", "", x.Memo) for x in raw_transaction_parts if isinstance(x.Memo, str)])
+        kind = Transaction.Kind.TRANSACTION
+        description = join_memos(raw_transaction_parts)
 
         transaction = Transaction(date = date, kind = kind, description = description)
 
@@ -104,3 +103,6 @@ def YNAB_string_to_date(ynab_string):
 def iscomplete(raw_transaction_part):
     raw_memo = raw_transaction_part["Memo"]
     return not(isinstance(raw_memo, str)) or not(raw_memo.startswith("Split")) or raw_memo.startswith("Split (1/") 
+
+def join_memos(raw_transaction_parts):
+    return ", ".join([re.sub("Split \(.*\) ", "", x.Memo) for x in raw_transaction_parts if isinstance(x.Memo, str)])
