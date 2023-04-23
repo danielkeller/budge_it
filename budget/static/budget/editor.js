@@ -236,15 +236,15 @@ function addRow(event) {
 }
 
 function accountChanged({ target }) {
-    // Enforce uniqueness
-    if (target.value) {
-        for (var { account } of rows) {
-            if (account !== target && account.value === target.value) {
-                account.value = "";
-                accountChanged({ target: account });
-            }
-        }
-    }
+    // Enforce uniqueness ?
+    // if (target.value) {
+    //     for (var { account } of rows) {
+    //         if (account !== target && account.value === target.value) {
+    //             account.value = "";
+    //             accountChanged({ target: account });
+    //         }
+    //     }
+    // }
 
     var { category, transferred, moved } = rows[findRow(target)];
     category.unsuggest();
@@ -267,18 +267,18 @@ function accountChanged({ target }) {
 function categoryChanged({ target }) {
     target.accept();
 
-    // Enforce uniqueness
-    if (target.value) {
-        for (var { category } of rows) {
-            if (category !== target && category.value === target.value) {
-                category.value = "";
-                categoryChanged({ target: category });
-            }
-        }
-    }
+    // Enforce uniqueness ?
+    // if (target.value) {
+    //     for (var { category } of rows) {
+    //         if (category !== target && category.value === target.value) {
+    //             category.value = "";
+    //             categoryChanged({ target: category });
+    //         }
+    //     }
+    // }
 
     var { moved } = rows[findRow(target)];
-    if (!target.value) moved.value = "";
+    if (!target.value) moved.clear();
     moved.disabled = !target.value;
     const currency = data.categories[target.value];
     if (currency) moved.currency = currency;
@@ -357,7 +357,8 @@ function suggestSums() {
 function suggestRowConsistency(options) {
     var result = false;
     for (var { account, category, moved, transferred } of rows) {
-        if (!account.value || !category.value) { continue; }
+        if (!account.value || !category.value)
+            continue;
         if (options?.onlyExternal && category.value !== account.value &&
             category.value !== `[${account.value}]`)
             continue;
@@ -450,11 +451,11 @@ function checkValid() {
             }
         }
         if (category_total.ne(0) && category_total.isFinite()) {
-            category_totals.push(currency + ' ' + category_total);
+            category_totals.push(formatCurrency(category_total, currency));
             valid = false;
         }
         if (account_total.ne(0) && account_total.isFinite()) {
-            account_totals.push(currency + ' ' + account_total);
+            account_totals.push(formatCurrency(account_total, currency));
             valid = false;
         }
         debts = debts.concat(
@@ -462,7 +463,7 @@ function checkValid() {
                 .map(([from, to, amount]) =>
                     `${data.budgets[to] || to} owes `
                     + `${data.budgets[from] || from} `
-                    + `${amount} ${currency}`));
+                    + `${formatCurrency(amount, currency)}`));
     }
     category_sum.innerText = category_totals.length === 0 ? '' :
         category_totals.join(', ') + ' left to categorize';

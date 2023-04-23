@@ -5,9 +5,10 @@
 <script src="{% static 'budget/util.js' %}"></script>
 <script src="{% static 'budget/account.js' %}"></script>
 
-<div><a href="{% url 'overview' account.budget_id %}">Overview</a></div>
-{% url 'budget' account.budget_id as budget_url %}
+<div><a href="{% url 'overview' account.budget.id %}">Overview</a></div>
+{% url 'budget' account.budget.id as budget_url %}
 
+{% if form %}
 <div>
     <form method="post">
         {{ form.name }}
@@ -15,6 +16,7 @@
         <button>Rename</button>
     </form>
 </div>
+{% endif %}
 <div><button type="button" id="new">Add transaction</button></div>
 <table id="table">
     <th class="t6">Date</th>

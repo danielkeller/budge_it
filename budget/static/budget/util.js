@@ -1,7 +1,8 @@
 "use strict";
 
 function formatCurrency(value, currency) {
-    const amount = +value;
+    const amount = typeof Decimal !== 'undefined' && value instanceof Decimal ?
+        value.toFloat() : +value;
     if (currency && !isNaN(amount)) {
         try {
             const format = new Intl.NumberFormat(navigator.language,

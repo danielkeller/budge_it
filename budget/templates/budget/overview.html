@@ -45,9 +45,9 @@
         </td>
     </tr>
     {% endfor %}
-    {% for currency, budget, amount in debts %}
+    {% for currency, other, amount in debts %}
     <tr class="{% cycle rowcolor %}">
-        <td><a href="{% url 'balance' budget.id budget.id %}">Owed by {{ budget }}</a></td>
+        <td><a href="{% url 'balance' currency budget.id other.id %}">Owed by {{ other }}</a></td>
         <td class="number" data-currency="{{ currency }}">{{ amount }}</td>
     </tr>
     {% endfor %}

@@ -2,8 +2,8 @@ from typing import Optional, Iterable, TypeVar, Type, Union, Any
 from collections import defaultdict, deque
 import functools
 from itertools import chain
-import typing
 from datetime import date
+from dataclasses import dataclass
 
 from django.db import models
 from django.db.models import Q, Sum, F
@@ -216,6 +216,14 @@ class Category(BaseAccount):
 
     def kind(self):
         return 'category'
+
+
+@dataclass
+class Balance:
+    """A fake account representing the balance between two budgets."""
+    budget: Budget
+    other: Budget
+    currency: str
 
 
 def sum_by(input: 'Iterable[tuple[T, int]]') -> 'dict[T, int]':
@@ -434,6 +442,15 @@ class TransactionCategoryPart(TransactionPart):
                            related_name="entries")  # type: ignore
 
 
+@dataclass
+class TransactionDebtPart:
+    """Fake transaction part representing money owed"""
+    transaction: Transaction
+    # to: Balance ??
+    amount: int
+    running_sum: int
+
+
 def transactions_for_budget(budget_id: int) -> Iterable[Transaction]:
     filter = (Q(accounts__budget_id=budget_id) |
               Q(categories__budget_id=budget_id))
@@ -464,39 +481,38 @@ def entries_for(account: BaseAccount) -> Iterable[TransactionPart]:
     return reversed(qs)
 
 
-def transactions_for_balance(budget_id_1: int, budget_id_2: int
-                             ) -> Iterable[Transaction]:
-    filter = (Q(accounts__budget_id=budget_id_1) &
-              Q(categories__budget_id=budget_id_2) |
-              Q(accounts__budget_id=budget_id_2) &
-              Q(categories__budget_id=budget_id_1))
-    return []  # TODO
+def entries_for_balance(account: Balance) -> Iterable[TransactionDebtPart]:
+    this, other = account.budget.id, account.other.id
+    filter = (Q(accounts__budget_id=this) &
+              Q(categories__budget_id=other) |
+              Q(accounts__budget_id=other) &
+              Q(categories__budget_id=this))
     qs = (Transaction.objects
           .filter(filter)
           .distinct()
           .order_by('date', '-kind')
           .prefetch_related('account_parts', 'category_parts',
                             'accounts__budget', 'categories__budget'))
+    result: 'list[TransactionDebtPart]' = []
     total = 0
     for transaction in qs:
         debts = transaction.debts()
-        out = debts.get((budget_id_1, budget_id_2))
-        if out:
-            total += out
-        into = debts.get((budget_id_2, budget_id_1))
-        if into:
-            total -= into
-        setattr(transaction, 'running_sum', total)
-    return reversed(qs)
+        amount = (debts.get((account.currency, this, other), 0)
+                  - debts.get((account.currency, other, this), 0))
+        total += amount
+        result.append(TransactionDebtPart(transaction, amount, total))
+    return reversed(result)
 
 
 def accounts_overview(budget_id: int):
     accounts = (Account.objects
                 .filter(budget_id=budget_id)
-                .annotate(balance=Sum('entries__amount', default=0)))
+                .annotate(balance=Sum('entries__amount', default=0))
+                .order_by('name'))
     categories = (Category.objects
                   .filter(budget_id=budget_id)
-                  .annotate(balance=Sum('entries__amount', default=0)))
+                  .annotate(balance=Sum('entries__amount', default=0))
+                  .order_by('name'))
     transactions = transactions_for_budget(budget_id)
     debt_map = functools.reduce(
         sum_debts, (transaction.debts() for transaction in transactions), {})

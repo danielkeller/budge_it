@@ -10,9 +10,9 @@ from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
 
 from .models import (
-    transactions_for_budget, transactions_for_balance, entries_for,
+    transactions_for_budget, entries_for_balance, entries_for,
     accounts_overview, category_history, sum_by,
-    BaseAccount, Account, Category, Budget, Transaction)
+    BaseAccount, Account, Category, Budget, Transaction, Balance)
 from .forms import (TransactionForm, TransactionPartFormSet,
                     BudgetingFormSet, rename_form)
 
@@ -48,12 +48,15 @@ def budget(request: HttpRequest, budget_id: int):
 
 
 @login_required
-def balance(request: HttpRequest, budget_id_1: int, budget_id_2: int):
-    _get_allowed_budget_or_404(request, budget_id_1)
-    get_object_or_404(Budget, id=budget_id_2)
-    transactions = transactions_for_balance(budget_id_1, budget_id_2)
-    context = {'transactions': transactions, 'budget_id': budget_id_1}
-    return render(request, 'budget/budget.html', context)
+def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: int):
+    budget = _get_allowed_budget_or_404(request, budget_id_1)
+    other = get_object_or_404(Budget, id=budget_id_2)
+    account = Balance(budget, other, currency)
+    entries = entries_for_balance(account)
+    data = {'budget': budget.id}
+    context = {'entries': entries, 'account': account,
+               'form': None, 'data': data}
+    return render(request, 'budget/account.html', context)
 
 
 @login_required
