@@ -1,9 +1,12 @@
 from django.db import transaction
+from django.db.utils import IntegrityError
 from django.core.management.base import BaseCommand
 from budget.models import *
+
 from collections import defaultdict
-import pandas as pd
 import datetime
+import pandas as pd
+import re
 
 ynab_transfer_prefix = "Transfer : "
 
@@ -22,35 +25,39 @@ class Command(BaseCommand):
         register_df.drop(columns = ["Inflow", "Outflow"], inplace = True)
 
         it = register_df.iterrows()
-        for it, raw_transaction in it: #TODO make a generator that combines split transactions from ynab into a single budge-it transaction
-            raw_transactions = [raw_transaction]
-            self.save(target_budget, raw_transactions)
+        raw_transaction_parts = []
+        for it, raw_transaction_part in it:
+            raw_transaction_parts.append(raw_transaction_part)
+            if iscomplete(raw_transaction_part):
+                self.save(target_budget, raw_transaction_parts)
+                raw_transaction_parts = []
+            
 
     @transaction.atomic
-    def save(self, target_budget, raw_transactions):
-        raw_transaction = raw_transactions[0]
+    def save(self, target_budget, raw_transaction_parts):
+        first_raw_transaction_part = raw_transaction_parts[0]
 
-        date = YNAB_string_to_date(raw_transaction["Date"]) #filter for past dates
+        date = YNAB_string_to_date(first_raw_transaction_part["Date"]) #filter for past dates
         kind = Transaction.Kind.TRANSACTION
 
-        description = raw_transaction["Memo"] if isinstance(raw_transaction["Memo"], str) else "" #combine?
+        description = ", ".join([re.sub("Split \(.*\) ", "", x.Memo) for x in raw_transaction_parts if isinstance(x.Memo, str)])
 
         transaction = Transaction(date = date, kind = kind, description = description)
 
         transaction_account_parts = defaultdict(lambda: 0)
         transaction_category_parts = defaultdict(lambda: 0)
-        for raw_transaction in raw_transactions:
-            raw_transaction_inflow = raw_transaction["TotalInflow"]
-            raw_transaction_outflow = -raw_transaction_inflow
+        for raw_transaction_part in raw_transaction_parts:
+            raw_transaction_part_inflow = raw_transaction_part["TotalInflow"]
+            raw_transaction_part_outflow = -raw_transaction_part_inflow
 
-            raw_account = raw_transaction["Account"]
+            raw_account = raw_transaction_part["Account"]
             account, _ = Account.objects.get_or_create(
                     budget_id = target_budget.id, 
                     name = raw_account
                     )
-            transaction_account_parts[account] += raw_transaction_inflow
+            transaction_account_parts[account] += raw_transaction_part_inflow
 
-            raw_payee = raw_transaction["Payee"]
+            raw_payee = raw_transaction_part["Payee"]
             raw_payee = raw_payee if isinstance(raw_payee, str) else "BLANK"
             if raw_payee.startswith(ynab_transfer_prefix):
                 raw_transfer_account = raw_payee.removeprefix(ynab_transfer_prefix)
@@ -63,7 +70,7 @@ class Command(BaseCommand):
                         budget_id = target_budget.id, 
                         name = raw_transfer_account
                         )
-                transaction_account_parts[transfer_account] += raw_transaction_outflow
+                transaction_account_parts[transfer_account] += raw_transaction_part_outflow
 
             else:
                 payee, _ = Budget.objects.get_or_create(
@@ -71,18 +78,22 @@ class Command(BaseCommand):
                         payee_of = target_budget.budget_of
                         )
                 payee_account = payee.get_hidden(Account, currency = "")
-                transaction_account_parts[payee_account] += raw_transaction_outflow
+                transaction_account_parts[payee_account] += raw_transaction_part_outflow
 
                 category, _ = Category.objects.get_or_create(
                         budget_id = target_budget.id, 
-                        name = raw_transaction["Category Group/Category"]
+                        name = raw_transaction_part["Category Group/Category"]
                         )
-                transaction_category_parts[category] = raw_transaction_inflow
+                transaction_category_parts[category] = raw_transaction_part_inflow
                 payee_category = payee.get_hidden(Category, currency = "")
-                transaction_category_parts[payee_category] = raw_transaction_outflow
+                transaction_category_parts[payee_category] += raw_transaction_part_outflow
 
         transaction.save()
-        transaction.set_parts(accounts = transaction_account_parts, categories = transaction_category_parts, in_budget = target_budget)
+        try:
+            transaction.set_parts(accounts = transaction_account_parts, categories = transaction_category_parts, in_budget = target_budget)
+        except IntegrityError:
+            print(raw_transaction_parts)
+            exit()
         transaction.save()
 
         return None
@@ -90,3 +101,6 @@ class Command(BaseCommand):
 def YNAB_string_to_date(ynab_string):
     return datetime.date(*[int(i) for i in ynab_string.split('.')][::-1])
 
+def iscomplete(raw_transaction_part):
+    raw_memo = raw_transaction_part["Memo"]
+    return not(isinstance(raw_memo, str)) or not(raw_memo.startswith("Split")) or raw_memo.startswith("Split (1/") 
