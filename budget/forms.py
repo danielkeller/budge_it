@@ -91,20 +91,6 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
         form.fields['account'].user = self.budget.owner()
         form.fields['category'].user = self.budget.owner()
 
-    def clean(self):
-        if any(self.errors):
-            return
-        category_total, account_total = 0, 0
-        for form in self.forms:
-            category = form.cleaned_data.get('category')
-            account = form.cleaned_data.get('account')
-            if category:
-                category_total += form.cleaned_data.get('moved', 0)
-            if account:
-                account_total += form.cleaned_data.get('transferred', 0)
-        if account_total or category_total:
-            raise ValidationError("Amounts do not sum to zero")
-
     @transaction.atomic
     def save(self, *, instance: Transaction):
         accounts: dict[Account, int] = {}

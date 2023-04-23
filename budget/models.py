@@ -5,7 +5,7 @@ from itertools import chain
 from datetime import date
 from dataclasses import dataclass
 
-from django.db import models
+from django.db import models, IntegrityError
 from django.db.models import Q, Sum, F
 from django.db.models.functions import Trunc
 from django.urls import reverse
@@ -233,8 +233,13 @@ def sum_by(input: 'Iterable[tuple[T, int]]') -> 'dict[T, int]':
     return {key: value for key, value in result.items() if value}
 
 
+def valid_parts(parts: 'dict[BaseAccountT, int]') -> bool:
+    sums = sum_by((account.currency, parts[account]) for account in parts)
+    return not any(sums.values())
+
 # TODO: Consider creating a wrapper for a transaction from the perspective of
 # one budget
+
 
 class Transaction(models.Model):
     """A logical event involving moving money between accounts and categories"""
@@ -300,9 +305,10 @@ class Transaction(models.Model):
         return (accounts, categories)
 
     def residual_parts_(self, in_budget: Budget):
-        """Return the non-inbox transaction parts of all the other budgets,
-        accounted to the inbox of that budget. These are subtracted in
-        set_parts, so the remainder goes to the inbox."""
+        """Return the non-inbox transaction parts of all the other budgets (that
+        is, the parts that set_parts won't touch), accounted to the inbox of
+        that budget. These are subtracted in set_parts, so the remainder goes to
+        the inbox."""
         permissions = Permissions(in_budget, self.budgets)
         accounts: defaultdict[Account, int] = defaultdict(int)
         categories: defaultdict[Category, int] = defaultdict(int)
@@ -316,8 +322,9 @@ class Transaction(models.Model):
 
     def set_parts(self, in_budget: Budget,
                   accounts: 'dict[Account, int]', categories: 'dict[Category, int]'):
-        """Set the contents of this transaction from the perspective of one
-        budget. 'accounts' and 'categories' are both expected to sum to zero."""
+        """Set the contents of this transaction from the perspective of one budget. 'accounts' and 'categories' both must to sum to zero."""
+        if not valid_parts(accounts) or not valid_parts(categories):
+            raise IntegrityError("Parts do not sum to zero")
         res_accounts, res_categories = self.residual_parts_(in_budget)
         has_any_parts = False
         for account in res_accounts.keys() | accounts.keys():
