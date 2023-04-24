@@ -12,7 +12,6 @@ from dataclasses import dataclass
 
 ynab_transfer_prefix = "Transfer : "
 
-
 @dataclass
 class Record:
     Account: str
@@ -40,8 +39,8 @@ class Command(BaseCommand):
     help = "Import a YNAB budget"
 
     def handle(self, *args: Any, **options: Any):
-        with open("Swiss Budget as of 2023-04-22 21-35 - Register.csv",
-                  newline='', encoding='utf-8-sig') as file:
+        register_filename = "Swiss Budget as of 2023-04-22 21-35 - Register.csv"
+        with open(register_filename, newline='', encoding='utf-8-sig') as file:
             reader = csv.reader(file)
             header = next(reader)
             if len(header) != 11 or header[3] != 'Payee':
@@ -53,8 +52,6 @@ class Command(BaseCommand):
         user = User.objects.get(username="admin")
         target_budget, _ = Budget.objects.get_or_create(
             name="ynabimport", budget_of=user)
-
-        # TODO how to get currency unit?
 
         raw_transaction_parts: 'list[Record]' = []
         for record in reader:
@@ -123,13 +120,8 @@ class Command(BaseCommand):
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
             assert sum(transaction_category_parts.values()) == 0
             assert sum(transaction_account_parts.values()) == 0
-        try:
-            transaction.set_parts_raw(accounts=transaction_account_parts,
-                                      categories=transaction_category_parts)
-        except IntegrityError:
-            print(raw_transaction_parts)
-            raise
-
+        transaction.set_parts_raw(accounts=transaction_account_parts,
+                                  categories=transaction_category_parts)
         return None
 
 
