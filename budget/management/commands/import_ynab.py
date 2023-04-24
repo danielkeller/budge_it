@@ -39,7 +39,7 @@ class Command(BaseCommand):
     help = "Import a YNAB budget"
 
     def handle(self, *args: Any, **options: Any):
-        register_filename = "Swiss Budget as of 2023-04-22 21-35 - Register.csv"
+        register_filename = "../Swiss Budget as of 2023-04-22 21-35 - Register.csv"
         with open(register_filename, newline='', encoding='utf-8-sig') as file:
             reader = csv.reader(file)
             header = next(reader)
