@@ -42,9 +42,10 @@ class Command(BaseCommand):
         description = join_memos(raw_transaction_parts)
 
         transaction = Transaction(date = date, kind = kind, description = description)
+        transaction.save()
 
-        transaction_account_parts = defaultdict(lambda: 0)
-        transaction_category_parts = defaultdict(lambda: 0)
+        transaction_account_parts = defaultdict(int)
+        transaction_category_parts = defaultdict(int)
         for raw_transaction_part in raw_transaction_parts:
             raw_transaction_part_inflow = raw_transaction_part["TotalInflow"]
             raw_transaction_part_outflow = -raw_transaction_part_inflow
@@ -62,7 +63,7 @@ class Command(BaseCommand):
                 raw_transfer_account = raw_payee.removeprefix(ynab_transfer_prefix)
                 if raw_account == raw_transfer_account:
                     raise Exception(f'Account "{raw_account}" and Transfer Account "{raw_transfer_account}" are identical')
-                elif raw_account < raw_transfer_account: #don't want to duplicate transfers: skip these ones
+                elif raw_account < raw_transfer_account: #don't want to duplicate transfers: skip these ones (but this doesn't work when only one is an on-budget transaction and has extra information)
                     return None
 
                 transfer_account, _ = Account.objects.get_or_create(
@@ -88,14 +89,11 @@ class Command(BaseCommand):
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
             assert sum(transaction_category_parts.values()) == 0
             assert sum(transaction_account_parts.values()) == 0
-
-        transaction.save()
         try:
             transaction.set_parts(accounts = transaction_account_parts, categories = transaction_category_parts, in_budget = target_budget)
         except IntegrityError:
             print(raw_transaction_parts)
             exit()
-        transaction.save()
 
         return None
 
