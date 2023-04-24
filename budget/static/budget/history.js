@@ -165,13 +165,14 @@ function newColumn(j, date, datePosition, headerPosition, rowPosition) {
     for (const tr of tbody.children) {
         const category = tr.dataset.category;
         if (!category) continue;
+        const currency = data.currencies[category];
         const budgeted = tr.children[1].cloneNode(true);
-        const input = budgeted.children[0];
+        let [amount, input] = budgeted.children;
         const spent = tr.children[2].cloneNode(true);
         const total = tr.children[3].cloneNode(true);
         input.id = '';
-        input.name = `form-${n}-${category}`
-        input.value = '';
+        amount.name = `form-${n}-${category}`
+        amount.value = '';
         if (category != data.inbox)
             input.addEventListener('input',
                 () => {
@@ -179,6 +180,7 @@ function newColumn(j, date, datePosition, headerPosition, rowPosition) {
                     updateColumn(j);
                     updateRow(data.inbox);
                 });
+        input = new CurrencyInput(currency, amount, input);
         spent.innerText = '';
         rows[category].splice(j, 0, { input, spent: 0, total });
         updateRow(category);

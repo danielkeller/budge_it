@@ -147,7 +147,7 @@ class BudgetingForm(forms.ModelForm):
         categories = {}
         for category in self.budget.category_set.all():
             categories[category] = self.cleaned_data[str(category.id)] or 0
-        self.instance.set_parts(self.budget.id, {}, categories)
+        self.instance.set_parts(self.budget, {}, categories)
 
 
 class BaseBudgetingFormSet(forms.BaseModelFormSet):
