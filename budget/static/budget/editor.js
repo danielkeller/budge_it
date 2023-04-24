@@ -109,14 +109,17 @@ class CurrencyInput {
         this.#input.addEventListener('input', this.#parse.bind(this));
     }
     #refresh() {
+        const value = this.#amount.value
+            ? formatCurrencyField(this.#amount.value, this.#currency.value)
+            : "";
         if (this.#currencyFixed) {
             this.#span.innerText = this.#currency.value;
             this.#span.className = "suggested currency";
-            this.#input.value = this.#amount.value;
+            this.#input.value = value;
         } else {
             this.#span.innerText = "";
             this.#span.className = "";
-            this.#input.value = this.#currency.value + " " + this.#amount.value;
+            this.#input.value = this.#currency.value + " " + value;
         }
         if (this.#amountSuggested || this.#currencySuggested) {
             this.classList.add('suggested');
@@ -127,11 +130,12 @@ class CurrencyInput {
     static #re = /\s*(\p{L}*)\s*(.*)\s*/u;
     #parse() {
         if (this.#currencyFixed) {
-            this.#amount.value = this.#input.value;
+            this.#amount.value = this.#input.value
+                && parseCurrency(this.#input.value, this.#currency.value);
         } else {
             let [, currency, amount] = this.#input.value.match(CurrencyInput.#re);
             this.#currency.value = currency;
-            this.#amount.value = amount;
+            this.#amount.value = amount && parseCurrency(amount, currency);
         }
     }
     clear() { this.#amount.value = this.#currency.value = ""; this.#refresh(); }
@@ -317,38 +321,30 @@ function suggestSums() {
 
     for (const currency of currencies) {
         var to_category = [];
-        var category_total = Decimal.zero;
+        var category_total = 0;
         var to_account = [];
-        var account_total = Decimal.zero;
+        var account_total = 0;
         for (var { account, category, moved, transferred } of rows) {
             if (category.value && moved.currency === currency) {
                 if (moved.value) {
-                    category_total = category_total.plus(moved.value);
+                    category_total += +moved.value;
                 } else {
                     to_category.push(moved);
                 }
             }
             if (account.value && transferred.currency === currency) {
                 if (transferred.value) {
-                    account_total = account_total.plus(transferred.value);
+                    account_total += +transferred.value;
                 } else {
                     to_account.push(transferred);
                 }
             }
         }
-        if (category_total.isFinite() && to_category.length === 1) {
-            if (category_total.eq(Decimal.zero)) {
-                result |= to_category[0].suggest("");
-            } else {
-                result |= to_category[0].suggest(category_total.negate());
-            }
+        if (isFinite(category_total) && to_category.length === 1) {
+            result |= to_category[0].suggest(category_total ? -category_total : "");
         }
-        if (account_total.isFinite() && to_account.length === 1) {
-            if (account_total.eq(Decimal.zero)) {
-                result |= to_account[0].suggest("");
-            } else {
-                result |= to_account[0].suggest(account_total.negate());
-            }
+        if (isFinite(account_total) && to_account.length === 1) {
+            result |= to_account[0].suggest(account_total ? -account_total : "");
         }
     }
     return result;
@@ -368,10 +364,10 @@ function suggestRowConsistency(options) {
             transferred.suggestCurrency(moved.currency);
         if (moved.currency !== transferred.currency)
             continue;
-        if (transferred.value && Decimal.parse(transferred.value).isFinite())
-            result |= moved.suggest(Decimal.parse(transferred.value));
-        if (moved.value && Decimal.parse(moved.value).isFinite())
-            result |= transferred.suggest(Decimal.parse(moved.value));
+        if (transferred.value && isFinite(+transferred.value))
+            result |= moved.suggest(transferred.value);
+        if (moved.value && isFinite(+moved.value))
+            result |= transferred.suggest(moved.value);
     }
     return result;
 }
@@ -392,22 +388,22 @@ function suggestAmounts() {
 }
 
 function combineDebts(owed) {
-    var amounts = Object.entries(owed).filter(o => o[1].ne(0))
-        .sort((a, b) => a[1].cmp(b[1]));
+    var amounts = Object.entries(owed).filter(o => o[1])
+        .sort((a, b) => a[1] - b[1]);
     var result = [];
-    var [from, amount] = ['', Decimal.zero];
-    while (amounts.length || amount.ne(0)) {
-        if (amount.eq(0))
+    var [from, amount] = ['', 0];
+    while (amounts.length || amount) {
+        if (amount === 0)
             [from, amount] = amounts.shift();
         if (!amounts.length)
             return [];  // Debts do not sum to zero
         const [to, other] = amounts.pop();
-        const result_amount = amount.negate().min(other);
+        const result_amount = Math.min(-amount, other);
         result.push([from, to, result_amount]);
-        amount = amount.plus(other);
-        if (amount.gt(0)) {
+        amount += other;
+        if (amount > 0) {
             amounts.push([to, amount]);
-            amount = Decimal.zero;
+            amount = 0;
         }
     }
     return result;
@@ -430,31 +426,29 @@ function checkValid() {
     valid = true;
 
     for (const currency of currencies) {
-        var category_total = Decimal.zero;
-        var account_total = Decimal.zero;
+        var category_total = 0;
+        var account_total = 0;
         var owed = {};
         for (var { account, category, moved, transferred } of rows) {
             if (transferred.currency === currency) {
-                account_total = account_total.plus(transferred.value);
+                account_total = account_total + +transferred.value;
                 let budget = account.value in data.accounts
                     ? data.budget : account.value;
-                if (!owed[budget]) owed[budget] = Decimal.zero;
-                owed[budget] = owed[budget].plus(transferred.value);
+                owed[budget] = (owed[budget] || 0) + transferred.value;
 
             }
             if (moved.currency === currency) {
-                category_total = category_total.plus(moved.value);
+                category_total = category_total + +moved.value;
                 let budget = category.value in data.categories
                     ? data.budget : stripBrackets(category.value);
-                if (!owed[budget]) owed[budget] = Decimal.zero;
-                owed[budget] = owed[budget].minus(moved.value);
+                owed[budget] = (owed[budget] || 0) - moved.value;
             }
         }
-        if (category_total.ne(0) && category_total.isFinite()) {
+        if (category_total && isFinite(category_total)) {
             category_totals.push(formatCurrency(category_total, currency));
             valid = false;
         }
-        if (account_total.ne(0) && account_total.isFinite()) {
+        if (account_total && isFinite(account_total)) {
             account_totals.push(formatCurrency(account_total, currency));
             valid = false;
         }

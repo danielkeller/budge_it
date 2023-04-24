@@ -121,8 +121,8 @@ class BudgetingForm(forms.ModelForm):
         self.budget = budget
         for category in budget.category_set.all():
             self.fields[str(category.id)] = forms.DecimalField(
-                required=False, widget=forms.TextInput(
-                    attrs={'class': 'number', 'form': 'form'}))
+                required=False, widget=forms.HiddenInput(
+                    attrs={'form': 'form'}))
         if instance:
             for part in instance.category_parts.all():
                 self.initial[str(part.to_id)] = part.amount
@@ -147,7 +147,7 @@ class BudgetingForm(forms.ModelForm):
         categories = {}
         for category in self.budget.category_set.all():
             categories[category] = self.cleaned_data[str(category.id)] or 0
-        self.instance.set_parts(self.budget.id, {}, categories)
+        self.instance.set_parts(self.budget, {}, categories)
 
 
 class BaseBudgetingFormSet(forms.BaseModelFormSet):

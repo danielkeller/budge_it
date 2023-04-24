@@ -4,6 +4,29 @@
 const dtf = new Intl.DateTimeFormat(navigator.language,
     { month: "short", year: "numeric", timeZone: "UTC" })
 
+class CurrencyInput {
+    #currency; #amount; #input;
+    constructor(currency, amount, input) {
+        this.#currency = currency;
+        this.#amount = amount;
+        this.#input = input;
+        this.#input.addEventListener('input', this.#parse.bind(this));
+        this.value = this.#amount.value;
+    }
+    #parse() {
+        this.#amount.value = this.#input.value
+            && parseCurrency(this.#input.value, this.#currency);
+    }
+    get value() {
+        return parseCurrency(this.#input.value, this.#currency);
+    }
+    set value(value) {
+        this.#amount.value = value;
+        this.#input.value = value
+            && formatCurrencyField(this.#amount.value, this.#currency);
+    }
+}
+
 addEventListener("DOMContentLoaded", function () {
     formatCurrencies();
     window.data = JSON.parse(document.getElementById("data").textContent);
@@ -14,11 +37,12 @@ addEventListener("DOMContentLoaded", function () {
     for (const tr of tbody.children) {
         const category = tr.dataset.category;
         if (!category) continue;
+        const currency = data.currencies[category];
         var row = [];
         var cell = {};
         for (const td of tr.children) {
             const j = row.length;
-            const input = td.children[0];
+            const [amount, input] = td.children;
             if (input) {
                 if (data.inboxes.includes(category)) {
                     input.classList.add("suggested");
@@ -26,7 +50,7 @@ addEventListener("DOMContentLoaded", function () {
                 } else {
                     input.addEventListener('input', () => edited(j, category));
                 }
-                cell.input = input;
+                cell.input = new CurrencyInput(currency, amount, input);
             } else if (td.classList.contains("spent")) {
                 cell.spent = Decimal.parse(td.dataset.value);
             } else if (td.classList.contains("total")) {
@@ -53,25 +77,24 @@ function edited(j, category) {
 function updateColumn(j) {
     for (const inbox of data.inboxes) {
         const currency = data.currencies[inbox];
-        var sum = Decimal.zero;
+        var sum = 0;
         for (const [id, row] of Object.entries(rows)) {
             const { input } = row[j];
             if (data.currencies[id] === currency && id !== inbox) {
-                sum = sum.plus(input.value);
+                sum += +input.value;
             }
         }
-        rows[inbox][j].input.value =
-            !sum.isFinite() || sum.eq(0) ? '' : sum.negate();
+        rows[inbox][j].input.value = sum && isFinite(sum) ? -sum : '';
     }
 }
 
 function updateRow(i) {
-    var sum = Decimal.zero;
+    var sum = 0;
     for (const { input, spent, total } of rows[i]) {
-        if (Decimal.parse(input.value).isFinite())
-            sum = sum.plus(input.value);
-        sum = sum.plus(spent);
-        total.textContent = formatCurrency(sum.toFloat(), data.currencies[i]);
+        if (isFinite(+input.value))
+            sum += +input.value;
+        sum += spent;
+        total.textContent = formatCurrency(sum, data.currencies[i]);
     }
 }
 
@@ -142,13 +165,14 @@ function newColumn(j, date, datePosition, headerPosition, rowPosition) {
     for (const tr of tbody.children) {
         const category = tr.dataset.category;
         if (!category) continue;
+        const currency = data.currencies[category];
         const budgeted = tr.children[1].cloneNode(true);
-        const input = budgeted.children[0];
+        let [amount, input] = budgeted.children;
         const spent = tr.children[2].cloneNode(true);
         const total = tr.children[3].cloneNode(true);
         input.id = '';
-        input.name = `form-${n}-${category}`
-        input.value = '';
+        amount.name = `form-${n}-${category}`
+        amount.value = '';
         if (category != data.inbox)
             input.addEventListener('input',
                 () => {
@@ -156,6 +180,7 @@ function newColumn(j, date, datePosition, headerPosition, rowPosition) {
                     updateColumn(j);
                     updateRow(data.inbox);
                 });
+        input = new CurrencyInput(currency, amount, input);
         spent.innerText = '';
         rows[category].splice(j, 0, { input, spent: 0, total });
         updateRow(category);

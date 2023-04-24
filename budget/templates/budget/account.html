@@ -2,6 +2,7 @@
 
 <!DOCTYPE html>
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+<script src="{% static 'budget/jdecimal.js' %}"></script>
 <script src="{% static 'budget/util.js' %}"></script>
 <script src="{% static 'budget/account.js' %}"></script>
 
@@ -28,7 +29,7 @@
         data-kind="{{entry.transaction.kind}}">
         <td>{{entry.transaction.date}}</td>
         <td>{{entry.transaction|transaction_description:account}}</td>
-        <td class="number">{{entry.amount}}</td>
+        <td class="number shortcurrency" data-currency="{{ account.currency }}">{{entry.amount}}</td>
         <td>
             <div class="detail-container">
                 <div class="transaction-detail">
@@ -41,8 +42,9 @@
                         <tr class="{% cycle 'a' 'b' %}">
                             <td>{% account_in_budget part.account account.budget %}</td>
                             <td>{% account_in_budget part.category account.budget %}</td>
-                            <td class="number"
-                                data-currency="{% firstof part.account.currency part.category.currency %}">
+                            {% firstof part.account.currency part.category.currency as currency %}
+                            <td class="number {% if currency == account.currency %}shortcurrency{% endif %}"
+                                data-currency="{{ currency }}">
                                 {{part.amount}}
                             </td>
                         </tr>
@@ -51,7 +53,7 @@
                     </table>
                 </div>
             </div>
-            <div class="number">{{entry.running_sum}}</div>
+            <div class="number shortcurrency" data-currency="{{ account.currency }}">{{entry.running_sum}}</div>
         </td>
     </tr>
     {% endfor %}

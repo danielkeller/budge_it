@@ -29,7 +29,7 @@
     <tr data-category="{{category.id}}">
         <td>{{ category.name|default:"Inbox" }}</td>
         {% for field, total in row %}
-        <td class="t5 tdinput">{{field}}</td>
+        <td class="t5 tdinput">{{field}}<input form="form" class="number"></td>
         <td class="spent number" data-currency="{{category.currency}}" data-value="{{total|default:0}}">
             {{total|default:""}}</td>
         <td class="total number"></td>
