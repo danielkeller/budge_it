@@ -17,7 +17,7 @@ class Decimal {
     static NaN = Decimal.fromParts(0, NaN);
 
     toString() {
-        if (!isFinite(this.m)) return this.m;
+        if (!isFinite(this.m) || this.e === 0) return this.m;
         const sign = this.m < 0 ? "-" : "";
         const int = Math.abs(Math.trunc(this.m / (10 ** this.e)));
         let frac = Math.abs(this.m % (10 ** this.e)) || '';
