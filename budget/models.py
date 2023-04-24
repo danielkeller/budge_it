@@ -326,14 +326,23 @@ class Transaction(models.Model):
         if not valid_parts(accounts) or not valid_parts(categories):
             raise IntegrityError("Parts do not sum to zero")
         res_accounts, res_categories = self.residual_parts_(in_budget)
+        accounts = {account:
+                    accounts.get(account, 0) - res_accounts.get(account, 0)
+                    for account in res_accounts.keys() | accounts.keys()}
+        categories = {account:
+                      categories.get(account, 0) -
+                      res_categories.get(account, 0)
+                      for account in res_categories.keys() | categories.keys()}
+        self.set_parts_raw(accounts, categories)
+
+    def set_parts_raw(self,
+                      accounts: 'dict[Account, int]',
+                      categories: 'dict[Category, int]'):
         has_any_parts = False
-        for account in res_accounts.keys() | accounts.keys():
-            amount = accounts.get(account, 0) - res_accounts.get(account, 0)
+        for account, amount in accounts.items():
             has_any_parts |= amount != 0
             TransactionAccountPart.update(self, account, amount)
-        for category in res_categories.keys() | categories.keys():
-            amount = (categories.get(category, 0) -
-                      res_categories.get(category, 0))
+        for category, amount in categories.items():
             has_any_parts |= amount != 0
             TransactionCategoryPart.update(self, category, amount)
         if not has_any_parts:

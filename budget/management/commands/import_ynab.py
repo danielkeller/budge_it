@@ -31,6 +31,10 @@ class Record:
         return (int(self.Inflow.replace('.', ''))
                 - int(self.Outflow.replace('.', '')))
 
+    @staticmethod
+    def from_row(row: 'list[str]') -> 'Record':
+        return Record(*row)
+
 
 class Command(BaseCommand):
     help = "Import a YNAB budget"
@@ -42,10 +46,10 @@ class Command(BaseCommand):
             header = next(reader)
             if len(header) != 11 or header[3] != 'Payee':
                 raise ValueError('Wrong file type')
-            self.process(reader)
+            self.process(map(Record.from_row, reader))
 
     @transaction.atomic
-    def process(self, reader: 'Iterable[list[str]]'):
+    def process(self, reader: 'Iterable[Record]'):
         user = User.objects.get(username="admin")
         target_budget, _ = Budget.objects.get_or_create(
             name="ynabimport", budget_of=user)
@@ -53,8 +57,7 @@ class Command(BaseCommand):
         # TODO how to get currency unit?
 
         raw_transaction_parts: 'list[Record]' = []
-        for row in reader:
-            record = Record(*row)
+        for record in reader:
             raw_transaction_parts.append(record)
             if iscomplete(record):
                 self.save(target_budget, raw_transaction_parts)
@@ -80,7 +83,7 @@ class Command(BaseCommand):
 
             raw_account = raw_transaction_part.Account
             account, _ = Account.objects.get_or_create(
-                budget_id=target_budget.id,
+                budget=target_budget,
                 name=raw_account
             )
             transaction_account_parts[account] += raw_transaction_part_inflow
@@ -98,7 +101,7 @@ class Command(BaseCommand):
                     return None
 
                 transfer_account, _ = Account.objects.get_or_create(
-                    budget_id=target_budget.id,
+                    budget=target_budget,
                     name=raw_transfer_account
                 )
                 transaction_account_parts[transfer_account] += raw_transaction_part_outflow
@@ -112,7 +115,7 @@ class Command(BaseCommand):
                 transaction_account_parts[payee_account] += raw_transaction_part_outflow
 
                 category, _ = Category.objects.get_or_create(
-                    budget_id=target_budget.id,
+                    budget=target_budget,
                     name=raw_transaction_part.CategoryGroupCategory
                 )
                 transaction_category_parts[category] += raw_transaction_part_inflow
@@ -121,8 +124,8 @@ class Command(BaseCommand):
             assert sum(transaction_category_parts.values()) == 0
             assert sum(transaction_account_parts.values()) == 0
         try:
-            transaction.set_parts(accounts=transaction_account_parts,
-                                  categories=transaction_category_parts, in_budget=target_budget)
+            transaction.set_parts_raw(accounts=transaction_account_parts,
+                                      categories=transaction_category_parts)
         except IntegrityError:
             print(raw_transaction_parts)
             raise
