@@ -13,7 +13,7 @@ from dataclasses import dataclass
 ynab_transfer_prefix = "Transfer : "
 
 @dataclass
-class Record:
+class RawTransactionPartRecord:
     Account: str
     Flag: str
     Date: str
@@ -31,9 +31,10 @@ class Record:
                 - int(self.Outflow.replace('.', '')))
 
     @staticmethod
-    def from_row(row: 'list[str]') -> 'Record':
-        return Record(*row)
+    def from_row(row: 'list[str]') -> 'RawTransactionPartRecord':
+        return RawTransactionPartRecord(*row)
 
+ynab_currency = "CHF"
 
 class Command(BaseCommand):
     help = "Import a YNAB budget"
@@ -45,22 +46,22 @@ class Command(BaseCommand):
             header = next(reader)
             if len(header) != 11 or header[3] != 'Payee':
                 raise ValueError('Wrong file type')
-            self.process(map(Record.from_row, reader))
+            self.process(map(RawTransactionPartRecord.from_row, reader))
 
     @transaction.atomic
-    def process(self, reader: 'Iterable[Record]'):
+    def process(self, reader: 'Iterable[RawTransactionPartRecord]'):
         user = User.objects.get(username="admin")
         target_budget, _ = Budget.objects.get_or_create(
             name="ynabimport", budget_of=user)
 
-        raw_transaction_parts: 'list[Record]' = []
+        raw_transaction_parts: 'list[RawTransactionPartRecord]' = []
         for record in reader:
             raw_transaction_parts.append(record)
             if iscomplete(record):
                 self.save(target_budget, raw_transaction_parts)
                 raw_transaction_parts = []
 
-    def save(self, target_budget: Budget, raw_transaction_parts: 'list[Record]'):
+    def save(self, target_budget: Budget, raw_transaction_parts: 'list[RawTransactionPartRecord]'):
         first_raw_transaction_part = raw_transaction_parts[0]
         date = YNAB_string_to_date(
             first_raw_transaction_part.Date)  # filter for past dates
@@ -81,7 +82,8 @@ class Command(BaseCommand):
             raw_account = raw_transaction_part.Account
             account, _ = Account.objects.get_or_create(
                 budget=target_budget,
-                name=raw_account
+                name=raw_account,
+                currency=ynab_currency,
             )
             transaction_account_parts[account] += raw_transaction_part_inflow
 
@@ -99,7 +101,8 @@ class Command(BaseCommand):
 
                 transfer_account, _ = Account.objects.get_or_create(
                     budget=target_budget,
-                    name=raw_transfer_account
+                    name=raw_transfer_account,
+                    currency=ynab_currency,
                 )
                 transaction_account_parts[transfer_account] += raw_transaction_part_outflow
 
@@ -108,15 +111,16 @@ class Command(BaseCommand):
                     name=raw_payee,
                     payee_of=target_budget.budget_of
                 )
-                payee_account = payee.get_hidden(Account, currency="")
+                payee_account = payee.get_hidden(Account, currency=ynab_currency)
                 transaction_account_parts[payee_account] += raw_transaction_part_outflow
 
                 category, _ = Category.objects.get_or_create(
                     budget=target_budget,
-                    name=raw_transaction_part.CategoryGroupCategory
+                    name=raw_transaction_part.CategoryGroupCategory,
+                    currency=ynab_currency,
                 )
                 transaction_category_parts[category] += raw_transaction_part_inflow
-                payee_category = payee.get_hidden(Category, currency="")
+                payee_category = payee.get_hidden(Category, currency=ynab_currency)
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
             assert sum(transaction_category_parts.values()) == 0
             assert sum(transaction_account_parts.values()) == 0
@@ -129,12 +133,12 @@ def YNAB_string_to_date(ynab_string: str):
     return datetime.date(*[int(i) for i in ynab_string.split('.')][::-1])
 
 
-def iscomplete(record: Record):
+def iscomplete(record: RawTransactionPartRecord):
     raw_memo = record.Memo
     return not (raw_memo.startswith("Split")) or raw_memo.startswith("Split (1/")
 
 
-def join_memos(raw_transaction_parts: 'list[Record]'):
+def join_memos(raw_transaction_parts: 'list[RawTransactionPartRecord]'):
     return ", ".join([
         re.sub(r"Split \(.*\) ", "", x.Memo)
         for x in raw_transaction_parts])
