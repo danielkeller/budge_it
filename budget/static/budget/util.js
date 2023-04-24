@@ -1,14 +1,33 @@
 "use strict";
 
+function currencyDecimals(currency) {
+    const currencyRe = /.*\.([0-9])|.*/;
+    const forced = currency.match(currencyRe)[1];
+    if (forced) return +forced;
+    try {
+        const format = new Intl.NumberFormat(navigator.language,
+            { style: 'currency', currency });
+        return format.resolvedOptions().maximumFractionDigits;
+    } catch (invalid) {
+        return 2;
+    }
+}
+
+function parseCurrency(value, currency) {
+    return Decimal.parse(value).toInt(currencyDecimals(currency));
+}
+
+function formatCurrencyField(value, currency) {
+    return Decimal.fromParts(currencyDecimals(currency), value);
+}
+
 function formatCurrency(value, currency) {
-    const amount = typeof Decimal !== 'undefined' && value instanceof Decimal ?
-        value.toFloat() : +value;
-    if (currency && !isNaN(amount)) {
+    if (currency && !isNaN(+value)) {
         try {
             const format = new Intl.NumberFormat(navigator.language,
                 { style: 'currency', currency });
-            return format.format(amount);
-            return;
+            const decimals = format.resolvedOptions().maximumFractionDigits;
+            return format.format(+value / 10 ** decimals);
         } catch (invalidCurrency) { }
     }
     return currency + " " + value;
@@ -16,7 +35,11 @@ function formatCurrency(value, currency) {
 
 function formatCurrencies() {
     for (const element of document.querySelectorAll('[data-currency]')) {
-        element.textContent = formatCurrency(
-            element.textContent, element.dataset.currency);
+        if (element.classList.contains('shortcurrency'))
+            element.textContent = formatCurrencyField(
+                element.textContent, element.dataset.currency);
+        else
+            element.textContent = formatCurrency(
+                element.textContent, element.dataset.currency);
     }
 }
