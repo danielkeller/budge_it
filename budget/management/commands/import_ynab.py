@@ -34,34 +34,56 @@ class RawTransactionPartRecord:
     def from_row(row: 'list[str]') -> 'RawTransactionPartRecord':
         return RawTransactionPartRecord(*row)
 
+@dataclass
+class RawBudgetEventRecord:
+    Month: str
+    CategoryGroupCategory: str
+    CategoryGroup: str
+    Category: str
+    Budgeted: str
+    Activity: str
+    Available: str
+
+    def TotalInflow(self):
+        return (int(self.Inflow.replace('.', ''))
+                - int(self.Outflow.replace('.', '')))
+
+    @staticmethod
+    def from_row(row: 'list[str]') -> 'RawBudgetEventRecord':
+        return RawBudgetEventRecord(*row)
+
 ynab_currency = "CHF"
 
 class Command(BaseCommand):
     help = "Import a YNAB budget"
 
     def handle(self, *args: Any, **options: Any):
-        register_filename = "../Swiss Budget as of 2023-04-22 21-35 - Register.csv"
-        with open(register_filename, newline='', encoding='utf-8-sig') as file:
+#        register_filename = "../Swiss Budget as of 2023-04-22 21-35 - Register.csv"
+#        self.process_csv(register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
+
+        budget_filename = "../Swiss Budget as of 2023-04-22 21-35 - Budget.csv"
+        self.process_csv(budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
+
+    def process_csv(self, filename, from_row, handler):
+        with open(filename, newline='', encoding='utf-8-sig') as file:
             reader = csv.reader(file)
             header = next(reader)
-            if len(header) != 11 or header[3] != 'Payee':
-                raise ValueError('Wrong file type')
-            self.process(map(RawTransactionPartRecord.from_row, reader))
+            handler(map(from_row, reader))
 
     @transaction.atomic
-    def process(self, reader: 'Iterable[RawTransactionPartRecord]'):
+    def process_transactions(self, reader: 'Iterable[RawTransactionPartRecord]'):
         user = User.objects.get(username="admin")
         target_budget, _ = Budget.objects.get_or_create(
             name="ynabimport", budget_of=user)
 
         raw_transaction_parts: 'list[RawTransactionPartRecord]' = []
-        for record in reader:
-            raw_transaction_parts.append(record)
-            if iscomplete(record):
-                self.save(target_budget, raw_transaction_parts)
+        for raw_transaction_part in reader:
+            raw_transaction_parts.append(raw_transaction_part)
+            if iscomplete(raw_transaction_part):
+                self.save_transaction(target_budget, raw_transaction_parts)
                 raw_transaction_parts = []
 
-    def save(self, target_budget: Budget, raw_transaction_parts: 'list[RawTransactionPartRecord]'):
+    def save_transaction(self, target_budget: Budget, raw_transaction_parts: 'list[RawTransactionPartRecord]'):
         first_raw_transaction_part = raw_transaction_parts[0]
         date = YNAB_string_to_date(
             first_raw_transaction_part.Date)  # filter for past dates
@@ -128,13 +150,24 @@ class Command(BaseCommand):
                                   categories=transaction_category_parts)
         return None
 
+    @transaction.atomic
+    def process_budget_events(self, reader: 'Iterable[RawBudgetEventRecord]'):
+        user = User.objects.get(username="admin")
+        target_budget, _ = Budget.objects.get_or_create(
+            name="ynabimport", budget_of=user)
+
+        for raw_budget_event in reader:
+            self.save_budget_event(target_budget, raw_budget_event)
+
+    def save_budget_event(self, target_budget: Budget, raw_budget_event: 'RawBudgetEventRecord'):
+        pass
 
 def YNAB_string_to_date(ynab_string: str):
     return datetime.date(*[int(i) for i in ynab_string.split('.')][::-1])
 
 
-def iscomplete(record: RawTransactionPartRecord):
-    raw_memo = record.Memo
+def iscomplete(raw_transaction_part: RawTransactionPartRecord):
+    raw_memo = raw_transaction_part.Memo
     return not (raw_memo.startswith("Split")) or raw_memo.startswith("Split (1/")
 
 
