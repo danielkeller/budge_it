@@ -468,8 +468,8 @@ def transactions_for_budget(budget_id: int) -> Iterable[Transaction]:
           .filter(filter)
           .distinct()
           .order_by('date', '-kind')
-          .prefetch_related('account_parts', 'category_parts',
-                            'accounts__budget', 'categories__budget'))
+          .prefetch_related('account_parts__to__budget',
+                            'category_parts__to__budget'))
     total = 0
     for transaction in qs:
         for part in transaction.category_parts.all():
@@ -518,11 +518,13 @@ def accounts_overview(budget_id: int):
     accounts = (Account.objects
                 .filter(budget_id=budget_id)
                 .annotate(balance=Sum('entries__amount', default=0))
-                .order_by('name'))
+                .order_by('name')
+                .select_related('budget'))
     categories = (Category.objects
                   .filter(budget_id=budget_id)
                   .annotate(balance=Sum('entries__amount', default=0))
-                  .order_by('name'))
+                  .order_by('name')
+                  .select_related('budget'))
     transactions = transactions_for_budget(budget_id)
     debt_map = functools.reduce(
         sum_debts, (transaction.debts() for transaction in transactions), {})
