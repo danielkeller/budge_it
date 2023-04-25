@@ -17,13 +17,9 @@ T = TypeVar('T')
 class Id(models.Model):
     """Distinct identity for budgets, accounts, and categories"""
     id: models.BigAutoField
-    name = models.CharField(max_length=100, blank=True)
     of_budget: 'models.OneToOneField[Budget]'
     of_account: 'models.OneToOneField[Account]'
     of_category: 'models.OneToOneField[Category]'
-
-    def __str__(self):
-        return self.name
 
 
 class Budget(Id):
@@ -35,6 +31,7 @@ class Budget(Id):
     id_ptr = models.OneToOneField(
         Id, related_name='of_budget',
         on_delete=models.CASCADE, parent_link=True)
+    name = models.CharField(max_length=100)
 
     account_set: 'models.Manager[Account]'
     category_set: 'models.Manager[Category]'
@@ -53,7 +50,8 @@ class Budget(Id):
     friends: 'models.ManyToManyField[Budget, Any]'
     friends = models.ManyToManyField('self', blank=True)
 
-    # TODO: currency
+    def __str__(self):
+        return self.name
 
     def get_absolute_url(self):
         return reverse('overview', kwargs={'budget_id': self.id})
@@ -162,6 +160,7 @@ class BaseAccount(Id):
     class Meta:  # type: ignore
         abstract = True
     id_ptr: models.OneToOneField[Id]
+    name = models.CharField(max_length=100, blank=True)
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE)
     budget_id: int  # Sigh
     balance: int
