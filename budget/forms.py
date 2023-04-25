@@ -5,14 +5,13 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.forms import ValidationError
-from django.contrib.auth.models import User
 
 from .models import (Id, Budget, BaseAccount, Account, Category,
                      Transaction, budgeting_transactions)
 
 
 class AccountChoiceField(forms.Field):
-    user: User
+    user_id: int
     type: Type[BaseAccount]
 
     def __init__(self, *, type: Type[BaseAccount], **kwargs: Any):
@@ -23,7 +22,7 @@ class AccountChoiceField(forms.Field):
         if isinstance(value, str):
             return value
         if (isinstance(value, self.type)
-                and value.budget.budget_of != self.user):
+                and value.budget.budget_of_id != self.user_id):
             return value.budget_id
         return value and value.id
 
@@ -41,7 +40,7 @@ class AccountChoiceField(forms.Field):
         if (self.type == Category
                 and value.startswith('[') and value.endswith(']')):
             value = value[1:-1]
-        return Budget.objects.get_or_create(name=value, payee_of=self.user)[0]
+        return Budget.objects.get_or_create(name=value, payee_of=self.user_id)[0]
 
 
 class TransactionPartForm(forms.Form):
@@ -88,8 +87,8 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
 
     def add_fields(self, form: TransactionPartForm, index: int):
         super().add_fields(form, index)
-        form.fields['account'].user = self.budget.owner()
-        form.fields['category'].user = self.budget.owner()
+        form.fields['account'].user_id = self.budget.owner()
+        form.fields['category'].user_id = self.budget.owner()
 
     @transaction.atomic
     def save(self, *, instance: Transaction):

@@ -51,7 +51,7 @@ class Budget(Id):
 
     # Ignored for payees
     friends: 'models.ManyToManyField[Budget, Any]'
-    friends = models.ManyToManyField('self',  blank=True)
+    friends = models.ManyToManyField('self', blank=True)
 
     # TODO: currency
 

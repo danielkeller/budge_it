@@ -18,6 +18,7 @@ class BudgetAdmin(admin.ModelAdmin):  # type: ignore
         AccountInline,
         CategoryInline,
     ]
+    search_fields = ['name']
 
 
 admin.site.register(Budget, BudgetAdmin)
@@ -27,10 +28,12 @@ admin.site.register(Category)
 
 class TransactionAccountPartInline(admin.TabularInline):  # type: ignore
     model = TransactionAccountPart
+    raw_id_fields = ['to']
 
 
 class TransactionCategoryPartInline(admin.TabularInline):  # type: ignore
     model = TransactionCategoryPart
+    raw_id_fields = ['to']
 
 
 class TransactionAdmin(admin.ModelAdmin):  # type: ignore
