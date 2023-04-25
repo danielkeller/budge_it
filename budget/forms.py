@@ -165,7 +165,7 @@ class BaseBudgetingFormSet(forms.BaseModelFormSet):
             form.instance.month or form.initial.get('date'): form
             for form in self.forms}
 
-    @ transaction.atomic
+    @transaction.atomic
     def save(self, commit: bool = False):
         super().save(commit)
 

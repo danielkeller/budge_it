@@ -1,5 +1,5 @@
 {% if account == None %}
-{% elif account.budget.budget_of == budget.owner %}
+{% elif account.budget.budget_of_id == budget.owner %}
 <a href="{{ account.get_absolute_url }}">{{ account.name | default:"Inbox" }}</a>
 {% elif account.kind == 'category' %}
 <i>[{{ account.budget.name }}]</i>
