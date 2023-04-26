@@ -50,6 +50,11 @@ function findRow(input) {
             [account, category, moved, transferred].includes(input));
 }
 
+function ownAccount(value) {
+    return value === data.budget
+        || value in data.accounts || value in data.categories;
+}
+
 class Selector {
     #visible; #hidden; #options; #oninput;
     constructor([hidden, visible], options, oninput) {
@@ -254,7 +259,7 @@ function accountChanged({ target }) {
     category.unsuggest();
     if (target.value in data.budgets)
         category.suggest(target.value);
-    else if (target.value && !(target.value in data.accounts))
+    else if (target.value && !ownAccount(target.value))
         category.suggest(`[${target.value}]`);
 
     moved.disabled = !category.value;
@@ -432,16 +437,16 @@ function checkValid() {
         for (var { account, category, moved, transferred } of rows) {
             if (transferred.currency === currency) {
                 account_total = account_total + +transferred.value;
-                let budget = account.value in data.accounts
+                let budget = ownAccount(account.value)
                     ? data.budget : account.value;
-                owed[budget] = (owed[budget] || 0) + transferred.value;
+                owed[budget] = (owed[budget] || 0) + +transferred.value;
 
             }
             if (moved.currency === currency) {
                 category_total = category_total + +moved.value;
-                let budget = category.value in data.categories
+                let budget = ownAccount(category.value)
                     ? data.budget : stripBrackets(category.value);
-                owed[budget] = (owed[budget] || 0) - moved.value;
+                owed[budget] = (owed[budget] || 0) - +moved.value;
             }
         }
         if (category_total && isFinite(category_total)) {

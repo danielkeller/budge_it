@@ -80,16 +80,8 @@ class Budget(Id):
         filter = Q(friends=self)
         if self.owner():
             filter |= (Q(friends__budget_of=self.owner()) |
-                       Q(payee_of=self.owner()) | Q(budget_of=self.owner()))
+                       Q(payee_of=self.owner()))
         return Budget.objects.filter(filter).distinct()
-
-    def visible_accounts(self, cls: 'Type[BaseAccountT]'):
-        filter = Q(budget__friends=self) & Q(name='')
-        if self.owner():
-            filter |= Q(budget__friends__budget_of=self.owner()) & Q(name='')
-            filter |= (Q(budget__payee_of=self.owner()) |
-                       Q(budget__budget_of=self.owner()))
-        return cls.objects.filter(filter).distinct()
 
 
 class Permissions:
@@ -134,8 +126,6 @@ class Permissions:
     @staticmethod
     def visibility(budget: Budget, budgets: 'Iterable[Budget]'):
         return (other for other in budgets if other.isvisible(budget))
-        # ids = (budget.id for budget in budgets)
-        # return budget.visible_budgets().filter(id__in=ids).order_by('id')
 
     def connection(self, there: Budget):
         while there in self.connectivity:

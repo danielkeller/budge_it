@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any, Union, Mapping, Optional, Type, Iterable
 from datetime import date
 
@@ -21,8 +22,7 @@ class AccountChoiceField(forms.Field):
     def prepare_value(self, value: Any):
         if isinstance(value, str):
             return value
-        if (isinstance(value, self.type)
-                and value.budget.budget_of_id != self.user_id):
+        if isinstance(value, self.type) and value.ishidden():
             return value.budget_id
         return value and value.id
 
@@ -93,15 +93,15 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
 
     @transaction.atomic
     def save(self, *, instance: Transaction):
-        accounts: dict[Account, int] = {}
-        categories: dict[Category, int] = {}
+        accounts: dict[Account, int] = defaultdict(int)
+        categories: dict[Category, int] = defaultdict(int)
         for form in self.forms:
             account = form.cleaned_data.get('account')
             if account and form.cleaned_data.get('transferred'):
-                accounts[account] = form.cleaned_data['transferred']
+                accounts[account] += form.cleaned_data['transferred']
             category = form.cleaned_data.get('category')
             if category and form.cleaned_data.get('moved'):
-                categories[category] = form.cleaned_data['moved']
+                categories[category] += form.cleaned_data['moved']
         instance.set_parts(self.budget, accounts, categories)
 
 

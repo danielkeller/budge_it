@@ -68,19 +68,21 @@
     {% endif %}
 </div>
 <datalist id="account-list">
-    {% for account in budget.account_set.all %}
-    <option data-id="{{ account.id }}" value="{{ account.name|default:"Inbox" }}"></option>
+    <option data-id="{{ budget.id }}" value="Inbox"></option>
+    {% for account in accounts %}
+    <option data-id="{{ account.id }}" value="{{ account.name }}"></option>
     {% endfor %}
-    {% for budget in payees %}
-    <option data-id="{{ budget.id }}" value="{{ budget }}"></option>
+    {% for id, name in budgets.items %}
+    <option data-id="{{ id }}" value="{{ name }}"></option>
     {% endfor %}
 </datalist>
 <datalist id="category-list">
-    {% for category in budget.category_set.all %}
-    <option data-id="{{ category.id }}" value="{{ category.name|default:"Inbox" }}"></option>
+    <option data-id="{{ budget.id }}" value="Inbox"></option>
+    {% for category in categories %}
+    <option data-id="{{ category.id }}" value="{{ category.name }}"></option>
     {% endfor %}
-    {% for budget in payees %}
-    <option data-id="{{ budget.id }}" value="[{{ budget }}]"></option>
+    {% for id, name in budgets.items %}
+    <option data-id="{{ id }}" value="{{ name }}"></option>
     {% endfor %}
 </datalist>
 
