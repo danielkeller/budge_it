@@ -60,7 +60,7 @@
     <button id="submit-button" form="form">Save</button>
     <button id="cancel" type="button">Cancel</button>
     {% if transaction_id %}
-    <form class="edit" action="{% url 'delete' budget.id transaction_id%}?next={{ request.GET.back|urlencode }}"
+    <form class="edit" action="{% url 'delete' budget.id transaction_id%}?back={{ request.GET.back|urlencode }}"
         method="post">
         {% csrf_token %}
         <button>Delete</button>

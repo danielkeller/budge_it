@@ -197,8 +197,22 @@ class AccountForm(forms.ModelForm):
     name = forms.CharField(required=True)
 
 
+class NewAccountForm(forms.ModelForm):
+    class Meta:  # type: ignore
+        model = BaseAccount
+        fields = ('name', 'currency')
+    name = forms.CharField(required=True)
+    currency = forms.CharField(required=True, widget=forms.TextInput(
+        attrs={"placeholder": "Currency", "list": "currencies"}))
+
+
 def rename_form(*, instance: BaseAccount,
-                data: Union[Mapping[str, Any], None] = None) -> forms.ModelForm:
-    if instance.ishidden():
+                data: Union[Mapping[str, Any], None] = None
+                ) -> Optional[forms.ModelForm]:
+    if instance.ishidden() and instance.budget.budget_of_id:
+        return None
+    elif instance.ishidden():
         return BudgetForm(instance=instance.budget, data=data)
+    elif not instance.entries.exists():
+        return NewAccountForm(instance=instance, data=data)
     return AccountForm(instance=instance, data=data)

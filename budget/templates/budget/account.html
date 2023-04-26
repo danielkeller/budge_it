@@ -12,10 +12,25 @@
 {% if form %}
 <div>
     <form method="post">
-        {{ form.name }}
         {% csrf_token %}
+        {{ form.name }}
+        {% if form.currency %}
+        {{ form.currency }}
+        <button>Save</button>
+        {% else %}
         <button>Rename</button>
+        {% endif %}
     </form>
+    <datalist id="currencies">
+        <option value="USD">
+        <option value="EUR">
+        <option value="JPY">
+        <option value="GBP">
+        <option value="AUD">
+        <option value="CHF">
+        <option value="CNH">
+        <option value="INR">
+    </datalist>
 </div>
 {% endif %}
 <div><button type="button" id="new">Add transaction</button></div>

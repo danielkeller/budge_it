@@ -69,7 +69,7 @@ def _base_account(request: HttpRequest, type: Type[BaseAccount], id: int):
         raise Http404()
     if request.method == 'POST':
         form = rename_form(instance=account, data=request.POST)
-        if form.is_valid():
+        if form and form.is_valid():
             form.save()
         return HttpResponseRedirect(request.get_full_path())
     form = rename_form(instance=account)
@@ -162,7 +162,14 @@ def history(request: HttpRequest, budget_id: int):
     range = (Transaction.objects
              .filter(categories__budget=budget)
              .aggregate(Max('date'), Min('date')))
-    months = list(_months_between(range['date__min'], range['date__max']))
+    months = list(_months_between(range['date__min'] or date.today(),
+                                  range['date__max'] or date.today()))
+
+    categories = budget.category_set.all()
+    currencies = categories.values_list('currency', flat=True).distinct()
+    # Make sure these are created before creating the form
+    inboxes = [budget.get_hidden(Category, currency)
+               for currency in currencies]
 
     # Initial is supposed to be the same between GET and POST, so there is
     # theoretically a race condition here if someone adds a transaction. I
@@ -177,10 +184,6 @@ def history(request: HttpRequest, budget_id: int):
         formset = BudgetingFormSet(budget, dates=months)
 
     history = category_history(budget_id)
-    categories = budget.category_set.all()
-    currencies = categories.values_list('currency', flat=True).distinct()
-    inboxes = [budget.get_hidden(Category, currency)
-               for currency in currencies]
 
     cells = {(entry['month'], entry['to']): entry['total']
              for entry in history}
