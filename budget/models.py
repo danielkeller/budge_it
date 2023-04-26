@@ -17,13 +17,9 @@ T = TypeVar('T')
 class Id(models.Model):
     """Distinct identity for budgets, accounts, and categories"""
     id: models.BigAutoField
-    name = models.CharField(max_length=100, blank=True)
     of_budget: 'models.OneToOneField[Budget]'
     of_account: 'models.OneToOneField[Account]'
     of_category: 'models.OneToOneField[Category]'
-
-    def __str__(self):
-        return self.name
 
 
 class Budget(Id):
@@ -35,6 +31,7 @@ class Budget(Id):
     id_ptr = models.OneToOneField(
         Id, related_name='of_budget',
         on_delete=models.CASCADE, parent_link=True)
+    name = models.CharField(max_length=100)
 
     account_set: 'models.Manager[Account]'
     category_set: 'models.Manager[Category]'
@@ -51,9 +48,10 @@ class Budget(Id):
 
     # Ignored for payees
     friends: 'models.ManyToManyField[Budget, Any]'
-    friends = models.ManyToManyField('self',  blank=True)
+    friends = models.ManyToManyField('self', blank=True)
 
-    # TODO: currency
+    def __str__(self):
+        return self.name
 
     def get_absolute_url(self):
         return reverse('overview', kwargs={'budget_id': self.id})
@@ -64,7 +62,7 @@ class Budget(Id):
                                          currency=currency)[0]
 
     def owner(self):
-        return self.budget_of or self.payee_of
+        return self.budget_of_id or self.payee_of_id
 
     def main_budget(self):
         if self.budget_of or not self.payee_of:
@@ -72,7 +70,11 @@ class Budget(Id):
         return Budget.objects.get(budget_of_id=self.payee_of_id)
 
     def view_permission(self, user: Union[AbstractBaseUser, AnonymousUser]):
-        return user.is_authenticated and user == self.owner()
+        return user.is_authenticated and user.pk == self.owner()
+
+    def isvisible(self, other: 'Budget'):
+        return ((self.owner() and self.owner() == other.owner())
+                or other in self.friends.all())
 
     def visible_budgets(self):
         filter = Q(friends=self)
@@ -131,8 +133,9 @@ class Permissions:
 
     @staticmethod
     def visibility(budget: Budget, budgets: 'Iterable[Budget]'):
-        ids = (budget.id for budget in budgets)
-        return budget.visible_budgets().filter(id__in=ids).order_by('id')
+        return (other for other in budgets if other.isvisible(budget))
+        # ids = (budget.id for budget in budgets)
+        # return budget.visible_budgets().filter(id__in=ids).order_by('id')
 
     def connection(self, there: Budget):
         while there in self.connectivity:
@@ -157,6 +160,7 @@ class BaseAccount(Id):
     class Meta:  # type: ignore
         abstract = True
     id_ptr: models.OneToOneField[Id]
+    name = models.CharField(max_length=100, blank=True)
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE)
     budget_id: int  # Sigh
     balance: int
@@ -276,11 +280,10 @@ class Transaction(models.Model):
     def month(self, value: 'Optional[date]'):
         self.date = value and value.replace(day=1)
 
-    @functools.cached_property
+    @property
     def budgets(self):
-        return set(Budget.objects.filter(Q(category__transaction=self)
-                                         | Q(account__transaction=self))
-                   .distinct())
+        return {part.to.budget for part
+                in chain(self.account_parts.all(), self.category_parts.all())}
 
     def debts(self):
         owed = sum_by(chain(
@@ -380,11 +383,11 @@ class Transaction(models.Model):
         names = (
             [account.name or "Inbox"
              for account in chain(accounts, categories)
-             if account.budget.budget_of == in_account.budget.owner()
+             if account.budget.budget_of_id == in_account.budget.owner()
              and account != in_account] +
             list({account.budget.name
                   for account in chain(accounts, categories)
-                  if account.budget.budget_of != in_account.budget.owner()
+                  if account.budget.budget_of_id != in_account.budget.owner()
                   and account.budget != in_account.budget})
         )
         if len(names) > 2:
@@ -474,8 +477,8 @@ def transactions_for_budget(budget_id: int) -> Iterable[Transaction]:
           .filter(filter)
           .distinct()
           .order_by('date', '-kind')
-          .prefetch_related('account_parts', 'category_parts',
-                            'accounts__budget', 'categories__budget'))
+          .prefetch_related('account_parts__to__budget',
+                            'category_parts__to__budget'))
     total = 0
     for transaction in qs:
         for part in transaction.category_parts.all():
@@ -488,8 +491,8 @@ def transactions_for_budget(budget_id: int) -> Iterable[Transaction]:
 def entries_for(account: BaseAccount) -> Iterable[TransactionPart]:
     qs = (account.entries
           .order_by('transaction__date', '-transaction__kind')
-          .prefetch_related('transaction__account_parts__to__budget',
-                            'transaction__category_parts__to__budget'))
+          .prefetch_related('transaction__account_parts__to__budget__friends',
+                            'transaction__category_parts__to__budget__friends'))
     total = 0
     for part in qs:
         total += part.amount
@@ -524,11 +527,13 @@ def accounts_overview(budget_id: int):
     accounts = (Account.objects
                 .filter(budget_id=budget_id)
                 .annotate(balance=Sum('entries__amount', default=0))
-                .order_by('name'))
+                .order_by('name')
+                .select_related('budget'))
     categories = (Category.objects
                   .filter(budget_id=budget_id)
                   .annotate(balance=Sum('entries__amount', default=0))
-                  .order_by('name'))
+                  .order_by('name')
+                  .select_related('budget'))
     transactions = transactions_for_budget(budget_id)
     debt_map = functools.reduce(
         sum_debts, (transaction.debts() for transaction in transactions), {})
