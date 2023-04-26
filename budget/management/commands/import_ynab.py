@@ -44,9 +44,8 @@ class RawBudgetEventRecord:
     Activity: str
     Available: str
 
-    def TotalInflow(self):
-        return (int(self.Inflow.replace('.', ''))
-                - int(self.Outflow.replace('.', '')))
+    def TotalBudgeted(self):
+        return int(self.Budgeted.replace('.', ''))
 
     @staticmethod
     def from_row(row: 'list[str]') -> 'RawBudgetEventRecord':
@@ -58,11 +57,11 @@ class Command(BaseCommand):
     help = "Import a YNAB budget"
 
     def handle(self, *args: Any, **options: Any):
-#        register_filename = "../Swiss Budget as of 2023-04-22 21-35 - Register.csv"
-#        self.process_csv(register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
+        register_filename = "../Swiss Budget as of 2023-04-22 21-35 - Register.csv"
+        self.process_csv(register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
 
-        budget_filename = "../Swiss Budget as of 2023-04-22 21-35 - Budget.csv"
-        self.process_csv(budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
+#        budget_filename = "../Swiss Budget as of 2023-04-22 21-35 - Budget.csv"
+#        self.process_csv(budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
 
     def process_csv(self, filename, from_row, handler):
         with open(filename, newline='', encoding='utf-8-sig') as file:
@@ -146,6 +145,7 @@ class Command(BaseCommand):
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
             assert sum(transaction_category_parts.values()) == 0
             assert sum(transaction_account_parts.values()) == 0
+        assert len(transaction_account_parts) > 0
         transaction.set_parts_raw(accounts=transaction_account_parts,
                                   categories=transaction_category_parts)
         return None
