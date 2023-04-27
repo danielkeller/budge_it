@@ -168,7 +168,7 @@ def YNAB_string_to_date(ynab_string: str):
 
 def iscomplete(raw_transaction_part: RawTransactionPartRecord):
     raw_memo = raw_transaction_part.Memo
-    return not (raw_memo.startswith("Split")) or raw_memo.startswith("Split (1/")
+    return (not (raw_memo.startswith("Split"))) or re.match(r"Split \((\d+)/\1\)", raw_memo)
 
 
 def join_memos(raw_transaction_parts: 'list[RawTransactionPartRecord]'):
