@@ -207,47 +207,52 @@ class Command(BaseCommand):
                     name="Inflow: Ready to Assign",
                     currency=ynab_currency,
                 )
-
-        for raw_budget_event in reader:
-            self.save_budget_event(target_budget, inflow_budget_category, raw_budget_event)
-        
-        self.insert_fake_ynab_transactions(target_budget, inflow_budget_category)
-
-    def save_budget_event(self, target_budget: Budget, inflow_budget_category: Category, raw_budget_event: 'RawBudgetEventRecord'):
-        amount = raw_budget_event.TotalBudgeted()
-        if not amount: return
-
-        date = datetime.datetime.strptime(raw_budget_event.Month, "%b %Y")
         kind = Transaction.Kind.BUDGETING
-        category, _ = Category.objects.get_or_create(
+
+        month_budgets = defaultdict(dict) #month -> cat -> budgeted_amount
+
+        #parse csv
+        for raw_budget_event in reader:
+            amount = raw_budget_event.TotalBudgeted()
+            if not amount: continue
+            date = datetime.datetime.strptime(raw_budget_event.Month, "%b %Y")
+            category, _ = Category.objects.get_or_create(
                     budget=target_budget,
                     name=raw_budget_event.CategoryGroupCategory,
                     currency=ynab_currency,
                 )
+            month_budgets[date][category] = amount
 
-        transaction_category_parts: 'dict[Category, int]' = {category:amount, inflow_budget_category:-amount}
+        #form budgeting transactions
+        category_month_activities = { #cat -> month -> activity
+                category: defaultdict(
+                    int, 
+                    {
+                        month: 
+                        activity 
+                        for month, activity in get_category_activity_iterable(category)}
+                    ) 
+                for category in target_budget.category_set.all()
+                }
+        running_sums = defaultdict(int) #cat -> sum
+        for month, category_budgets in month_budgets.items():
+            transaction_category_parts = {}
+            for category, budgeted in category_budgets.items():
+                running_sums[category] += budgeted
+                running_sums[category] -= category_month_activities[category][month]
 
-        transaction = Transaction(date=date, kind=kind)
-        transaction.save()
-        transaction.set_parts_raw(accounts={}, categories=transaction_category_parts)
-        return None
+                ynab_budgeted = budgeted
+                if running_sums[category] < 0: #ynab doesn't let you roll negative categories over
+                    print(category, month)
+                    ynab_budgeted += -running_sums[category]
+                transaction_category_parts[category] = ynab_budgeted
 
-    #YNAB silently enters these transactions to prevent you from rolling over negative amounts
-    def insert_fake_ynab_transactions(self, target_budget: Budget, inflow_budget_category: Category):
-        for category in target_budget.category_set.all():
-            activity_history = TransactionCategoryPart.objects.filter(to=category).values_list(Trunc(F('transaction__date'), 'month')).annotate(total=Sum('amount')).order_by('trunc1')
-            running_total = 0
-            for month, activity in activity_history:
-                running_total += activity
-                if running_total < 0:
-                    date = get_last_day_of_month(month)
-                    kind = Transaction.Kind.BUDGETING
-                    transaction_category_parts: 'dict[Category, int]' = {category:-running_total, inflow_budget_category:running_total}
-                    transaction = Transaction(date=date, kind=kind)
-                    transaction.save()
-                    transaction.set_parts_raw(accounts={}, categories=transaction_category_parts)
-                    running_total = 0
+            total_budgeted = sum(transaction_category_parts.values())
+            transaction_category_parts[inflow_budget_category] = -total_budgeted
 
+            transaction = Transaction(date=month, kind=kind)
+            transaction.save()
+            transaction.set_parts_raw(accounts = {}, categories = transaction_category_parts)
 
 def YNAB_string_to_date(ynab_string: str):
     return datetime.date(*[int(i) for i in ynab_string.split('.')][::-1])
@@ -287,3 +292,6 @@ def expected_transfer_key(raw_transaction_part):
 
 def get_last_day_of_month(date):
     return (date + datetime.timedelta(days = 31)).replace(day = 1) - datetime.timedelta(days=1)
+
+def get_category_activity_iterable(category):
+    return TransactionCategoryPart.objects.filter(to=category).values_list(Trunc(F('transaction__date'), 'month')).annotate(total=Sum('amount')).order_by('trunc1')
