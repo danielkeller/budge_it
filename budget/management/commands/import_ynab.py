@@ -98,45 +98,53 @@ class Command(BaseCommand):
         self.process_day(target_budget, day_transaction_parts)
 
     def process_day(self, target_budget, day_transaction_parts):
-        unmatched_transfers = {} # transfer_key -> ix
-        split_transfers = {} #ix -> ix
+        unmatched_transfers = defaultdict(list) # transfer_key -> [ix, ix]
 
         for ix, part in enumerate(day_transaction_parts):
+            if is_split(part):
+                pass
+            elif is_transfer(part):
+                transfer_key = get_transfer_key(part)
+                if transfer_key in unmatched_transfers:
+                    other_part_ix = unmatched_transfers[transfer_key].pop()
+                    other_part = day_transaction_parts[other_part_ix]
+                    self.save_transaction(target_budget, [part, other_part])
+                else:
+                    unmatched_transfers[expected_transfer_key(part)].append(ix)
+            else: #is_singleton(part):
+                self.save_transaction(target_budget, [part])
+
+        current_split = []
+        current_split_transfers = defaultdict(int) #(to, from) => amount
+        for ix, part in enumerate(day_transaction_parts):
+            if not is_split(part):
+                assert not current_split
+                assert not current_split_transfers
+                continue
+            current_split.append(part)
             if is_transfer(part):
                 transfer_key = get_transfer_key(part)
                 if transfer_key in unmatched_transfers:
-                    other_part_ix = unmatched_transfers[transfer_key]
+                    other_part_ix = unmatched_transfers[transfer_key].pop()
                     other_part = day_transaction_parts[other_part_ix]
-                    if is_split(part):
-                        if ix in split_transfers:
-                            raise Exception()
-                        split_transfers[ix] = other_part_ix
-                    elif is_split(other_part):
-                        if other_part_ix in split_transfers: 
-                            raise Exception()
-                        split_transfers[other_part_ix] = ix
-                    else:
-                        self.save_transaction(target_budget, [part, other_part])
-                    unmatched_transfers.pop(transfer_key)
+                    current_split.append(other_part)
                 else:
-                    unmatched_transfers[expected_transfer_key(part)] = ix
-            elif is_split(part):
+                    from_acc, to_acc, amount  = transfer_key
+                    current_split_transfers[(from_acc, to_acc)] += amount
                 pass
-            else: #is_singleton(part):
-                self.save_transaction(target_budget, [part])
-        assert not unmatched_transfers
-
-        current_split = []
-        for ix, part in enumerate(day_transaction_parts):
-            if is_split(part):
-                current_split.append(part)
-                if is_transfer(part):
-                    other_side = day_transaction_parts[split_transfers.pop(ix)]
-                    current_split.append(other_side)
             if is_last_part_in_split(part):
+                for (from_acc, to_acc), amount in current_split_transfers.items():
+                    transfer_key = (from_acc, to_acc, amount)
+                    other_part_ix = unmatched_transfers[transfer_key].pop()
+                    other_part = day_transaction_parts[other_part_ix]
+                    current_split.append(other_part)
+                current_split_transfers.clear()
                 self.save_transaction(target_budget, current_split)# DOING
                 current_split = []
-        assert not split_transfers
+        assert not current_split
+        assert not current_split_transfers
+        for l in unmatched_transfers.values():
+            assert not l
 
     def save_transaction(self, target_budget: Budget, raw_transaction_parts: 'list[RawTransactionPartRecord]'):
         first_raw_transaction_part = raw_transaction_parts[0]
