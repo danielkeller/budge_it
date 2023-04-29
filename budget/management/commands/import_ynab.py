@@ -1,9 +1,10 @@
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Min, Max
 from django.db.models.functions import Trunc
 from django.db.utils import IntegrityError
 from django.core.management.base import BaseCommand
 from budget.models import *
+from budget.views import _months_between
 
 from typing import Iterable
 from collections import defaultdict
@@ -209,7 +210,7 @@ class Command(BaseCommand):
                 )
         kind = Transaction.Kind.BUDGETING
 
-        month_budgets = defaultdict(dict) #month -> cat -> budgeted_amount
+        month_budgets = defaultdict(lambda: defaultdict(int)) #month -> cat -> budgeted_amount
 
         #parse csv
         for raw_budget_event in reader:
@@ -235,17 +236,24 @@ class Command(BaseCommand):
                 for category in target_budget.category_set.all()
                 }
         running_sums = defaultdict(int) #cat -> sum
-        for month, category_budgets in month_budgets.items():
-            transaction_category_parts = {}
-            for category, budgeted in category_budgets.items():
-                running_sums[category] += budgeted
-                running_sums[category] -= category_month_activities[category][month]
 
-                ynab_budgeted = budgeted
+        range = (Transaction.objects
+                 .filter(categories__budget=target_budget)
+                 .aggregate(Max('date'), Min('date')))
+        months = list(_months_between(range['date__min'] or date.today(),
+                                      range['date__max'] or date.today()))
+        for month in months:
+            transaction_category_parts = {}
+            for category in target_budget.category_set.all():
+                budgeted = month_budgets[month][category]
+
+                running_sums[category] += budgeted
+                running_sums[category] += category_month_activities[category][month]
+
                 if running_sums[category] < 0: #ynab doesn't let you roll negative categories over
-                    print(category, month)
-                    ynab_budgeted += -running_sums[category]
-                transaction_category_parts[category] = ynab_budgeted
+                    budgeted += -running_sums[category]
+                    running_sums[category] = 0
+                transaction_category_parts[category] = budgeted
 
             total_budgeted = sum(transaction_category_parts.values())
             transaction_category_parts[inflow_budget_category] = -total_budgeted
