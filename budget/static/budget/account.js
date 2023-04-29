@@ -17,6 +17,7 @@ addEventListener("DOMContentLoaded", function () {
 function key(event) {
     if (document.activeElement.type === "text") return;
     if (event.key === "j" || event.key === "ArrowDown") {
+        event.preventDefault();
         const current = currentRow();
         if (current && current.nextElementSibling) {
             current.nextElementSibling.focus();
@@ -24,6 +25,7 @@ function key(event) {
             tbody.children[1].focus();
         }
     } else if (event.key === "k" || event.key === "ArrowUp") {
+        event.preventDefault();
         const current = currentRow();
         if (current && current != tbody.children[1]) {
             current.previousElementSibling.focus();

@@ -8,7 +8,7 @@
 <div><a href="{% url 'history' budget.id %}">Edit budget</a></div>
 
 <table>
-    <th class="t8">Category</th>
+    <th>Category</th>
     <th class="t4">Balance</th>
     {% for category in categories %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
@@ -34,7 +34,7 @@
     </tr>
 </table>
 <table>
-    <th class="t8">Account</th>
+    <th>Account</th>
     <th class="t4">Balance</th>
     {% for account in accounts %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">

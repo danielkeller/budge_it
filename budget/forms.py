@@ -159,7 +159,7 @@ class BaseBudgetingFormSet(forms.BaseModelFormSet):
         extras = set(dates) - {transaction.month for transaction in queryset}
         initial = [{'date': date} for date in sorted(extras)]
         self.extra = len(initial)
-        if len(initial) + len(queryset) > self.max_num:
+        if len(initial) + len(queryset) > self.max_num: #type: ignore
             raise ValueError("Too many transactions")
         super().__init__(*args, initial=initial, form_kwargs={'budget': budget},
                          queryset=queryset, **kwargs)
