@@ -36,7 +36,7 @@
 <div><button type="button" id="new">Add transaction</button></div>
 <table id="table">
     <th class="t6">Date</th>
-    <th class="t6">Description</th>
+    <th class="t9">Description</th>
     <th class="t4">{{ account.currency }}</th>
     <th class="t4">Total</th>
     {% for entry in entries %}
@@ -50,8 +50,8 @@
                 <div class="transaction-detail">
                     <span class="line">──┐</span>
                     <table class="transaction-detail-table">
-                        <th class="t5">Account</th>
-                        <th class="t5">Category</th>
+                        <th class="t9">Account</th>
+                        <th class="t9">Category</th>
                         <th class="t4">Amount</th>
                         {% for part in entry.transaction|tabular:account.budget %}
                         <tr class="{% cycle 'a' 'b' %}">
