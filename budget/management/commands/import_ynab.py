@@ -76,11 +76,67 @@ class Command(BaseCommand):
             name="ynabimport", budget_of=user)
 
         raw_transaction_parts: 'list[RawTransactionPartRecord]' = []
+
+        current_date = None
+        day_transaction_parts = []
+
         for raw_transaction_part in reader:
-            raw_transaction_parts.append(raw_transaction_part)
-            if iscomplete(raw_transaction_part):
-                self.save_transaction(target_budget, raw_transaction_parts)
-                raw_transaction_parts = []
+            if not current_date:
+                current_date = raw_transaction_part.Date
+                print(current_date)
+                day_transaction_parts.append(raw_transaction_part)
+            else:
+                if raw_transaction_part.Date == current_date:
+                    day_transaction_parts.append(raw_transaction_part)
+                else:
+                    self.process_day(target_budget, day_transaction_parts)
+
+                    day_transaction_parts.clear()
+                    current_date = raw_transaction_part.Date
+                    print(current_date)
+                    day_transaction_parts.append(raw_transaction_part)
+        self.process_day(target_budget, day_transaction_parts)
+
+    def process_day(self, target_budget, day_transaction_parts):
+        unmatched_transfers = {} # transfer_key -> ix
+        split_transfers = {} #ix -> ix
+
+        for ix, part in enumerate(day_transaction_parts):
+            if is_transfer(part):
+                transfer_key = get_transfer_key(part)
+                if transfer_key in unmatched_transfers:
+                    other_part_ix = unmatched_transfers[transfer_key]
+                    other_part = day_transaction_parts[other_part_ix]
+                    if is_split(part):
+                        if ix in split_transfers:
+                            raise Exception()
+                        split_transfers[ix] = other_part_ix
+                    elif is_split(other_part):
+                        if other_part_ix in split_transfers: 
+                            raise Exception()
+                        split_transfers[other_part_ix] = ix
+                    else:
+                        self.save_transaction(target_budget, [part, other_part])
+                    unmatched_transfers.pop(transfer_key)
+                else:
+                    unmatched_transfers[expected_transfer_key(part)] = ix
+            elif is_split(part):
+                pass
+            else: #is_singleton(part):
+                self.save_transaction(target_budget, [part])
+        assert not unmatched_transfers
+
+        current_split = []
+        for ix, part in enumerate(day_transaction_parts):
+            if is_split(part):
+                current_split.append(part)
+                if is_transfer(part):
+                    other_side = day_transaction_parts[split_transfers.pop(ix)]
+                    current_split.append(other_side)
+            if is_last_part_in_split(part):
+                self.save_transaction(target_budget, current_split)# DOING
+                current_split = []
+        assert not split_transfers
 
     def save_transaction(self, target_budget: Budget, raw_transaction_parts: 'list[RawTransactionPartRecord]'):
         first_raw_transaction_part = raw_transaction_parts[0]
@@ -109,25 +165,8 @@ class Command(BaseCommand):
             transaction_account_parts[account] += raw_transaction_part_inflow
 
             raw_payee = raw_transaction_part.Payee
-            # Transfer between owned accounts
-            if raw_payee.startswith(ynab_transfer_prefix):
-                raw_transfer_account = raw_payee[len(
-                    ynab_transfer_prefix):]
-                if raw_account == raw_transfer_account:
-                    raise Exception(
-                        f'Account "{raw_account}" and Transfer Account "{raw_transfer_account}" are identical')
-                # don't want to duplicate transfers: skip these ones (but this doesn't work when only one is an on-budget transaction and has extra information)
-                elif raw_account < raw_transfer_account:
-                    return None
 
-                transfer_account, _ = Account.objects.get_or_create(
-                    budget=target_budget,
-                    name=raw_transfer_account,
-                    currency=ynab_currency,
-                )
-                transaction_account_parts[transfer_account] += raw_transaction_part_outflow
-
-            else:  # Payment to external payee
+            if not is_transfer(raw_transaction_part):  # Payment to external payee
                 payee, _ = Budget.objects.get_or_create(
                     name=raw_payee,
                     payee_of=target_budget.budget_of
@@ -144,7 +183,7 @@ class Command(BaseCommand):
                 payee_category = payee.get_hidden(Category, currency=ynab_currency)
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
             assert sum(transaction_category_parts.values()) == 0
-            assert sum(transaction_account_parts.values()) == 0
+        assert sum(transaction_account_parts.values()) == 0
         assert len(transaction_account_parts) > 0
         transaction.set_parts_raw(accounts=transaction_account_parts,
                                   categories=transaction_category_parts)
@@ -167,11 +206,33 @@ def YNAB_string_to_date(ynab_string: str):
 
 
 def iscomplete(raw_transaction_part: RawTransactionPartRecord):
-    raw_memo = raw_transaction_part.Memo
-    return (not (raw_memo.startswith("Split"))) or re.match(r"Split \((\d+)/\1\)", raw_memo)
+    return (not is_split(raw_transaction_part)) or is_last_part_in_split(raw_transaction_part)
 
 
 def join_memos(raw_transaction_parts: 'list[RawTransactionPartRecord]'):
     return ", ".join([
         re.sub(r"Split \(.*\) ", "", x.Memo)
         for x in raw_transaction_parts])
+
+def is_transfer(raw_transaction_part):
+    return raw_transaction_part.Payee.startswith(ynab_transfer_prefix)
+
+def is_split(raw_transaction_part):
+    return raw_transaction_part.Memo.startswith("Split")
+
+def is_last_part_in_split(raw_transaction_part):
+    return re.match(r"Split \((\d+)/\1\)", raw_transaction_part.Memo)
+
+def get_transfer_key(raw_transaction_part):
+    acc = raw_transaction_part.Account
+    other_acc = raw_transaction_part.Payee.removeprefix(ynab_transfer_prefix)
+    total_inflow = raw_transaction_part.TotalInflow()
+
+    transfer_key = (acc, other_acc, total_inflow)
+    return transfer_key
+
+def expected_transfer_key(raw_transaction_part):
+    other_acc, acc, raw_amount = get_transfer_key(raw_transaction_part)
+    amount = -raw_amount
+    transfer_key = (acc, other_acc, amount)
+    return transfer_key
