@@ -60,8 +60,8 @@ class Command(BaseCommand):
         register_filename = "../Swiss Budget as of 2023-04-22 21-35 - Register.csv"
         self.process_csv(register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
 
-#        budget_filename = "../Swiss Budget as of 2023-04-22 21-35 - Budget.csv"
-#        self.process_csv(budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
+        budget_filename = "../Swiss Budget as of 2023-04-22 21-35 - Budget.csv"
+        self.process_csv(budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
 
     def process_csv(self, filename, from_row, handler):
         with open(filename, newline='', encoding='utf-8-sig') as file:
@@ -202,12 +202,32 @@ class Command(BaseCommand):
         user = User.objects.get(username="admin")
         target_budget, _ = Budget.objects.get_or_create(
             name="ynabimport", budget_of=user)
+        inflow_budget_category = Category.objects.get_or_create(
+                    budget=target_budget,
+                    name="Inflow: Ready to Assign",
+                    currency=ynab_currency,
+                )
 
         for raw_budget_event in reader:
-            self.save_budget_event(target_budget, raw_budget_event)
+            self.save_budget_event(target_budget, inflow_budget_category, raw_budget_event)
 
-    def save_budget_event(self, target_budget: Budget, raw_budget_event: 'RawBudgetEventRecord'):
-        pass
+    def save_budget_event(self, target_budget: Budget, inflow_budget_category: Category, raw_budget_event: 'RawBudgetEventRecord'):
+        amount = raw_budget_event.TotalBudgeted()
+        if not amount: return
+        date = datetime.datetime.strptime(raw_budget_event.Month, "%b %Y")
+        kind = Transaction.Kind.BUDGETING
+        category = Category.objects.get_or_create(
+                    budget=target_budget,
+                    name=raw_budget_event.CategoryGroupCategory,
+                    currency=ynab_currency,
+                )
+
+        transaction_category_parts: 'dict[Category, int]' = {category:amount, inflow_budget_category:-amount}
+
+        transaction = Transaction(date=date, kind=kind)
+        transaction.save()
+        transaction.set_parts_raw(accounts={}, categories=transaction_category_parts)
+        return None
 
 def YNAB_string_to_date(ynab_string: str):
     return datetime.date(*[int(i) for i in ynab_string.split('.')][::-1])
