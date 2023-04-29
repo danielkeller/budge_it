@@ -200,7 +200,7 @@ class Command(BaseCommand):
         user = User.objects.get(username="admin")
         target_budget, _ = Budget.objects.get_or_create(
             name="ynabimport", budget_of=user)
-        inflow_budget_category = Category.objects.get_or_create(
+        inflow_budget_category, _ = Category.objects.get_or_create(
                     budget=target_budget,
                     name="Inflow: Ready to Assign",
                     currency=ynab_currency,
@@ -214,7 +214,7 @@ class Command(BaseCommand):
         if not amount: return
         date = datetime.datetime.strptime(raw_budget_event.Month, "%b %Y")
         kind = Transaction.Kind.BUDGETING
-        category = Category.objects.get_or_create(
+        category, _ = Category.objects.get_or_create(
                     budget=target_budget,
                     name=raw_budget_event.CategoryGroupCategory,
                     currency=ynab_currency,
