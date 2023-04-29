@@ -258,9 +258,9 @@ def iscomplete(raw_transaction_part: RawTransactionPartRecord):
 
 
 def join_memos(raw_transaction_parts: 'list[RawTransactionPartRecord]'):
-    return ", ".join([
-        re.sub(r"Split \(.*\) ", "", x.Memo)
-        for x in raw_transaction_parts])
+    parts = (re.sub(r"Split \(.*\) ", "", x.Memo)
+             for x in raw_transaction_parts)
+    return ", ".join({part for part in parts if part})
 
 def is_transfer(raw_transaction_part):
     return raw_transaction_part.Payee.startswith(ynab_transfer_prefix)
