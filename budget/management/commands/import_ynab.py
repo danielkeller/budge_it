@@ -75,8 +75,6 @@ class Command(BaseCommand):
         target_budget, _ = Budget.objects.get_or_create(
             name="ynabimport", budget_of=user)
 
-        raw_transaction_parts: 'list[RawTransactionPartRecord]' = []
-
         current_date = None
         day_transaction_parts = []
 
