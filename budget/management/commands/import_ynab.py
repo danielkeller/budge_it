@@ -1,4 +1,6 @@
 from django.db import transaction
+from django.db.models import F
+from django.db.models.functions import Trunc
 from django.db.utils import IntegrityError
 from django.core.management.base import BaseCommand
 from budget.models import *
@@ -208,10 +210,13 @@ class Command(BaseCommand):
 
         for raw_budget_event in reader:
             self.save_budget_event(target_budget, inflow_budget_category, raw_budget_event)
+        
+        self.insert_fake_ynab_transactions(target_budget, inflow_budget_category)
 
     def save_budget_event(self, target_budget: Budget, inflow_budget_category: Category, raw_budget_event: 'RawBudgetEventRecord'):
         amount = raw_budget_event.TotalBudgeted()
         if not amount: return
+
         date = datetime.datetime.strptime(raw_budget_event.Month, "%b %Y")
         kind = Transaction.Kind.BUDGETING
         category, _ = Category.objects.get_or_create(
@@ -226,6 +231,23 @@ class Command(BaseCommand):
         transaction.save()
         transaction.set_parts_raw(accounts={}, categories=transaction_category_parts)
         return None
+
+    #YNAB silently enters these transactions to prevent you from rolling over negative amounts
+    def insert_fake_ynab_transactions(self, target_budget: Budget, inflow_budget_category: Category):
+        for category in target_budget.category_set.all():
+            activity_history = TransactionCategoryPart.objects.filter(to=category).values_list(Trunc(F('transaction__date'), 'month')).annotate(total=Sum('amount')).order_by('trunc1')
+            running_total = 0
+            for month, activity in activity_history:
+                running_total += activity
+                if running_total < 0:
+                    date = get_last_day_of_month(month)
+                    kind = Transaction.Kind.BUDGETING
+                    transaction_category_parts: 'dict[Category, int]' = {category:-running_total, inflow_budget_category:running_total}
+                    transaction = Transaction(date=date, kind=kind)
+                    transaction.save()
+                    transaction.set_parts_raw(accounts={}, categories=transaction_category_parts)
+                    running_total = 0
+
 
 def YNAB_string_to_date(ynab_string: str):
     return datetime.date(*[int(i) for i in ynab_string.split('.')][::-1])
@@ -262,3 +284,6 @@ def expected_transfer_key(raw_transaction_part):
     amount = -raw_amount
     transfer_key = (acc, other_acc, amount)
     return transfer_key
+
+def get_last_day_of_month(date):
+    return (date + datetime.timedelta(days = 31)).replace(day = 1) - datetime.timedelta(days=1)
