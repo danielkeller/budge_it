@@ -215,7 +215,7 @@ class Command(BaseCommand):
         for raw_budget_event in reader:
             amount = raw_budget_event.TotalBudgeted()
             if not amount: continue
-            date = datetime.datetime.strptime(raw_budget_event.Month, "%b %Y")
+            date = datetime.datetime.strptime(raw_budget_event.Month, "%b %Y").date()
             category, _ = Category.objects.get_or_create(
                     budget=target_budget,
                     name=raw_budget_event.CategoryGroupCategory,
