@@ -367,6 +367,8 @@ class Transaction(models.Model):
         return rows
 
     def auto_description(self, in_account: BaseAccount):
+        if self.kind == self.Kind.BUDGETING:
+            return "Budget"
         if self.description:
             return self.description
         accounts, categories = self.parts(in_account.budget)
