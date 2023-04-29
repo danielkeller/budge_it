@@ -18,6 +18,8 @@ from .forms import (TransactionForm, TransactionPartFormSet,
 
 
 def index(request: HttpRequest):
+    if request.user.budget: #type: ignore
+        return HttpResponseRedirect(request.user.budget.get_absolute_url()) #type: ignore
     return HttpResponse("TODO")
 
 
