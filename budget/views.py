@@ -11,7 +11,8 @@ from django.contrib.auth.decorators import login_required
 
 from .models import (
     entries_for_balance, entries_for,
-    accounts_overview, category_history, sum_by,
+    accounts_overview, category_history,
+    sum_by, months_between,
     BaseAccount, Account, Category, Budget, Transaction, Balance)
 from .forms import (TransactionForm, TransactionPartFormSet,
                     BudgetingFormSet, rename_form)
@@ -152,14 +153,6 @@ def delete(request: HttpRequest, budget_id: int, transaction_id: int):
     transaction.set_parts(budget, {}, {})
     return HttpResponseRedirect(request.GET.get('back', '/'))
 
-
-def _months_between(start: date, end: date):
-    start = start.replace(day=1)
-    while start <= end:
-        yield start
-        start = (start + timedelta(days=31)).replace(day=1)
-
-
 @login_required
 def history(request: HttpRequest, budget_id: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
@@ -167,8 +160,8 @@ def history(request: HttpRequest, budget_id: int):
     range = (Transaction.objects
              .filter(categories__budget=budget)
              .aggregate(Max('date'), Min('date')))
-    months = list(_months_between(range['date__min'] or date.today(),
-                                  range['date__max'] or date.today()))
+    months = list(months_between(range['date__min'] or date.today(),
+                                 range['date__max'] or date.today()))
 
     categories = budget.category_set.all()
     currencies = categories.values_list('currency', flat=True).distinct()
