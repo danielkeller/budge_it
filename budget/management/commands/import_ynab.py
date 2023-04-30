@@ -214,6 +214,7 @@ class Command(BaseCommand):
 
         #parse csv
         for raw_budget_event in reader:
+            if raw_budget_event.CategoryGroup == "Credit Card Payments": continue #TODO this works for me as I have no credit card debt
             amount = raw_budget_event.TotalBudgeted()
             if not amount: continue
             date = datetime.datetime.strptime(raw_budget_event.Month, "%b %Y").date()
