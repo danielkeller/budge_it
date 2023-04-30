@@ -6,7 +6,7 @@ from datetime import date
 from dataclasses import dataclass
 
 from django.db import models, IntegrityError
-from django.db.models import Q, Sum, F
+from django.db.models import Q, Sum, F, OuterRef, Exists
 from django.db.models.functions import Trunc
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
@@ -461,12 +461,23 @@ class TransactionDebtPart:
     amount: int
     running_sum: int
 
+def creates_debt():
+    account_sum = (Transaction.objects.filter(id=OuterRef('id'))
+            .annotate(b=F('accounts__budget_id'),
+                      value=Sum('account_parts__amount'))
+            .exclude(value=0))
+    category_sum = (Transaction.objects.filter(id=OuterRef('id'))
+        .annotate(b=F('categories__budget_id'),
+                  value=Sum('category_parts__amount'))
+        .exclude(value=0))
+    return Exists(account_sum.difference(category_sum).union(
+        category_sum.difference(account_sum)))
 
-def transactions_for_budget(budget_id: int) -> Iterable[Transaction]:
+def transactions_with_debt(budget_id: int) -> Iterable[Transaction]:
     filter = (Q(accounts__budget_id=budget_id) |
               Q(categories__budget_id=budget_id))
     qs = (Transaction.objects
-          .filter(filter)
+          .filter(filter, creates_debt())
           .distinct()
           .order_by('date', '-kind')
           .prefetch_related('account_parts__to__budget',
@@ -494,12 +505,12 @@ def entries_for(account: BaseAccount) -> Iterable[TransactionPart]:
 
 def entries_for_balance(account: Balance) -> Iterable[TransactionDebtPart]:
     this, other = account.budget.id, account.other.id
-    filter = (Q(accounts__budget_id=this) &
+    filter = (Q(accounts__budget_id=this) |
               Q(categories__budget_id=other) |
-              Q(accounts__budget_id=other) &
+              Q(accounts__budget_id=other) |
               Q(categories__budget_id=this))
     qs = (Transaction.objects
-          .filter(filter)
+          .filter(filter, creates_debt())
           .distinct()
           .order_by('date', '-kind')
           .prefetch_related('account_parts', 'category_parts',
@@ -526,7 +537,7 @@ def accounts_overview(budget_id: int):
                   .annotate(balance=Sum('entries__amount', default=0))
                   .order_by('name')
                   .select_related('budget'))
-    transactions = transactions_for_budget(budget_id)
+    transactions = transactions_with_debt(budget_id)
     debt_map = functools.reduce(
         sum_debts, (transaction.debts() for transaction in transactions), {})
     debts = ([(currency, Budget.objects.get(id=from_budget), -amount)
