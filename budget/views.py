@@ -18,10 +18,9 @@ from .forms import (TransactionForm, TransactionPartFormSet,
                     BudgetingFormSet, rename_form)
 
 
+@login_required
 def index(request: HttpRequest):
-    if request.user.budget: #type: ignore
-        return HttpResponseRedirect(request.user.budget.get_absolute_url()) #type: ignore
-    return HttpResponse("TODO")
+    return HttpResponseRedirect(request.user.budget.get_absolute_url()) #type: ignore
 
 
 def _get_allowed_budget_or_404(request: HttpRequest, budget_id: int):
