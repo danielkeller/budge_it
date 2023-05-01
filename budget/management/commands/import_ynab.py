@@ -11,6 +11,7 @@ from datetime import datetime, date, timedelta
 import csv
 import re
 from dataclasses import dataclass
+import functools
 
 ynab_transfer_prefix = "Transfer : "
 
@@ -53,6 +54,25 @@ class RawBudgetEventRecord:
     def from_row(row: 'list[str]') -> 'RawBudgetEventRecord':
         return RawBudgetEventRecord(*row)
 
+@dataclass(eq=True, frozen=True)
+class TargetBudget:
+    budget: Budget
+
+    @functools.cache
+    def payee(self, name: str):
+        return Budget.objects.get_or_create(
+            name=name, payee_of=self.budget.budget_of)[0]
+    
+    @functools.cache
+    def account(self, name: str, currency: str):
+        return Account.objects.get_or_create(
+                budget=self.budget, name=name, currency=currency)[0]
+    
+    @functools.cache
+    def category(self, name: str, currency: str):
+        return Category.objects.get_or_create(
+                budget=self.budget, name=name, currency=currency)[0]
+
 ynab_currency = "CHF"
 
 T = TypeVar('T')
@@ -79,8 +99,8 @@ class Command(BaseCommand):
     @transaction.atomic
     def process_transactions(self, reader: 'Iterable[RawTransactionPartRecord]'):
         user = User.objects.get(username="admin")
-        target_budget, _ = Budget.objects.get_or_create(
-            name="ynabimport", budget_of=user)
+        target_budget = TargetBudget(Budget.objects.get_or_create(
+            name="ynabimport", budget_of=user)[0])
 
         current_date = None
         day_transaction_parts: list[RawTransactionPartRecord] = []
@@ -102,7 +122,7 @@ class Command(BaseCommand):
                     day_transaction_parts.append(raw_transaction_part)
         self.process_day(target_budget, day_transaction_parts)
 
-    def process_day(self, target_budget: Budget,
+    def process_day(self, target_budget: TargetBudget,
                     day_transaction_parts: list[RawTransactionPartRecord]):
         unmatched_transfers: dict[TransferKey, list[int]] = defaultdict(list)
 
@@ -153,7 +173,8 @@ class Command(BaseCommand):
         for l in unmatched_transfers.values():
             assert not l
 
-    def save_transaction(self, target_budget: Budget, raw_transaction_parts: 'list[RawTransactionPartRecord]'):
+    def save_transaction(self, target_budget: TargetBudget,
+                         raw_transaction_parts: 'list[RawTransactionPartRecord]'):
         first_raw_transaction_part = raw_transaction_parts[0]
         date = YNAB_string_to_date(
             first_raw_transaction_part.Date)  # filter for past dates
@@ -172,28 +193,18 @@ class Command(BaseCommand):
             raw_transaction_part_outflow = -raw_transaction_part_inflow
 
             raw_account = raw_transaction_part.Account
-            account, _ = Account.objects.get_or_create(
-                budget=target_budget,
-                name=raw_account,
-                currency=ynab_currency,
-            )
+            account = target_budget.account(raw_account, ynab_currency)
             transaction_account_parts[account] += raw_transaction_part_inflow
 
             raw_payee = raw_transaction_part.Payee
 
             if not is_transfer(raw_transaction_part):  # Payment to external payee
-                payee, _ = Budget.objects.get_or_create(
-                    name=raw_payee,
-                    payee_of=target_budget.budget_of
-                )
+                payee = target_budget.payee(raw_payee)
                 payee_account = payee.get_hidden(Account, currency=ynab_currency)
                 transaction_account_parts[payee_account] += raw_transaction_part_outflow
 
-                category, _ = Category.objects.get_or_create(
-                    budget=target_budget,
-                    name=raw_transaction_part.CategoryGroupCategory,
-                    currency=ynab_currency,
-                )
+                category = target_budget.category(
+                    raw_transaction_part.CategoryGroupCategory, ynab_currency)
                 transaction_category_parts[category] += raw_transaction_part_inflow
                 payee_category = payee.get_hidden(Category, currency=ynab_currency)
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
@@ -207,13 +218,10 @@ class Command(BaseCommand):
     @transaction.atomic
     def process_budget_events(self, reader: 'Iterable[RawBudgetEventRecord]'):
         user = User.objects.get(username="admin")
-        target_budget, _ = Budget.objects.get_or_create(
-            name="ynabimport", budget_of=user)
-        inflow_budget_category, _ = Category.objects.get_or_create(
-                    budget=target_budget,
-                    name="Inflow: Ready to Assign",
-                    currency=ynab_currency,
-                )
+        target_budget = TargetBudget(Budget.objects.get_or_create(
+            name="ynabimport", budget_of=user)[0])
+        inflow_budget_category = target_budget.category(
+            "Inflow: Ready to Assign", ynab_currency)
         kind = Transaction.Kind.BUDGETING
 
         month_budgets: dict[date, dict[Category, int]] = defaultdict(
@@ -225,11 +233,8 @@ class Command(BaseCommand):
             amount = raw_budget_event.TotalBudgeted()
             if not amount: continue
             month = datetime.strptime(raw_budget_event.Month, "%b %Y").date()
-            category, _ = Category.objects.get_or_create(
-                    budget=target_budget,
-                    name=raw_budget_event.CategoryGroupCategory,
-                    currency=ynab_currency,
-                )
+            category = target_budget.category(
+                raw_budget_event.CategoryGroupCategory, ynab_currency )
             month_budgets[month][category] = amount
 
         #form budgeting transactions
@@ -241,18 +246,18 @@ class Command(BaseCommand):
                         activity 
                         for month, activity in get_category_activity_iterable(category)}
                     ) 
-                for category in target_budget.category_set.all()
+                for category in target_budget.budget.category_set.all()
                 }
         running_sums: dict[Category, int] = defaultdict(int) #cat -> sum
 
         range = (Transaction.objects
-                 .filter(categories__budget=target_budget)
+                 .filter(categories__budget=target_budget.budget)
                  .aggregate(Max('date'), Min('date')))
         months = list(months_between(range['date__min'] or date.today(),
                                      range['date__max'] or date.today()))
         for month in months:
             transaction_category_parts: dict[Category, int] = {}
-            for category in target_budget.category_set.all():
+            for category in target_budget.budget.category_set.all():
                 budgeted = month_budgets[month][category]
 
                 running_sums[category] += budgeted
