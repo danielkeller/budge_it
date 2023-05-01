@@ -27,10 +27,10 @@
         {% for form in formset %}
         <tr>
             <td class="tdinput">
-                {{ form.account }}<input list="account-list">
+                {{ form.account }}<span></span><input list="account-list">
             </td>
             <td class="tdinput">
-                {{ form.category }}<input list="category-list">
+                {{ form.category }}<span></span><input list="category-list">
             </td>
             <td class="tdinput">
                 {{ form.transferred_currency }}

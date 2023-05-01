@@ -51,14 +51,15 @@ function findRow(input) {
 }
 
 function ownAccount(value) {
-    return value === data.budget
+    return value == data.budget
         || value in data.accounts || value in data.categories;
 }
 
 class Selector {
-    #visible; #hidden; #options; #oninput;
-    constructor([hidden, visible], options, oninput) {
+    #visible; #hidden; #sigil; #options; #oninput;
+    constructor([hidden, sigil, visible], options, oninput) {
         this.#visible = visible;
+        this.#sigil = sigil;
         this.#hidden = hidden;
         this.#options = options;
         this.#oninput = oninput;
@@ -89,6 +90,15 @@ class Selector {
     }
     accept() {
         this.classList.remove('suggested');
+    }
+    set sigil(value) {
+        if (value) {
+            this.#sigil.classList.add('sigil');
+            this.#sigil.textContent = '👤';
+        } else {
+            this.#sigil.classList.remove('sigil');
+            this.#sigil.textContent = '';
+        }
     }
     get classList() { return this.#visible.classList; }
     focus(args) { this.#visible.focus(args); }
@@ -203,6 +213,8 @@ function setUpRow(tr) {
     category = new Selector(category, category_options, categoryChanged);
     if (category.value === account.value)
         category.classList.add('suggested');
+    account.sigil = ownAccount(account.value);
+    category.sigil = ownAccount(category.value);
     transferred = new CurrencyInput(transferred, account.value in data.accounts);
     moved = new CurrencyInput(moved, category.value in data.categories);
     transferred.disabled = !account.value;
@@ -257,10 +269,12 @@ function accountChanged({ target }) {
 
     var { category, transferred, moved } = rows[findRow(target)];
     category.unsuggest();
-    if (target.value in data.budgets)
-        category.suggest(target.value);
-    else if (target.value && !ownAccount(target.value))
-        category.suggest(`[${target.value}]`);
+    if (!ownAccount(target.value)) {
+        if (target.value in data.budgets) category.suggest(target.value);
+        else if (target.value) category.suggest(`[${target.value}]`);
+    }
+
+    target.sigil = ownAccount(target.value);
 
     moved.disabled = !category.value;
 
@@ -285,6 +299,7 @@ function categoryChanged({ target }) {
     //         }
     //     }
     // }
+    target.sigil = ownAccount(target.value);
 
     var { moved } = rows[findRow(target)];
     if (!target.value) moved.clear();
