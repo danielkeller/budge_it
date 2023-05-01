@@ -14,6 +14,7 @@ from dataclasses import dataclass
 import functools
 
 ynab_transfer_prefix = "Transfer : "
+import_off_budget_prefix = "Off-budget: "
 
 @dataclass
 class RawTransactionPartRecord:
@@ -265,6 +266,7 @@ class Command(BaseCommand):
         for month in months:
             transaction_category_parts: dict[Category, int] = {}
             for category in target_budget.budget.category_set.all():
+                if category.name.startswith(import_off_budget_prefix): continue # this is a new category built by us
                 budgeted = month_budgets[month][category]
 
                 running_sums[category] += budgeted
