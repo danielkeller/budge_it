@@ -9,8 +9,8 @@
 <div><a href="{% url 'overview' account.budget.id %}">Overview</a></div>
 {% url 'budget' account.budget.id as budget_url %}
 
-{% if form %}
 <div>
+    {% if form %}
     <form method="post">
         {% csrf_token %}
         {{ form.name }}
@@ -31,8 +31,10 @@
         <option value="CNH">
         <option value="INR">
     </datalist>
+    {% else %}
+    {% account_in_budget account account.budget %}
+    {% endif %}
 </div>
-{% endif %}
 <div><button type="button" id="new">Add transaction</button></div>
 <table id="table">
     <th class="t6">Date</th>
