@@ -60,16 +60,19 @@ class TargetBudget:
 
     @functools.cache
     def payee(self, name: str):
+        assert name
         return Budget.objects.get_or_create(
             name=name, payee_of=self.budget.budget_of)[0]
     
     @functools.cache
     def account(self, name: str, currency: str):
+        assert name
         return Account.objects.get_or_create(
                 budget=self.budget, name=name, currency=currency)[0]
     
     @functools.cache
     def category(self, name: str, currency: str):
+        assert name
         return Category.objects.get_or_create(
                 budget=self.budget, name=name, currency=currency)[0]
 
