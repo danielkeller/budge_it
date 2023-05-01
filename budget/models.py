@@ -1,4 +1,4 @@
-from typing import Optional, Iterable, TypeVar, Type, Union, Any
+from typing import Optional, Iterable, TypeVar, Type, Union, Any, Self, Generic
 from collections import defaultdict, deque
 import functools
 from itertools import chain
@@ -56,8 +56,12 @@ class Budget(Id):
     def get_absolute_url(self):
         return reverse('overview', kwargs={'budget_id': self.id})
 
-    def get_hidden(self, cls: 'Type[BaseAccountT]', currency: str
-                   ) -> 'BaseAccountT':
+    def get_hidden(self, cls: 'Type[AccountT]', currency: str
+                   ) -> 'AccountT':
+        return self.get_hidden_(cls, currency)
+    
+    @functools.cache
+    def get_hidden_(self, cls: 'Type[AccountT]', currency: str) -> 'Any':
         return cls.objects.get_or_create(name="", budget=self,
                                          currency=currency)[0]
 
@@ -114,7 +118,7 @@ class Permissions:
     def visible(self):
         return set(Permissions.visibility(self.budget, self.budgets))
 
-    def display_in(self, account: 'BaseAccountT') -> 'BaseAccountT':
+    def display_in(self, account: 'AccountT') -> 'AccountT':
         if self.budget.owner() == account.budget.owner():
             return account
         elif account.budget in self.visible:
@@ -125,7 +129,7 @@ class Permissions:
 
     @staticmethod
     def visibility(budget: Budget, budgets: 'Iterable[Budget]'):
-        return (other for other in budgets if other.isvisible(budget))
+        return [other for other in budgets if other.isvisible(budget)]
 
     def connection(self, there: Budget):
         while there in self.connectivity:
@@ -154,7 +158,7 @@ class BaseAccount(Id):
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE)
     budget_id: int  # Sigh
     balance: int
-    entries: 'models.Manager[TransactionPart]'
+    entries: 'models.Manager[TransactionPart[Self]]'
     currency = models.CharField(max_length=5, blank=True)
 
     def kind(self) -> str:
@@ -186,7 +190,7 @@ class BaseAccount(Id):
         return self.budget.get_hidden(type(self), self.currency)
 
 
-BaseAccountT = TypeVar('BaseAccountT', bound=BaseAccount)
+AccountT = TypeVar('AccountT', bound=BaseAccount)
 
 
 class Account(BaseAccount):
@@ -227,7 +231,7 @@ def sum_by(input: 'Iterable[tuple[T, int]]') -> 'dict[T, int]':
     return {key: value for key, value in result.items() if value}
 
 
-def valid_parts(parts: 'dict[BaseAccountT, int]') -> bool:
+def valid_parts(parts: 'dict[AccountT, int]') -> bool:
     sums = sum_by((account.currency, parts[account]) for account in parts)
     return not any(sums.values())
 
@@ -241,12 +245,12 @@ class Transaction(models.Model):
     date = models.DateField()
     description = models.CharField(blank=True, max_length=1000)
     accounts: 'models.ManyToManyField[Account, TransactionAccountPart]'
-    account_parts: 'models.Manager[TransactionAccountPart]'
+    account_parts: 'PartManager[Account]'
     accounts = models.ManyToManyField(
         Account, through='TransactionAccountPart',
         through_fields=('transaction', 'to'))
     categories: 'models.ManyToManyField[Category, TransactionCategoryPart]'
-    category_parts: 'models.Manager[TransactionCategoryPart]'
+    category_parts: 'PartManager[Category]'
     categories = models.ManyToManyField(
         Category, through='TransactionCategoryPart',
         through_fields=('transaction', 'to'))
@@ -291,58 +295,37 @@ class Transaction(models.Model):
 
     def parts(self, in_budget: Budget):
         permissions = Permissions(in_budget, self.budgets)
-        accounts = sum_by((permissions.display_in(part.to), part.amount)
-                          for part in self.account_parts.all())
-        categories = sum_by((permissions.display_in(part.to), part.amount)
-                            for part in self.category_parts.all())
-        return (accounts, categories)
+        return (self.account_parts.parts_in(permissions),
+                self.category_parts.parts_in(permissions))
 
     def residual_parts_(self, in_budget: Budget):
-        """Return the non-inbox transaction parts of all the other budgets (that
-        is, the parts that set_parts won't touch), accounted to the inbox of
-        that budget. These are subtracted in set_parts, so the remainder goes to
-        the inbox."""
         permissions = Permissions(in_budget, self.budgets)
-        accounts: defaultdict[Account, int] = defaultdict(int)
-        categories: defaultdict[Category, int] = defaultdict(int)
-        for part in self.account_parts.all():
-            affected = permissions.display_in(part.to)
-            accounts[affected] += 0 if affected == part.to else part.amount
-        for part in self.category_parts.all():
-            affected = permissions.display_in(part.to)
-            categories[affected] += 0 if affected == part.to else part.amount
-        return (accounts, categories)
+        return (self.account_parts.residual_in(permissions),
+                self.category_parts.residual_in(permissions))
 
     def set_parts(self, in_budget: Budget,
-                  accounts: 'dict[Account, int]', categories: 'dict[Category, int]'):
+                  accounts: dict[Account, int], categories: dict[Category, int]):
         """Set the contents of this transaction from the perspective of one budget. 'accounts' and 'categories' both must to sum to zero."""
         if not valid_parts(accounts) or not valid_parts(categories):
             raise IntegrityError("Parts do not sum to zero")
         res_accounts, res_categories = self.residual_parts_(in_budget)
-        accounts = {account:
-                    accounts.get(account, 0) - res_accounts.get(account, 0)
-                    for account in res_accounts.keys() | accounts.keys()}
-        categories = {account:
-                      categories.get(account, 0) -
-                      res_categories.get(account, 0)
-                      for account in res_categories.keys() | categories.keys()}
+        accounts = {
+            account: accounts.get(account, 0) + res_accounts.get(account, 0)
+            for account in res_accounts.keys() | accounts.keys()}
+        categories = {
+            account: categories.get(account, 0) + res_categories.get(account, 0)
+            for account in res_categories.keys() | categories.keys()}
         self.set_parts_raw(accounts, categories)
 
     def set_parts_raw(self,
-                      accounts: 'dict[Account, int]',
-                      categories: 'dict[Category, int]'):
-        has_any_parts = False
-        for account, amount in accounts.items():
-            has_any_parts |= amount != 0
-            TransactionAccountPart.update(self, account, amount)
-        for category, amount in categories.items():
-            has_any_parts |= amount != 0
-            TransactionCategoryPart.update(self, category, amount)
-        if not has_any_parts:
+                      accounts: dict[Account, int],
+                      categories: dict[Category, int]):
+        if not (self.account_parts.set_parts_raw(accounts) |
+                self.category_parts.set_parts_raw(categories)):
             self.delete()
 
     def tabular(self, in_budget: Budget):
-        def pop_by_(parts: 'dict[BaseAccountT, int]',
+        def pop_by_(parts: 'dict[AccountT, int]',
                     currency: str, amount: int):
             try:
                 result = next(part for (part, value) in parts.items()
@@ -414,19 +397,53 @@ def sum_debts(debts_1: 'dict[tuple[str, int, int], int]',
     keys = debts_1.keys() | debts_2.keys()
     return {key: debts_1.get(key, 0) + debts_2.get(key, 0) for key in keys}
 
+class PartManager(Generic[AccountT],
+                  models.Manager['TransactionPart[AccountT]']):
+    instance: Transaction # When used as a relatedmanager
 
-class TransactionPart(models.Model):
+    def parts_in(self, permissions: Permissions):
+        return sum_by((permissions.display_in(part.to), part.amount)
+                       for part in self.all())
+    
+    def residual_in(self, permissions: Permissions):
+        """Returns a set of parts such that parts(b) + residual_parts(b) == self
+        """
+        result: defaultdict['AccountT', int] = defaultdict(int)
+        for part in self.all():
+            displayed = permissions.display_in(part.to)
+            if displayed == part.to:
+                result[part.to] = 0
+            else:
+                result[displayed] -= part.amount
+                result[part.to] += part.amount
+        return result
+    
+    def set_parts_raw(self, parts: dict[AccountT, int]):
+        deletes = [to for to, amount in parts.items() if not amount]
+        if deletes:
+            self.filter(to__in=deletes).delete()
+        updates = [self.model(to=to, amount=amount, transaction=self.instance)
+                   for to, amount in parts.items() if amount]
+        if updates:
+            self.bulk_create(
+                updates, update_conflicts=True,
+                update_fields=['amount'],
+                unique_fields=['to_id', 'transaction_id']) # type: ignore (???)
+        return bool(updates)
+
+class TransactionPart(Generic[AccountT], models.Model):
     class Meta:  # type: ignore
         abstract = True
         constraints = [models.UniqueConstraint(fields=["transaction", "to"],
                                                name="m2m_%(class)s")]
+    objects: PartManager[AccountT] = PartManager()
     transaction: models.ForeignKey[Transaction]
     amount = models.BigIntegerField()
-    to: BaseAccount
-    to_id: int
+    to: AccountT
+    to_id: int    
 
-    @ classmethod
-    def update(cls, transaction: Transaction, to: BaseAccount, amount: int):
+    @classmethod
+    def update_(cls, transaction: Transaction, to: BaseAccount, amount: int):
         if amount == 0:
             cls.objects.filter(transaction=transaction, to=to).delete()
         else:
@@ -437,18 +454,16 @@ class TransactionPart(models.Model):
         return f"{self.to} + {self.amount}"
 
 
-class TransactionAccountPart(TransactionPart):
+class TransactionAccountPart(TransactionPart[Account]):
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="account_parts")
-    to: Account
     to = models.ForeignKey(Account, on_delete=models.PROTECT,
                            related_name="entries")  # type: ignore
 
 
-class TransactionCategoryPart(TransactionPart):
+class TransactionCategoryPart(TransactionPart[Category]):
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="category_parts")
-    to: Category
     to = models.ForeignKey(Category, on_delete=models.PROTECT,
                            related_name="entries")  # type: ignore
 
@@ -491,7 +506,7 @@ def transactions_with_debt(budget_id: int) -> Iterable[Transaction]:
     return reversed(qs)
 
 
-def entries_for(account: BaseAccount) -> Iterable[TransactionPart]:
+def entries_for(account: BaseAccount) -> Iterable[TransactionPart[BaseAccount]]:
     qs = (account.entries
           .order_by('transaction__date', '-transaction__kind')
           .prefetch_related('transaction__account_parts__to__budget__friends',
