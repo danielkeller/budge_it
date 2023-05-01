@@ -144,8 +144,7 @@ class Command(BaseCommand):
                 self.save_transaction(target_budget, [part])
 
         current_split: list[RawTransactionPartRecord] = []
-        #(to, from) => amount
-        current_split_transfers: dict[tuple[str, str], int] = defaultdict(int)
+        current_split_transfers: dict[tuple[str, str], int] = defaultdict(int) # (to, from) => amount
         for ix, part in enumerate(day_transaction_parts):
             if not is_split(part):
                 assert not current_split
