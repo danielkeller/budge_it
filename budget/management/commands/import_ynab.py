@@ -202,7 +202,7 @@ class Command(BaseCommand):
 
             if not is_transfer(raw_transaction_part):  # Payment to external payee
                 if not raw_payee: # payment to an off-budget debt account")
-                    raw_payee = f"Payment: {raw_transaction_part.Account}"
+                    raw_payee = f"Interest: {raw_transaction_part.Account}"
                 raw_category = raw_transaction_part.CategoryGroupCategory
                 if not raw_category: # off-budget account")
                     raw_category = f"Off-budget: {raw_transaction_part.Account}"
