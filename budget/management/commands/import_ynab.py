@@ -85,10 +85,10 @@ class Command(BaseCommand):
     help = "Import a YNAB budget"
 
     def handle(self, *args: Any, **options: Any):
-        register_filename = "../Swiss Budget as of 2023-05-01 20-37 - Register.csv"
+        register_filename = "../Swiss Budget as of 2023-05-01 20-59 - Register.csv"
         self.process_csv(register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
 
-        budget_filename = "../Swiss Budget as of 2023-05-01 20-37 - Budget.csv"
+        budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
         self.process_csv(budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
 
     def process_csv(self, filename: str,
