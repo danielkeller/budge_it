@@ -439,7 +439,7 @@ class TransactionPart(Generic[AccountT], models.Model):
     objects: PartManager[AccountT] = PartManager()
     transaction: models.ForeignKey[Transaction]
     amount = models.BigIntegerField()
-    to: AccountT
+    to: models.ForeignKey[AccountT]
     to_id: int    
 
     @classmethod
@@ -458,14 +458,14 @@ class TransactionAccountPart(TransactionPart[Account]):
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="account_parts")
     to = models.ForeignKey(Account, on_delete=models.PROTECT,
-                           related_name="entries")  # type: ignore
+                           related_name="entries")  
 
 
 class TransactionCategoryPart(TransactionPart[Category]):
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="category_parts")
     to = models.ForeignKey(Category, on_delete=models.PROTECT,
-                           related_name="entries")  # type: ignore
+                           related_name="entries")
 
 
 @dataclass
