@@ -157,11 +157,16 @@ form.edit {
     text-align: right;
 }
 
-.tdinput .currency {
+.tdinput .currency,
+.tdinput .sigil {
     position: absolute;
-    padding-left: calc(2 * var(--td-hpad));
+    padding-left: var(--td-hpad);
 }
 
 .tdinput .currency+input {
-    padding-left: calc(2 * var(--td-hpad) + 4ch);
+    padding-left: calc(var(--td-hpad) + 4ch);
+}
+
+.tdinput .sigil+input {
+    padding-left: calc(var(--td-hpad) + 2ch);
 }
