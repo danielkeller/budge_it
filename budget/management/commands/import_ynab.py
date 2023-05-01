@@ -194,7 +194,7 @@ class Command(BaseCommand):
             raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
             raw_transaction_part_outflow = -raw_transaction_part_inflow
 
-            raw_account = raw_transaction_part.Account
+            raw_account = raw_transaction_part.Account.removesuffix(" (Original)")
             account = target_budget.account(raw_account, ynab_currency)
             transaction_account_parts[account] += raw_transaction_part_inflow
 
