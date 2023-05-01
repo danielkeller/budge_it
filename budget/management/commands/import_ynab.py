@@ -201,12 +201,17 @@ class Command(BaseCommand):
             raw_payee = raw_transaction_part.Payee
 
             if not is_transfer(raw_transaction_part):  # Payment to external payee
+                if not raw_payee: # payment to an off-budget debt account")
+                    raw_payee = f"Payment: {raw_transaction_part.Account}"
+                raw_category = raw_transaction_part.CategoryGroupCategory
+                if not raw_category: # off-budget account")
+                    raw_category = f"Off-budget: {raw_transaction_part.Account}"
+
                 payee = target_budget.payee(raw_payee)
                 payee_account = payee.get_hidden(Account, currency=ynab_currency)
                 transaction_account_parts[payee_account] += raw_transaction_part_outflow
 
-                category = target_budget.category(
-                    raw_transaction_part.CategoryGroupCategory, ynab_currency)
+                category = target_budget.category(raw_category, ynab_currency)
                 transaction_category_parts[category] += raw_transaction_part_inflow
                 payee_category = payee.get_hidden(Category, currency=ynab_currency)
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
