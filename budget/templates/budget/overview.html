@@ -7,17 +7,29 @@
 
 <div><a href="{% url 'history' budget.id %}">Edit budget</a></div>
 
-<table>
-    <th>Category</th>
-    <th class="t4">Balance</th>
-    {% for category in categories %}
-    <tr class="{% cycle 'a' 'b' as rowcolor %}">
-        <td>{% account_in_budget category budget %}</td>
-        <td class="number" data-currency="{{ category.currency }}">
-            {{ category.balance | default:0 }}
-        </td>
-    </tr>
-    {% endfor %}
+<table id="categories">
+    <tbody>
+        <th>Category</th>
+        <th class="t5">Balance</th>
+        {% for category in categories %}
+        {% ifchanged category.group %}
+        {% if category.group %}
+    </tbody>
+    <tbody draggable="true" data-group="true">
+        <tr class="{% cycle 'a' 'b' as rowcolor %}">
+            <th colspan="2">{{category.group}}</th>
+        </tr>
+        {% endif %}
+        {% endifchanged %}
+        <tr class="{% cycle 'a' 'b' as rowcolor %}" draggable="true" data-id="{{category.id}}"
+            data-ind="{{forloop.counter0}}">
+            <td>{% account_in_budget category budget %}</td>
+            <td class="number" data-currency="{{ category.currency }}">
+                {{ category.balance | default:0 }}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
     {% for currency, total in totals.items %}
     <tr class="{% cycle rowcolor %}">
         <td>Total</td>
@@ -35,7 +47,7 @@
 </table>
 <table>
     <th>Account</th>
-    <th class="t4">Balance</th>
+    <th class="t5">Balance</th>
     {% for account in accounts %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{% account_in_budget account budget %}</td>

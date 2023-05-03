@@ -161,6 +161,9 @@ class BaseAccount(Id):
     entries: 'models.Manager[TransactionPart[Self]]'
     currency = models.CharField(max_length=5, blank=True)
 
+    group = models.CharField(max_length=100, blank=True)
+    order = models.IntegerField(default=0)
+
     def kind(self) -> str:
         return ''
 
@@ -545,12 +548,12 @@ def accounts_overview(budget_id: int):
     accounts = (Account.objects
                 .filter(budget_id=budget_id)
                 .annotate(balance=Sum('entries__amount', default=0))
-                .order_by('name')
+                .order_by('order', 'group', 'name')
                 .select_related('budget'))
     categories = (Category.objects
                   .filter(budget_id=budget_id)
                   .annotate(balance=Sum('entries__amount', default=0))
-                  .order_by('name')
+                  .order_by('order','group', 'name')
                   .select_related('budget'))
     transactions = transactions_with_debt(budget_id)
     debt_map = functools.reduce(

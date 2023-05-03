@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from django.db.models import Min, Max
 from django.shortcuts import render
-from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
+from django.http import (HttpRequest, HttpResponseRedirect,
                          HttpResponseBadRequest, Http404)
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
