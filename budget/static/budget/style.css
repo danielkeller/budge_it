@@ -21,7 +21,9 @@ html {
     background-color: var(--canvas);
     --line-height: 1.5em;
     --td-border: 1px;
-    font: 14px/var(--line-height) sans-serif;
+    font-size: 14px;
+    line-height: var(--line-height);
+    font-family: Avenir, 'Avenir Next LT Pro', Montserrat, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
 }
 
 body {
