@@ -78,8 +78,29 @@ table {
     --cell-width: calc(9 * var(--line-height));
 }
 
+th {
+    user-select: none;
+}
+
 tr.a {
     background-color: var(--alt-canvas);
+}
+
+tr.b {
+    /* make dragging look nicer */
+    background-color: var(--canvas);
+}
+
+[draggable=true] {
+    /* work around safari bug */
+    outline: 2px solid transparent;
+}
+
+.droppable {
+    /* work around chrome bug */
+    outline: 2px solid LinkText;
+    outline: 2px solid AccentColor;
+    border-radius: 1px;
 }
 
 td,
