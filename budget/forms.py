@@ -189,22 +189,22 @@ class BudgetForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = Budget
         fields = ('name',)
-    name = forms.CharField(required=True)
+    name = forms.CharField()
 
 
 class AccountForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = BaseAccount
         fields = ('name',)
-    name = forms.CharField(required=True)
+    name = forms.CharField()
 
 
 class NewAccountForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = BaseAccount
         fields = ('name', 'currency')
-    name = forms.CharField(required=True)
-    currency = forms.CharField(required=True, widget=forms.TextInput(
+    name = forms.CharField()
+    currency = forms.CharField(widget=forms.TextInput(
         attrs={"placeholder": "Currency", "list": "currencies"}))
 
 
@@ -218,3 +218,10 @@ def rename_form(*, instance: BaseAccount,
     elif not instance.entries.exists():
         return NewAccountForm(instance=instance, data=data)
     return AccountForm(instance=instance, data=data)
+
+ReorderingFormSet = forms.modelformset_factory(
+    Category,
+    fields = ('group', 'order',),
+    widgets = {'group': forms.HiddenInput, 'order': forms.HiddenInput,
+               'id_ptr': forms.HiddenInput},
+    extra=0)

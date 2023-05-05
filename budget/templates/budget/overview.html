@@ -7,6 +7,9 @@
 
 <div><a href="{% url 'history' budget.id %}">Edit budget</a></div>
 
+<form id="form" method="post" action="{% url 'reorder' budget.id %}">
+    {{formset}}{% csrf_token %}
+</form>
 <table id="categories">
     <tbody>
         <th>Category</th>
@@ -21,8 +24,7 @@
         </tr>
         {% endif %}
         {% endifchanged %}
-        <tr class="{% cycle 'a' 'b' as rowcolor %}" draggable="true" data-id="{{category.id}}"
-            data-ind="{{forloop.counter0}}">
+        <tr class="{% cycle 'a' 'b' as rowcolor %}" draggable="true" data-ind="{{forloop.counter0}}">
             <td>{% account_in_budget category budget %}</td>
             <td class="number" data-currency="{{ category.currency }}">
                 {{ category.balance | default:0 }}

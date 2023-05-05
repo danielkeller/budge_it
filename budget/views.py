@@ -14,7 +14,7 @@ from .models import (
     accounts_overview, category_history, sum_by,
     BaseAccount, Account, Category, Budget, Transaction, Balance)
 from .forms import (TransactionForm, TransactionPartFormSet,
-                    BudgetingFormSet, rename_form)
+                    BudgetingFormSet, rename_form, ReorderingFormSet)
 
 
 @login_required
@@ -35,10 +35,23 @@ def overview(request: HttpRequest, budget_id: int):
     accounts, categories, debts = accounts_overview(budget_id)
     totals = sum_by((category.currency, category.balance)
                     for category in categories)
+    formset = ReorderingFormSet(queryset=categories)
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'totals': totals, 'budget': budget}
+               'totals': totals, 'formset': formset, 'budget': budget}
     return render(request, 'budget/overview.html', context)
 
+@login_required
+def reorder(request: HttpRequest, budget_id: int):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    formset = ReorderingFormSet(queryset=budget.category_set.all(),
+                                data=request.POST)
+    if formset.is_valid():
+        formset.save()
+    else:
+        raise ValueError(formset.errors())
+    return HttpResponseRedirect(budget.get_absolute_url())
 
 @login_required
 def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: int):

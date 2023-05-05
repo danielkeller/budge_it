@@ -91,15 +91,10 @@ tr.b {
     background-color: var(--canvas);
 }
 
-[draggable=true] {
-    /* work around safari bug */
-    outline: 2px solid transparent;
-}
-
 .droppable {
     /* work around chrome bug */
-    outline: 2px solid LinkText;
-    outline: 2px solid AccentColor;
+    border-top: 4px solid LinkText;
+    border-top: 4px solid AccentColor;
     border-radius: 1px;
 }
 
