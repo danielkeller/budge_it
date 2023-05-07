@@ -19,14 +19,14 @@
     </tbody>
     <tbody draggable="true" data-group="{{category.group}}">
         <tr class="{% cycle 'a' 'b' as rowcolor %}">
-            <th colspan="2">{{category.group}}&nbsp;</th>
+            <td colspan="2" class="groupname">
+                <button>{{category.group}}</button>
+            </td>
         </tr>
         {% endifchanged %}
         <tr class="{% cycle rowcolor %}" draggable="true" data-form="{{forloop.counter0}}">
             <td>{% account_in_budget category budget %}</td>
-            <td class="number" data-currency="{{ category.currency }}">
-                {{ category.balance | default:0 }}
-            </td>
+            <td class="number" data-currency="{{ category.currency }}">{{ category.balance | default:0 }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -56,9 +56,7 @@
     {% for account in accounts %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}">
         <td>{% account_in_budget account budget %}</td>
-        <td class="number" data-currency="{{ account.currency }}">
-            {{ account.balance | default:0 }}
-        </td>
+        <td class="number" data-currency="{{ account.currency }}">{{ account.balance | default:0 }}</td>
     </tr>
     {% endfor %}
     {% for currency, other, amount in debts %}

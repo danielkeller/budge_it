@@ -91,13 +91,6 @@ tr.b {
     background-color: var(--canvas);
 }
 
-.droppable {
-    /* work around chrome bug */
-    border-bottom: 4px solid LinkText;
-    border-bottom: 4px solid AccentColor;
-    border-radius: 1px;
-}
-
 td,
 th {
     /* Make each table row take exactly one line */
@@ -107,6 +100,37 @@ th {
     --td-hpad: calc(var(--line-height) * 0.2);
     border: var(--td-border) solid #888;
     padding: 0 var(--td-hpad);
+}
+
+[draggable=true] {
+    cursor: grab;
+}
+
+.dragging {
+    cursor: grabbing;
+}
+
+.droppable {
+    /* work around chrome bug */
+    border-bottom: 4px solid LinkText;
+    border-bottom: 4px solid AccentColor;
+    border-radius: 1px;
+}
+
+.groupname {
+    text-align: center;
+}
+
+.groupname button {
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+    background: none;
+    min-width: calc(4 * var(--line-height));
+}
+
+.dragging button {
+    cursor: grabbing;
 }
 
 .detail-container {

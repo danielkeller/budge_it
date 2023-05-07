@@ -10,9 +10,12 @@ addEventListener("DOMContentLoaded", function () {
         document.getElementById('new-group-t').content.firstElementChild;
 
     table.addEventListener('dragstart', (event) => {
-        event.dataTransfer.dropEffect = "move";
         dragging = findDraggable(event.target);
+        dragging.classList.add('dragging');
         findTarget = isGroup(dragging) ? findGroup : findCategory;
+    });
+    table.addEventListener('dragend', () => {
+        dragging.classList.remove('dragging');
     });
     table.addEventListener('dragover', (event) => {
         const element = findTarget(event.target);
@@ -37,13 +40,44 @@ addEventListener("DOMContentLoaded", function () {
             }
         }
     });
-
     table.addEventListener('drop', (event) => {
         const element = findTarget(event.target);
         if (isGroup(dragging)) {
             reorderGroup(dragging, element);
         } else {
             reorder(dragging, element);
+        }
+    });
+    table.addEventListener('click', (event) => {
+        if (event.target.tagName !== "BUTTON") return;
+        const group = findGroup(event.target);
+        group.draggable = false;
+        const input = document.createElement('input');
+        input.value = group.dataset.group;
+        input.setAttribute('form', 'form');
+        event.target.parentElement.appendChild(input);
+        event.target.remove();
+        input.focus();
+        input.select();
+    });
+    table.addEventListener('input', (event) => {
+        const group = findGroup(event.target);
+        for (const tr of [...group.children].slice(1)) {
+            form.elements[`form-${tr.dataset.form}-group`].value
+                = event.target.value;
+        }
+    });
+    table.addEventListener('focusout', (event) => {
+        if (event.target.tagName !== "INPUT") return;
+        const group = findGroup(event.target);
+        if (group.dataset.group === event.target.value) {
+            group.draggable = true;
+            const button = document.createElement('button');
+            button.innerText = group.dataset.group;
+            event.target.parentElement.appendChild(button);
+            event.target.remove();
+        } else {
+            form.submit();
         }
     });
 
