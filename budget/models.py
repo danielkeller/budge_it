@@ -57,12 +57,12 @@ class Budget(Id):
     def get_absolute_url(self):
         return reverse('overview', kwargs={'budget_id': self.id})
 
-    def get_hidden(self, cls: 'Type[AccountT]', currency: str
+    def get_inbox(self, cls: 'Type[AccountT]', currency: str
                    ) -> 'AccountT':
-        return self.get_hidden_(cls, currency)
+        return self.get_inbox_(cls, currency)
     
     @functools.cache
-    def get_hidden_(self, cls: 'Type[AccountT]', currency: str) -> 'Any':
+    def get_inbox_(self, cls: 'Type[AccountT]', currency: str) -> 'Any':
         return cls.objects.get_or_create(name="", budget=self,
                                          currency=currency)[0]
 
@@ -123,10 +123,10 @@ class Permissions:
         if self.budget.owner() == account.budget.owner():
             return account
         elif account.budget in self.visible:
-            return account.to_hidden()
+            return account.to_inbox()
         else:
             return (self.connection(account.budget)
-                    .get_hidden(type(account), account.currency))
+                    .get_inbox(type(account), account.currency))
 
     @staticmethod
     def visibility(budget: Budget, budgets: 'Iterable[Budget]'):
@@ -172,11 +172,11 @@ class BaseAccount(Id):
     def get_absolute_url(self):
         return reverse(self.kind(), kwargs={self.kind() + '_id': self.id})
 
-    def ishidden(self):
+    def is_inbox(self):
         return self.name == ""
 
     def __str__(self):
-        if self.ishidden():
+        if self.is_inbox():
             return f"{self.budget.name} ({self.currency})"
         else:
             return f"{self.budget.name} - {str(self.name)}  ({self.currency})"
@@ -189,10 +189,10 @@ class BaseAccount(Id):
             return f"[{self.budget.name}]"
         return self.budget.name
 
-    def to_hidden(self):
-        if self.ishidden():
+    def to_inbox(self):
+        if self.is_inbox():
             return self
-        return self.budget.get_hidden(type(self), self.currency)
+        return self.budget.get_inbox(type(self), self.currency)
 
 
 AccountT = TypeVar('AccountT', bound=BaseAccount)

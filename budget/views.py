@@ -196,7 +196,7 @@ def history(request: HttpRequest, budget_id: int):
     categories = budget.category_set.all()
     currencies = categories.values_list('currency', flat=True).distinct()
     # Make sure these are created before creating the form
-    inboxes = [budget.get_hidden(Category, currency)
+    inboxes = [budget.get_inbox(Category, currency)
                for currency in currencies]
 
     # Initial is supposed to be the same between GET and POST, so there is

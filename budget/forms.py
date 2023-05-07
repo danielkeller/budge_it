@@ -22,7 +22,7 @@ class AccountChoiceField(forms.Field):
     def prepare_value(self, value: Any):
         if isinstance(value, str):
             return value
-        if isinstance(value, self.type) and value.ishidden():
+        if isinstance(value, self.type) and value.is_inbox():
             return value.budget_id
         return value and value.id
 
@@ -60,10 +60,10 @@ class TransactionPartForm(forms.Form):
         data = self.cleaned_data
         if isinstance(data.get('account'), Budget):
             currency = data.get('transferred_currency', '')
-            data['account'] = data['account'].get_hidden(Account, currency)
+            data['account'] = data['account'].get_inbox(Account, currency)
         if isinstance(data.get('category'), Budget):
             currency = data.get('moved_currency', '')
-            data['category'] = data['category'].get_hidden(Category, currency)
+            data['category'] = data['category'].get_inbox(Category, currency)
         return data
 
 
@@ -211,9 +211,9 @@ class NewAccountForm(forms.ModelForm):
 def rename_form(*, instance: BaseAccount,
                 data: Union[Mapping[str, Any], None] = None
                 ) -> Optional[forms.ModelForm]:
-    if instance.ishidden() and instance.budget.budget_of_id:
+    if instance.is_inbox() and instance.budget.budget_of_id:
         return None
-    elif instance.ishidden():
+    elif instance.is_inbox():
         return BudgetForm(instance=instance.budget, data=data)
     elif not instance.entries.exists():
         return NewAccountForm(instance=instance, data=data)
