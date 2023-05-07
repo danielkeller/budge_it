@@ -55,6 +55,7 @@ addEventListener("DOMContentLoaded", function () {
         const input = document.createElement('input');
         input.value = group.dataset.group;
         input.setAttribute('form', 'form');
+        event.target.parentElement.classList.add('tdinput');
         event.target.parentElement.appendChild(input);
         event.target.remove();
         input.focus();
@@ -72,6 +73,7 @@ addEventListener("DOMContentLoaded", function () {
         const group = findGroup(event.target);
         if (group.dataset.group === event.target.value) {
             group.draggable = true;
+            event.target.parentElement.classList.remove('tdinput');
             const button = document.createElement('button');
             button.innerText = group.dataset.group;
             event.target.parentElement.appendChild(button);
