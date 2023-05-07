@@ -5,31 +5,42 @@ addEventListener("DOMContentLoaded", function () {
     let findTarget;
 
     window.form = document.getElementById('form');
-    const table = document.getElementById('categories');
+    window.table = document.getElementById('categories');
+    const new_group_template =
+        document.getElementById('new-group-t').content.firstElementChild;
 
     table.addEventListener('dragstart', (event) => {
         event.dataTransfer.dropEffect = "move";
         dragging = findDraggable(event.target);
-        findTarget = dragging.dataset.group ? findGroup : findCategory;
+        findTarget = isGroup(dragging) ? findGroup : findCategory;
     });
     table.addEventListener('dragover', (event) => {
         const element = findTarget(event.target);
         if (element) {
             event.preventDefault();
             element.classList.add('droppable');
+            if (isCategory(dragging)) {
+                const group = findGroup(event.target);
+                if (group.lastElementChild.id !== 'new-group') {
+                    group.appendChild(new_group_template.cloneNode(true));
+                }
+            }
         }
     });
     table.addEventListener('dragleave', (event) => {
         const element = findTarget(event.target);
         if (element && element !== findTarget(event.relatedTarget)) {
             element.classList.remove('droppable');
+            if (isCategory(dragging)
+                && findGroup(event.target) !== findGroup(event.relatedTarget)) {
+                findGroup(event.target).lastElementChild.remove();
+            }
         }
     });
 
     table.addEventListener('drop', (event) => {
         const element = findTarget(event.target);
-        element.classList.remove('droppable');
-        if (dragging.dataset.group) {
+        if (isGroup(dragging)) {
             reorderGroup(dragging, element);
         } else {
             reorder(dragging, element);
@@ -47,37 +58,33 @@ function findAncestor(element, predicate) {
 function findDraggable(element) {
     return findAncestor(element, element => element.getAttribute('draggable'));
 }
-function findGroup(element) {
-    return findAncestor(element, element => element.dataset.group);
-}
-function findCategory(element) {
-    return findAncestor(element, element => element.dataset.ind);
-}
+function isCategory(element) { return element.tagName === "TR"; }
+function isGroup(element) { return element.tagName === "TBODY"; }
+function findGroup(element) { return findAncestor(element, isGroup); }
+function findCategory(element) { return findAncestor(element, isCategory); }
 
 function reorder(source, target) {
-    const source_ind = +source.dataset.ind;
-    const target_ind = +target.dataset.ind;
-    form.elements[`form-${source_ind}-group`].value =
-        form.elements[`form-${target_ind}-group`].value;
-    reorderImpl(new Set([source_ind]), target_ind);
+    form.elements[`form-${source.dataset.form}-group`].value =
+        target.id === 'new-group' ? "New Group" :
+            target.parentElement.dataset.group;
+    reorderImpl(new Set([source]), target);
 }
 
 function reorderGroup(source, target) {
-    const source_inds = new Set([...source.children].slice(1)
-        .map(tr => +tr.dataset.ind));
-    const target_ind = +target.children[1].dataset.ind;
-    reorderImpl(source_inds, target_ind);
+    reorderImpl([...source.children].slice(1),
+        target.children[target.children.length - 1]);
 }
 
-function reorderImpl(source_inds, target_ind) {
-    const num = +form.elements['form-TOTAL_FORMS'].value;
+function reorderImpl(sources, target) {
+    sources = new Set(sources);
     let j = 0;
-    for (let i = 0; i < num; ++i) {
-        if (i === target_ind)
-            for (let k of source_inds)
-                form.elements[`form-${k}-order`].value = j++;
-        if (!source_inds.has(i))
-            form.elements[`form-${i}-order`].value = j++;
+    const trs = [...table.children].flatMap(tbody => [...tbody.children]);
+    for (const tr of trs) {
+        if (tr.dataset.form && !sources.has(tr))
+            form.elements[`form-${tr.dataset.form}-order`].value = j++;
+        if (tr === target)
+            for (const source_tr of sources)
+                form.elements[`form-${source_tr.dataset.form}-order`].value = j++;
     }
     form.submit();
 }

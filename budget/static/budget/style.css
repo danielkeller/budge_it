@@ -93,8 +93,8 @@ tr.b {
 
 .droppable {
     /* work around chrome bug */
-    border-top: 4px solid LinkText;
-    border-top: 4px solid AccentColor;
+    border-bottom: 4px solid LinkText;
+    border-bottom: 4px solid AccentColor;
     border-radius: 1px;
 }
 
