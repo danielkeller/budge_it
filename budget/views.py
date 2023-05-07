@@ -8,6 +8,7 @@ from django.http import (HttpRequest, HttpResponseRedirect,
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
+import cProfile
 
 from .models import (
     entries_for_balance, entries_for,
@@ -16,6 +17,15 @@ from .models import (
 from .forms import (TransactionForm, TransactionPartFormSet,
                     BudgetingFormSet, rename_form, ReorderingFormSet)
 
+def profileit(func: Any):
+    def wrapper(*args: Any, **kwargs: Any):
+        datafn = func.__name__ + ".profile" # Name the data file sensibly
+        prof = cProfile.Profile()
+        retval = prof.runcall(func, *args, **kwargs)
+        prof.dump_stats(datafn)
+        return retval
+
+    return wrapper
 
 @login_required
 def index(request: HttpRequest):
@@ -66,6 +76,7 @@ def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: 
     return render(request, 'budget/account.html', context)
 
 
+# @profileit
 @login_required
 def account(request: HttpRequest, account_id: int):
     return _base_account(request, Account, account_id)

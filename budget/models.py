@@ -53,6 +53,7 @@ class Budget(Id):
     def __str__(self):
         return self.name
 
+    @functools.cache
     def get_absolute_url(self):
         return reverse('overview', kwargs={'budget_id': self.id})
 
@@ -167,6 +168,7 @@ class BaseAccount(Id):
     def kind(self) -> str:
         return ''
 
+    @functools.cache
     def get_absolute_url(self):
         return reverse(self.kind(), kwargs={self.kind() + '_id': self.id})
 

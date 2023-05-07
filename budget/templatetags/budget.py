@@ -1,13 +1,25 @@
-from django import template
 from budget import models
+
+from django import template
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 register = template.Library()
 
-
-@register.inclusion_tag('budget/account_in_budget.html')
+@register.simple_tag
 def account_in_budget(account: models.BaseAccount, budget: models.Budget):
-    return {'account': account, 'budget': budget}
-
+    if not account:
+        return mark_safe("")
+    elif account.budget.budget_of_id == budget.owner():
+        return format_html('<a href="{}">{}</a>',
+                           mark_safe(account.get_absolute_url()),
+                           account.name or "Inbox")
+    elif account.kind() == 'category':
+        return format_html('<i>[{}]</i>', account.budget.name)
+    else:
+        return format_html('<a href="{}"><i>{}</i></a>',
+                           mark_safe(account.get_absolute_url()),
+                           account.budget.name)
 
 @register.filter
 def tabular(value: models.Transaction, budget: models.Budget):
