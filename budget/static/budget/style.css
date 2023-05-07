@@ -96,7 +96,7 @@ th {
     /* Make each table row take exactly one line */
     --td-line-height: calc(var(--line-height) - var(--td-border));
     line-height: var(--td-line-height);
-    width: var(--cell-width);
+    min-width: var(--cell-width);
     --td-hpad: calc(var(--line-height) * 0.2);
     border: var(--td-border) solid #888;
     padding: 0 var(--td-hpad);

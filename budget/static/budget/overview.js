@@ -48,7 +48,7 @@ addEventListener("DOMContentLoaded", function () {
             reorder(dragging, element);
         }
     });
-    table.addEventListener('click', (event) => {
+    table.addEventListener('focusin', (event) => {
         if (event.target.tagName !== "BUTTON") return;
         const group = findGroup(event.target);
         group.draggable = false;
