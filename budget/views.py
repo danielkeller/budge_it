@@ -15,11 +15,14 @@ from .models import (
     accounts_overview, category_history, sum_by,
     BaseAccount, Account, Category, Budget, Transaction, Balance)
 from .forms import (TransactionForm, TransactionPartFormSet,
-                    BudgetingFormSet, rename_form, ReorderingFormSet)
+                    BudgetingFormSet, rename_form,
+                    ReorderingFormSet, AccountManagementFormSet,
+                    CategoryManagementFormSet)
+
 
 def profileit(func: Any):
     def wrapper(*args: Any, **kwargs: Any):
-        datafn = func.__name__ + ".profile" # Name the data file sensibly
+        datafn = func.__name__ + ".profile"  # Name the data file sensibly
         prof = cProfile.Profile()
         retval = prof.runcall(func, *args, **kwargs)
         prof.dump_stats(datafn)
@@ -27,9 +30,11 @@ def profileit(func: Any):
 
     return wrapper
 
+
 @login_required
 def index(request: HttpRequest):
-    return HttpResponseRedirect(request.user.budget.get_absolute_url()) #type: ignore
+    # type: ignore
+    return HttpResponseRedirect(request.user.budget.get_absolute_url())
 
 
 def _get_allowed_budget_or_404(request: HttpRequest, budget_id: int):
@@ -50,6 +55,7 @@ def overview(request: HttpRequest, budget_id: int):
                'totals': totals, 'formset': formset, 'budget': budget}
     return render(request, 'budget/overview.html', context)
 
+
 @login_required
 def reorder(request: HttpRequest, budget_id: int):
     if request.method != 'POST':
@@ -62,6 +68,7 @@ def reorder(request: HttpRequest, budget_id: int):
     else:
         raise ValueError(formset.errors())
     return HttpResponseRedirect(budget.get_absolute_url())
+
 
 @login_required
 def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: int):
@@ -102,6 +109,31 @@ def _base_account(request: HttpRequest, type: Type[BaseAccount], id: int):
     context = {'entries': entries_for(account), 'account': account,
                'form': form, 'data': data}
     return render(request, 'budget/account.html', context)
+
+
+def manage_accounts(request: HttpRequest, budget_id: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    categories = (budget.category_set.exclude(name='')
+                  .order_by('order', 'group', 'name'))
+    accounts = (budget.account_set.exclude(name='')
+                .order_by('order', 'group', 'name'))
+    if request.method == 'POST':
+        category_formset = CategoryManagementFormSet(
+            queryset=categories, data=request.POST, prefix="category")
+        account_formset = AccountManagementFormSet(
+            queryset=accounts, data=request.POST, prefix="accounts")
+        if category_formset.is_valid() and account_formset.is_valid():
+            category_formset.save()
+            account_formset.save()
+            return HttpResponseRedirect(budget.get_absolute_url())
+    else:
+        category_formset = CategoryManagementFormSet(
+            queryset=categories, prefix="category")
+        account_formset = AccountManagementFormSet(
+            queryset=accounts, prefix="accounts")
+    context = {'category_formset': category_formset,
+               'account_formset': account_formset}
+    return render(request, 'budget/manage.html', context)
 
 
 @login_required

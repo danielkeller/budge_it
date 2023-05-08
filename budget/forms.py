@@ -225,3 +225,15 @@ ReorderingFormSet = forms.modelformset_factory(
     widgets = {'group': forms.HiddenInput, 'order': forms.HiddenInput,
                'id_ptr': forms.HiddenInput},
     extra=0)
+
+AccountManagementFormSet = forms.modelformset_factory(
+    Account,
+    fields = ('name', 'closed'),
+    widgets = {'name': forms.TextInput(attrs={'required': True})},
+    extra=0)
+
+CategoryManagementFormSet = forms.modelformset_factory(
+    Category,
+    fields = ('name', 'closed'),
+    widgets = {'name': forms.TextInput(attrs={'required': True})},
+    extra=0)

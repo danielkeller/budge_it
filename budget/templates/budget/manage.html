@@ -1,0 +1,39 @@
+{% load budget static %}
+
+<!DOCTYPE html>
+<link rel="stylesheet" href="{% static 'budget/style.css' %}">
+
+<form id="form" method="post">
+    <table>
+        <tr>
+            <th>Category</th>
+            <th>Closed</th>
+        </tr>
+        {% for form in category_formset %}
+        <tr>
+            <td class="tdinput">{{ form.name }}</td>
+            <td>{{ form.closed }}{{form.id_ptr}}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+            <th>Account</th>
+            <th>Closed</th>
+        </tr>
+        {% for form in account_formset %}
+        <tr>
+            <td class="tdinput">{{ form.name }}</td>
+            <td>{{ form.closed }}{{form.id_ptr}}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {{ category_formset.management_form }}
+    {{ account_formset.management_form }}
+    {% csrf_token %}
+</form>
+<div><button form="form">Save</button></div>
+<div>
+    {{ category_formset.errors|default:"" }}
+    {{ category_formset.non_form_errors }}
+    {{ account_formset.errors|default:"" }}
+    {{ account_formset.non_form_errors }}
+</div>

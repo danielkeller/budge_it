@@ -239,6 +239,7 @@ function addRow(event) {
     var tr = tbody.children[1].cloneNode(true);
     var { account, category, moved, transferred } = setUpRow(tr);
     const n = rows.length - 1;
+    // TODO: refactor this to use <template>
     account.value = '';
     account.name = `tx-${n}-account`;
     category.value = '';

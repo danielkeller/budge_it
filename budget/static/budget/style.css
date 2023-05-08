@@ -48,6 +48,7 @@ input {
 td button,
 td input {
     height: var(--td-line-height);
+    margin: 0;
 }
 
 button {
