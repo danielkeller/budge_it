@@ -6,6 +6,8 @@ urlpatterns = [
     path('', views.index, name='index'),
     path("accounts/", include("django.contrib.auth.urls")),
     path('overview/<int:budget_id>/', views.overview, name='overview'),
+    path('reorder/<int:budget_id>/', views.reorder, name='reorder'),
+    path('manage/<int:budget_id>/', views.manage_accounts, name='manage'),
     path('account/<int:account_id>/', views.account, name='account'),
     path('category/<int:category_id>/', views.category, name='category'),
     path('account/<int:budget_id>/new/', views.new_account, name='new_account'),

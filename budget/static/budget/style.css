@@ -21,7 +21,9 @@ html {
     background-color: var(--canvas);
     --line-height: 1.5em;
     --td-border: 1px;
-    font: 14px/var(--line-height) sans-serif;
+    font-size: 14px;
+    line-height: var(--line-height);
+    font-family: Avenir, 'Avenir Next LT Pro', Montserrat, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
 }
 
 body {
@@ -46,6 +48,7 @@ input {
 td button,
 td input {
     height: var(--td-line-height);
+    margin: 0;
 }
 
 button {
@@ -76,8 +79,17 @@ table {
     --cell-width: calc(9 * var(--line-height));
 }
 
+th {
+    user-select: none;
+}
+
 tr.a {
     background-color: var(--alt-canvas);
+}
+
+tr.b {
+    /* make dragging look nicer */
+    background-color: var(--canvas);
 }
 
 td,
@@ -89,6 +101,37 @@ th {
     --td-hpad: calc(var(--line-height) * 0.2);
     border: var(--td-border) solid #888;
     padding: 0 var(--td-hpad);
+}
+
+[draggable=true] {
+    cursor: grab;
+}
+
+.dragging {
+    cursor: grabbing;
+}
+
+.droppable {
+    /* work around chrome bug */
+    border-bottom: 4px solid LinkText;
+    border-bottom: 4px solid AccentColor;
+    border-radius: 1px;
+}
+
+.groupname {
+    text-align: center;
+}
+
+.groupname button {
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+    background: none;
+    min-width: calc(4 * var(--line-height));
+}
+
+.dragging button {
+    cursor: grabbing;
 }
 
 .detail-container {

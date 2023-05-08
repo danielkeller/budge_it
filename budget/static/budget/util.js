@@ -30,7 +30,10 @@ function formatCurrency(value, currency) {
             return format.format(+value / 10 ** decimals);
         } catch (invalidCurrency) { }
     }
-    return currency + " " + value;
+    const decimals = currencyDecimals(currency);
+    const format = new Intl.NumberFormat(navigator.language,
+        { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+    return currency + " " + format.format(+value / 10 ** decimals);
 }
 
 function formatCurrencies() {

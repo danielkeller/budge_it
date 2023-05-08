@@ -3,11 +3,12 @@ from datetime import date, timedelta
 
 from django.db.models import Min, Max
 from django.shortcuts import render
-from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
+from django.http import (HttpRequest, HttpResponseRedirect,
                          HttpResponseBadRequest, Http404)
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
+import cProfile
 
 from .models import (
     entries_for_balance, entries_for,
@@ -15,12 +16,26 @@ from .models import (
     sum_by, months_between,
     BaseAccount, Account, Category, Budget, Transaction, Balance)
 from .forms import (TransactionForm, TransactionPartFormSet,
-                    BudgetingFormSet, rename_form)
+                    BudgetingFormSet, rename_form,
+                    ReorderingFormSet, AccountManagementFormSet,
+                    CategoryManagementFormSet)
+
+
+def profileit(func: Any):
+    def wrapper(*args: Any, **kwargs: Any):
+        datafn = func.__name__ + ".profile"  # Name the data file sensibly
+        prof = cProfile.Profile()
+        retval = prof.runcall(func, *args, **kwargs)
+        prof.dump_stats(datafn)
+        return retval
+
+    return wrapper
 
 
 @login_required
 def index(request: HttpRequest):
-    return HttpResponseRedirect(request.user.budget.get_absolute_url()) #type: ignore
+    # type: ignore
+    return HttpResponseRedirect(request.user.budget.get_absolute_url())
 
 
 def _get_allowed_budget_or_404(request: HttpRequest, budget_id: int):
@@ -36,9 +51,24 @@ def overview(request: HttpRequest, budget_id: int):
     accounts, categories, debts = accounts_overview(budget_id)
     totals = sum_by((category.currency, category.balance)
                     for category in categories)
+    formset = ReorderingFormSet(queryset=categories)
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'totals': totals, 'budget': budget}
+               'totals': totals, 'formset': formset, 'budget': budget}
     return render(request, 'budget/overview.html', context)
+
+
+@login_required
+def reorder(request: HttpRequest, budget_id: int):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    formset = ReorderingFormSet(queryset=budget.category_set.all(),
+                                data=request.POST)
+    if formset.is_valid():
+        formset.save()
+    else:
+        raise ValueError(formset.errors())
+    return HttpResponseRedirect(budget.get_absolute_url())
 
 
 @login_required
@@ -54,6 +84,7 @@ def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: 
     return render(request, 'budget/account.html', context)
 
 
+# @profileit
 @login_required
 def account(request: HttpRequest, account_id: int):
     return _base_account(request, Account, account_id)
@@ -79,6 +110,31 @@ def _base_account(request: HttpRequest, type: Type[BaseAccount], id: int):
     context = {'entries': entries_for(account), 'account': account,
                'form': form, 'data': data}
     return render(request, 'budget/account.html', context)
+
+
+def manage_accounts(request: HttpRequest, budget_id: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    categories = (budget.category_set.exclude(name='')
+                  .order_by('order', 'group', 'name'))
+    accounts = (budget.account_set.exclude(name='')
+                .order_by('order', 'group', 'name'))
+    if request.method == 'POST':
+        category_formset = CategoryManagementFormSet(
+            queryset=categories, data=request.POST, prefix="category")
+        account_formset = AccountManagementFormSet(
+            queryset=accounts, data=request.POST, prefix="accounts")
+        if category_formset.is_valid() and account_formset.is_valid():
+            category_formset.save()
+            account_formset.save()
+            return HttpResponseRedirect(budget.get_absolute_url())
+    else:
+        category_formset = CategoryManagementFormSet(
+            queryset=categories, prefix="category")
+        account_formset = AccountManagementFormSet(
+            queryset=accounts, prefix="accounts")
+    context = {'category_formset': category_formset,
+               'account_formset': account_formset}
+    return render(request, 'budget/manage.html', context)
 
 
 @login_required
@@ -165,7 +221,7 @@ def history(request: HttpRequest, budget_id: int):
     categories = budget.category_set.all()
     currencies = categories.values_list('currency', flat=True).distinct()
     # Make sure these are created before creating the form
-    inboxes = [budget.get_hidden(Category, currency)
+    inboxes = [budget.get_inbox(Category, currency)
                for currency in currencies]
 
     # Initial is supposed to be the same between GET and POST, so there is

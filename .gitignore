@@ -3,3 +3,5 @@ lib
 __pycache__
 pyvenv.cfg
 *.sqlite3
+*.sqlite3-shm
+*.DS_Store

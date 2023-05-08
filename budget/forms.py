@@ -22,7 +22,7 @@ class AccountChoiceField(forms.Field):
     def prepare_value(self, value: Any):
         if isinstance(value, str):
             return value
-        if isinstance(value, self.type) and value.ishidden():
+        if isinstance(value, self.type) and value.is_inbox():
             return value.budget_id
         return value and value.id
 
@@ -60,10 +60,10 @@ class TransactionPartForm(forms.Form):
         data = self.cleaned_data
         if isinstance(data.get('account'), Budget):
             currency = data.get('transferred_currency', '')
-            data['account'] = data['account'].get_hidden(Account, currency)
+            data['account'] = data['account'].get_inbox(Account, currency)
         if isinstance(data.get('category'), Budget):
             currency = data.get('moved_currency', '')
-            data['category'] = data['category'].get_hidden(Category, currency)
+            data['category'] = data['category'].get_inbox(Category, currency)
         return data
 
 
@@ -189,32 +189,51 @@ class BudgetForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = Budget
         fields = ('name',)
-    name = forms.CharField(required=True)
+    name = forms.CharField()
 
 
 class AccountForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = BaseAccount
         fields = ('name',)
-    name = forms.CharField(required=True)
+    name = forms.CharField()
 
 
 class NewAccountForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = BaseAccount
         fields = ('name', 'currency')
-    name = forms.CharField(required=True)
-    currency = forms.CharField(required=True, widget=forms.TextInput(
+    name = forms.CharField()
+    currency = forms.CharField(widget=forms.TextInput(
         attrs={"placeholder": "Currency", "list": "currencies"}))
 
 
 def rename_form(*, instance: BaseAccount,
                 data: Union[Mapping[str, Any], None] = None
                 ) -> Optional[forms.ModelForm]:
-    if instance.ishidden() and instance.budget.budget_of_id:
+    if instance.is_inbox() and instance.budget.budget_of_id:
         return None
-    elif instance.ishidden():
+    elif instance.is_inbox():
         return BudgetForm(instance=instance.budget, data=data)
     elif not instance.entries.exists():
         return NewAccountForm(instance=instance, data=data)
     return AccountForm(instance=instance, data=data)
+
+ReorderingFormSet = forms.modelformset_factory(
+    Category,
+    fields = ('group', 'order',),
+    widgets = {'group': forms.HiddenInput, 'order': forms.HiddenInput,
+               'id_ptr': forms.HiddenInput},
+    extra=0)
+
+AccountManagementFormSet = forms.modelformset_factory(
+    Account,
+    fields = ('name', 'closed'),
+    widgets = {'name': forms.TextInput(attrs={'required': True})},
+    extra=0)
+
+CategoryManagementFormSet = forms.modelformset_factory(
+    Category,
+    fields = ('name', 'closed'),
+    widgets = {'name': forms.TextInput(attrs={'required': True})},
+    extra=0)

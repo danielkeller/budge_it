@@ -36,18 +36,19 @@
     {% endif %}
 </div>
 <div><button type="button" id="new">Add transaction</button></div>
+{% spaceless %}
 <table id="table">
     <th class="t6">Date</th>
     <th class="t9">Description</th>
     <th class="t4">{{ account.currency }}</th>
     <th class="t4">Total</th>
     {% for entry in entries %}
-    <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{entry.transaction.id}}"
-        data-kind="{{entry.transaction.kind}}">
+    <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{entry.transaction.id}}" data-kind="{{entry.transaction.kind}}">
         <td>{{entry.transaction.date}}</td>
         <td>{{entry.transaction|transaction_description:account}}</td>
         <td class="number shortcurrency" data-currency="{{ account.currency }}">{{entry.amount}}</td>
         <td>
+            {% if entry.transaction.kind != 'B' %}
             <div class="detail-container">
                 <div class="transaction-detail">
                     <span class="line">──┐</span>
@@ -60,19 +61,18 @@
                             <td>{% account_in_budget part.account account.budget %}</td>
                             <td>{% account_in_budget part.category account.budget %}</td>
                             {% firstof part.account.currency part.category.currency as currency %}
-                            <td class="number {% if currency == account.currency %}shortcurrency{% endif %}"
-                                data-currency="{{ currency }}">
-                                {{part.amount}}
-                            </td>
+                            <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{part.amount}}</td>
                         </tr>
                         {% endfor %}
                         {% resetcycle %}
                     </table>
                 </div>
             </div>
+            {% endif %}
             <div class="number shortcurrency" data-currency="{{ account.currency }}">{{entry.running_sum}}</div>
         </td>
     </tr>
     {% endfor %}
 </table>
 {{ data|json_script:"data" }}
+{% endspaceless %}

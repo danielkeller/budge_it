@@ -6,6 +6,8 @@ addEventListener("DOMContentLoaded", function () {
     window.rows = [];
     window.tbody = document.getElementById("parts").children[0];
     window.adder_row = document.getElementById("adder-row");
+    window.new_row_template = document.getElementById("new-row-t")
+        .content.firstElementChild
     window.category_sum = document.getElementById("category-sum");
     window.account_sum = document.getElementById("account-sum");
     window.debt = document.getElementById("debt");
@@ -142,7 +144,7 @@ class CurrencyInput {
             this.classList.remove('suggested');
         }
     }
-    static #re = /\s*(\p{L}*)\s*(.*)\s*/u;
+    static #re = /\s*(\p{L}*(?:\.[0-9])?)\s*(.*)\s*/u;
     #parse() {
         if (this.#currencyFixed) {
             this.#amount.value = this.#input.value
@@ -236,20 +238,17 @@ function setUpRows() {
 }
 
 function addRow(event) {
-    var tr = tbody.children[1].cloneNode(true);
-    var { account, category, moved, transferred } = setUpRow(tr);
+    var tr = new_row_template.cloneNode(true);
+    var [account, category, transferred, moved] = tr.children;
     const n = rows.length - 1;
-    account.value = '';
-    account.name = `tx-${n}-account`;
-    category.value = '';
-    category.name = `tx-${n}-category`;
-    moved.clear();
-    moved.disabled = true;
-    moved.name = `tx-${n}-moved`;
-    transferred.clear();
-    transferred.disabled = true;
-    transferred.name = `tx-${n}-transferred`;
+    account.children[0].name = `tx-${n}-account`;
+    category.children[0].name = `tx-${n}-category`;
+    transferred.children[0].name = `tx-${n}-transferred_currency`;
+    transferred.children[1].name = `tx-${n}-transferred`;
+    moved.children[0].name = `tx-${n}-moved_currency`;
+    moved.children[1].name = `tx-${n}-moved`;
     tbody.insertBefore(tr, adder_row);
+    setUpRow(tr);
     document.forms[0].elements["tx-TOTAL_FORMS"].value = rows.length;
     if (event) {
         account.focus({ focusVisible: true });

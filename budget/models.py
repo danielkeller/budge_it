@@ -53,15 +53,16 @@ class Budget(Id):
     def __str__(self):
         return self.name
 
+    @functools.cache
     def get_absolute_url(self):
         return reverse('overview', kwargs={'budget_id': self.id})
 
-    def get_hidden(self, cls: 'Type[AccountT]', currency: str
-                   ) -> 'AccountT':
-        return self.get_hidden_(cls, currency)
-    
+    def get_inbox(self, cls: 'Type[AccountT]', currency: str
+                  ) -> 'AccountT':
+        return self.get_inbox_(cls, currency)
+
     @functools.cache
-    def get_hidden_(self, cls: 'Type[AccountT]', currency: str) -> 'Any':
+    def get_inbox_(self, cls: 'Type[AccountT]', currency: str) -> 'Any':
         return cls.objects.get_or_create(name="", budget=self,
                                          currency=currency)[0]
 
@@ -122,10 +123,10 @@ class Permissions:
         if self.budget.owner() == account.budget.owner():
             return account
         elif account.budget in self.visible:
-            return account.to_hidden()
+            return account.to_inbox()
         else:
             return (self.connection(account.budget)
-                    .get_hidden(type(account), account.currency))
+                    .get_inbox(type(account), account.currency))
 
     @staticmethod
     def visibility(budget: Budget, budgets: 'Iterable[Budget]'):
@@ -161,17 +162,22 @@ class BaseAccount(Id):
     entries: 'models.Manager[TransactionPart[Self]]'
     currency = models.CharField(max_length=5, blank=True)
 
+    group = models.CharField(max_length=100, blank=True)
+    order = models.IntegerField(default=0)
+    closed = models.BooleanField(default=False)
+
     def kind(self) -> str:
         return ''
 
+    @functools.cache
     def get_absolute_url(self):
         return reverse(self.kind(), kwargs={self.kind() + '_id': self.id})
 
-    def ishidden(self):
+    def is_inbox(self):
         return self.name == ""
 
     def __str__(self):
-        if self.ishidden():
+        if self.is_inbox():
             return f"{self.budget.name} ({self.currency})"
         else:
             return f"{self.budget.name} - {str(self.name)}  ({self.currency})"
@@ -184,10 +190,10 @@ class BaseAccount(Id):
             return f"[{self.budget.name}]"
         return self.budget.name
 
-    def to_hidden(self):
-        if self.ishidden():
+    def to_inbox(self):
+        if self.is_inbox():
             return self
-        return self.budget.get_hidden(type(self), self.currency)
+        return self.budget.get_inbox(type(self), self.currency)
 
 
 AccountT = TypeVar('AccountT', bound=BaseAccount)
@@ -313,7 +319,8 @@ class Transaction(models.Model):
             account: accounts.get(account, 0) + res_accounts.get(account, 0)
             for account in res_accounts.keys() | accounts.keys()}
         categories = {
-            account: categories.get(account, 0) + res_categories.get(account, 0)
+            account: categories.get(account, 0) +
+            res_categories.get(account, 0)
             for account in res_categories.keys() | categories.keys()}
         self.set_parts_raw(accounts, categories)
 
@@ -397,14 +404,15 @@ def sum_debts(debts_1: 'dict[tuple[str, int, int], int]',
     keys = debts_1.keys() | debts_2.keys()
     return {key: debts_1.get(key, 0) + debts_2.get(key, 0) for key in keys}
 
+
 class PartManager(Generic[AccountT],
                   models.Manager['TransactionPart[AccountT]']):
-    instance: Transaction # When used as a relatedmanager
+    instance: Transaction  # When used as a relatedmanager
 
     def parts_in(self, permissions: Permissions):
         return sum_by((permissions.display_in(part.to), part.amount)
-                       for part in self.all())
-    
+                      for part in self.all())
+
     def residual_in(self, permissions: Permissions):
         """Returns a set of parts such that parts(b) + residual_parts(b) == self
         """
@@ -417,7 +425,7 @@ class PartManager(Generic[AccountT],
                 result[displayed] -= part.amount
                 result[part.to] += part.amount
         return result
-    
+
     def set_parts_raw(self, parts: dict[AccountT, int]):
         deletes = [to for to, amount in parts.items() if not amount]
         if deletes:
@@ -428,8 +436,9 @@ class PartManager(Generic[AccountT],
             self.bulk_create(
                 updates, update_conflicts=True,
                 update_fields=['amount'],
-                unique_fields=['to_id', 'transaction_id']) # type: ignore (???)
+                unique_fields=['to_id', 'transaction_id'])  # type: ignore (???)
         return bool(updates)
+
 
 class TransactionPart(Generic[AccountT], models.Model):
     class Meta:  # type: ignore
@@ -440,7 +449,7 @@ class TransactionPart(Generic[AccountT], models.Model):
     transaction: models.ForeignKey[Transaction]
     amount = models.BigIntegerField()
     to: models.ForeignKey[AccountT]
-    to_id: int    
+    to_id: int
 
     @classmethod
     def update_(cls, transaction: Transaction, to: BaseAccount, amount: int):
@@ -458,7 +467,7 @@ class TransactionAccountPart(TransactionPart[Account]):
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="account_parts")
     to = models.ForeignKey(Account, on_delete=models.PROTECT,
-                           related_name="entries")  
+                           related_name="entries")
 
 
 class TransactionCategoryPart(TransactionPart[Category]):
@@ -476,15 +485,16 @@ class TransactionDebtPart:
     amount: int
     running_sum: int
 
+
 def creates_debt():
     account_sum = (Transaction.objects.filter(id=OuterRef('id'))
-            .annotate(b=F('accounts__budget_id'),
-                      value=Sum('account_parts__amount'))
-            .exclude(value=0))
+                   .annotate(b=F('accounts__budget_id'),
+                             value=Sum('account_parts__amount'))
+                   .exclude(value=0))
     category_sum = (Transaction.objects.filter(id=OuterRef('id'))
-        .annotate(b=F('categories__budget_id'),
-                  value=Sum('category_parts__amount'))
-        .exclude(value=0))
+                    .annotate(b=F('categories__budget_id'),
+                              value=Sum('category_parts__amount'))
+                    .exclude(value=0))
     return Exists(account_sum.difference(category_sum).union(
         category_sum.difference(account_sum)))
 
@@ -550,13 +560,15 @@ def entries_for_balance(account: Balance) -> Iterable[TransactionDebtPart]:
 def accounts_overview(budget_id: int):
     accounts = (Account.objects
                 .filter(budget_id=budget_id)
+                .exclude(closed=True)
                 .annotate(balance=Sum('entries__amount', default=0))
-                .order_by('name')
+                .order_by('order', 'group', 'name')
                 .select_related('budget'))
     categories = (Category.objects
                   .filter(budget_id=budget_id)
+                  .exclude(closed=True)
                   .annotate(balance=Sum('entries__amount', default=0))
-                  .order_by('name')
+                  .order_by('order', 'group', 'name')
                   .select_related('budget'))
     transactions = transactions_with_debt(budget_id)
     debt_map = functools.reduce(

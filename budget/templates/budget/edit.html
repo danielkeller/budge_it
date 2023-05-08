@@ -53,6 +53,22 @@
     {{ formset.management_form }}
     {% csrf_token %}
 </form>
+<template id="new-row-t">
+    <tr>
+        <td class="tdinput">
+            <input type="hidden"><span></span><input list="account-list">
+        </td>
+        <td class="tdinput">
+            <input type="hidden"><span></span><input list="category-list">
+        </td>
+        <td class="tdinput">
+            <input type="hidden"><input type="hidden"><span></span><input class="number">
+        </td>
+        <td class="tdinput">
+            <input type="hidden"><input type="hidden"><span></span><input class="number">
+        </td>
+    </tr>
+</template>
 <div id="category-sum"></div>
 <div id="account-sum"></div>
 <div id="debt"></div>
