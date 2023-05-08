@@ -72,10 +72,10 @@ class TargetBudget:
                 budget=self.budget, name=name, currency=currency)[0]
     
     @functools.cache
-    def category(self, name: str, currency: str):
+    def category(self, name: str, group: str, currency: str):
         assert name
         return Category.objects.get_or_create(
-                budget=self.budget, name=name, currency=currency)[0]
+                budget=self.budget, name=name, group=group, currency=currency)[0]
 
 ynab_currency = "CHF"
 
@@ -204,15 +204,16 @@ class Command(BaseCommand):
             if not is_transfer(raw_transaction_part):  # Payment to external payee
                 if not raw_payee: # payment to an off-budget debt account")
                     raw_payee = f"Interest: {raw_transaction_part.Account}"
-                raw_category = raw_transaction_part.CategoryGroupCategory
-                if not raw_category: # off-budget account")
-                    raw_category = f"Off-budget: {raw_transaction_part.Account}"
+                raw_category_group_category = raw_transaction_part.CategoryGroupCategory
+                if not raw_category_group_category: # off-budget account")
+                    raw_category_group_category = f"Off-budget: {raw_transaction_part.Account}"
 
                 payee = target_budget.payee(raw_payee)
                 payee_account = payee.get_hidden(Account, currency=ynab_currency)
                 transaction_account_parts[payee_account] += raw_transaction_part_outflow
 
-                category = target_budget.category(raw_category, ynab_currency)
+                raw_category, raw_group = split_category_group_category(raw_category_group_category)
+                category = target_budget.category(raw_category, raw_group, ynab_currency)
                 transaction_category_parts[category] += raw_transaction_part_inflow
                 payee_category = payee.get_hidden(Category, currency=ynab_currency)
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
@@ -228,8 +229,10 @@ class Command(BaseCommand):
         user = User.objects.get(username="admin")
         target_budget = TargetBudget(Budget.objects.get_or_create(
             name="ynabimport", budget_of=user)[0])
+        raw_category_group_category = "Inflow: Ready to Assign"
+        raw_category, raw_group = split_category_group_category(raw_category_group_category)
         inflow_budget_category = target_budget.category(
-            "Inflow: Ready to Assign", ynab_currency)
+            raw_category, raw_group, ynab_currency)
         kind = Transaction.Kind.BUDGETING
 
         month_budgets: dict[date, dict[Category, int]] = defaultdict(
@@ -241,8 +244,9 @@ class Command(BaseCommand):
             amount = raw_budget_event.TotalBudgeted()
             if not amount: continue
             month = datetime.strptime(raw_budget_event.Month, "%b %Y").date()
-            category = target_budget.category(
-                raw_budget_event.CategoryGroupCategory, ynab_currency )
+            raw_category_group_category = raw_budget_event.CategoryGroupCategory
+            raw_category, raw_group = split_category_group_category(raw_category_group_category)
+            category = target_budget.category(raw_category, raw_group, ynab_currency)
             month_budgets[month][category] = amount
 
         #form budgeting transactions
@@ -330,3 +334,6 @@ def get_category_activity_iterable(category: Category):
             .values_list(Trunc(F('transaction__date'), 'month'))
             .annotate(total=Sum('amount'))
             .order_by('trunc1'))
+
+def split_category_group_category(raw_category_group_category):
+    return raw_category_group_category.split(": ")[::-1]
