@@ -206,7 +206,7 @@ class Command(BaseCommand):
                     raw_payee = f"Interest: {raw_transaction_part.Account}"
                 raw_category_group_category = raw_transaction_part.CategoryGroupCategory
                 if not raw_category_group_category: # off-budget account")
-                    raw_category_group_category = f"Off-budget: {raw_transaction_part.Account}"
+                    raw_category_group_category = f"Off-budget: {raw_account}"
 
                 payee = target_budget.payee(raw_payee)
                 payee_account = payee.get_hidden(Account, currency=ynab_currency)
