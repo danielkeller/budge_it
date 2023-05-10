@@ -32,6 +32,7 @@ body {
 }
 
 body>div,
+body>form>div,
 table {
     margin: var(--line-height);
     margin-bottom: 0;

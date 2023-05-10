@@ -15,7 +15,7 @@ from .models import (
     accounts_overview, category_history, sum_by,
     BaseAccount, Account, Category, Budget, Transaction, Balance)
 from .forms import (TransactionForm, TransactionPartFormSet,
-                    BudgetingFormSet, rename_form,
+                    BudgetingFormSet, rename_form, BudgetForm,
                     ReorderingFormSet, AccountManagementFormSet,
                     CategoryManagementFormSet)
 
@@ -118,20 +118,26 @@ def manage_accounts(request: HttpRequest, budget_id: int):
     accounts = (budget.account_set.exclude(name='')
                 .order_by('order', 'group', 'name'))
     if request.method == 'POST':
+        budget_form = BudgetForm(instance=budget, data=request.POST,
+                                 prefix="budget")
         category_formset = CategoryManagementFormSet(
             queryset=categories, data=request.POST, prefix="category")
         account_formset = AccountManagementFormSet(
             queryset=accounts, data=request.POST, prefix="accounts")
-        if category_formset.is_valid() and account_formset.is_valid():
+        if (category_formset.is_valid() and account_formset.is_valid()
+                and budget_form.is_valid()):
             category_formset.save()
             account_formset.save()
+            budget_form.save()
             return HttpResponseRedirect(budget.get_absolute_url())
     else:
+        budget_form = BudgetForm(instance=budget, prefix="budget")
         category_formset = CategoryManagementFormSet(
             queryset=categories, prefix="category")
         account_formset = AccountManagementFormSet(
             queryset=accounts, prefix="accounts")
-    context = {'category_formset': category_formset,
+    context = {'budget_form': budget_form,
+               'category_formset': category_formset,
                'account_formset': account_formset}
     return render(request, 'budget/manage.html', context)
 
