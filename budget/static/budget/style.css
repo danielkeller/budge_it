@@ -38,6 +38,11 @@ table {
     margin-bottom: 0;
 }
 
+table {
+    /* why not? */
+    width: max-content;
+}
+
 button,
 input {
     font: inherit;

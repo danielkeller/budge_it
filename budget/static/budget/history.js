@@ -94,7 +94,7 @@ function updateRow(i) {
         if (isFinite(+input.value))
             sum += +input.value;
         sum += spent;
-        total.textContent = formatCurrency(sum, data.currencies[i]);
+        total.textContent = formatCurrencyField(sum, data.currencies[i]);
     }
 }
 

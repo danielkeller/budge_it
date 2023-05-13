@@ -51,8 +51,10 @@ def overview(request: HttpRequest, budget_id: int):
     totals = sum_by((category.currency, category.balance)
                     for category in categories)
     formset = ReorderingFormSet(queryset=categories)
+    year = date.today().year
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'totals': totals, 'formset': formset, 'budget': budget}
+               'totals': totals, 'formset': formset, 'budget': budget,
+               'year': year}
     return render(request, 'budget/overview.html', context)
 
 
@@ -222,17 +224,15 @@ def _months_between(start: date, end: date):
 
 
 @login_required
-def history(request: HttpRequest, budget_id: int):
+def history(request: HttpRequest, budget_id: int, year: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
 
-    range = (Transaction.objects
-             .filter(categories__budget=budget)
-             .aggregate(Max('date'), Min('date')))
-    months = list(_months_between(range['date__min'] or date.today(),
-                                  range['date__max'] or date.today()))
+    months = list(_months_between(date(year, 1, 1), date(year, 12, 31)))
 
-    categories = budget.category_set.all()
-    currencies = categories.values_list('currency', flat=True).distinct()
+    categories = (budget.category_set
+                  .exclude(closed=True)
+                  .order_by('order', 'group', 'name'))
+    currencies = categories.values_list('currency', flat=True)
     # Make sure these are created before creating the form
     inboxes = [budget.get_inbox(Category, currency)
                for currency in currencies]
@@ -249,7 +249,7 @@ def history(request: HttpRequest, budget_id: int):
     else:
         formset = BudgetingFormSet(budget, dates=months)
 
-    history = category_history(budget_id)
+    history = category_history(budget_id, year)
 
     cells = {(entry['month'], entry['to']): entry['total']
              for entry in history}
@@ -257,7 +257,7 @@ def history(request: HttpRequest, budget_id: int):
              [(formset.forms_by_date[month][str(category.id)],
                cells.get((month, category.id)))
               for month in months])
-            for category in categories.order_by('name')]
+            for category in categories]
 
     prev_month = (months[0] - timedelta(days=1)).replace(day=1)
     next_month = (months[-1] + timedelta(days=31)).replace(day=1)

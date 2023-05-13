@@ -6,7 +6,7 @@
 <script src="{% static 'budget/overview.js' %}"></script>
 
 <div><a href="{% url 'manage' budget.id %}">Manage</a><br>
-    <a href="{% url 'history' budget.id %}">Edit budget</a>
+    <a href="{% url 'history' budget.id year %}">Edit budget</a>
 </div>
 
 <form id="form" method="post" action="{% url 'reorder' budget.id %}">

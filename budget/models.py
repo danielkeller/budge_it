@@ -579,10 +579,24 @@ def accounts_overview(budget_id: int):
     return (accounts, categories, debts)
 
 
-def category_history(budget_id: int):
+def category_status(budget_id: int, year: int):
+    date_min = date(year, 1, 1)
     return (TransactionCategoryPart.objects
             .filter(to__budget_id=budget_id,
-                    transaction__kind=Transaction.Kind.TRANSACTION)
+                    transaction__date__lt=date_min)
+            .exclude(to__closed=True)
+            .values('to')
+            .annotate(total=Sum('amount')))
+
+
+def category_history(budget_id: int, year: int):
+    date_min, date_max = date(year, 1, 1), date(year, 12, 31)
+    return (TransactionCategoryPart.objects
+            .filter(to__budget_id=budget_id,
+                    transaction__kind=Transaction.Kind.TRANSACTION,
+                    transaction__date__gte=date_min,
+                    transaction__date__lte=date_max)
+            .exclude(to__closed=True)
             .values('to', month=Trunc(F('transaction__date'), 'month'))
             .annotate(total=Sum('amount')))
 

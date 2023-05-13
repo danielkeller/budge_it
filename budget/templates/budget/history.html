@@ -30,13 +30,14 @@
         <td>{{ category.name|default:"Inbox" }}</td>
         {% for field, total in row %}
         <td class="t5 tdinput">{{field}}<input form="form" class="number"></td>
-        <td class="spent number" data-currency="{{category.currency}}" data-value="{{total|default:0}}">
+        <td class="spent number shortcurrency" data-currency="{{category.currency}}" data-value="{{total|default:0}}">
             {{total|default:""}}</td>
         <td class="total number"></td>
         {% endfor %}
     </tr>
     {% endfor %}
     <tr>
+        <td></td>
         <td colspan="9999">
             <form method="post" action="{% url 'new_category' budget_id %}">
                 <button>New Category</button>{% csrf_token %}
