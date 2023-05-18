@@ -190,10 +190,9 @@ class Command(BaseCommand):
         transaction.save()
 
         transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
-        transaction_category_parts: 'dict[Category, int]' = defaultdict(int)
+        transaction_category_parts: 'dict[tuple[Category, Category], int]' = defaultdict(int)
         for raw_transaction_part in raw_transaction_parts:
             raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
-            raw_transaction_part_outflow = -raw_transaction_part_inflow
 
             raw_account = raw_transaction_part.Account.removesuffix(" (Original)")
             account = target_budget.account(raw_account, ynab_currency)
@@ -210,18 +209,19 @@ class Command(BaseCommand):
 
                 payee = target_budget.payee(raw_payee)
                 payee_account = payee.get_inbox(Account, currency=ynab_currency)
-                transaction_account_parts[payee_account] += raw_transaction_part_outflow
+                transaction_account_parts[payee_account] += -raw_transaction_part_inflow
 
                 raw_category, raw_group = split_category_group_category(raw_category_group_category)
                 category = target_budget.category(raw_category, raw_group, ynab_currency)
-                transaction_category_parts[category] += raw_transaction_part_inflow
                 payee_category = payee.get_inbox(Category, currency=ynab_currency)
-                transaction_category_parts[payee_category] += raw_transaction_part_outflow
-            assert sum(transaction_category_parts.values()) == 0
+
+                transaction_category_parts[(payee_category, category)] += raw_transaction_part_inflow
+
         assert sum(transaction_account_parts.values()) == 0
         assert len(transaction_account_parts) > 0
+
         transaction.set_parts_raw(accounts=double_entrify_auto(transaction_account_parts),
-                                  categories=double_entrify_auto(transaction_category_parts))
+                                  categories=transaction_category_parts)
         return None
 
     @transaction.atomic
