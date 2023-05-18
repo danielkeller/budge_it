@@ -3,7 +3,7 @@ from django.db.models import F, Min, Max, Sum
 from django.db.models.functions import Trunc
 from django.core.management.base import BaseCommand
 from budget.models import (User, Budget, Account, Category, Transaction,
-                           CategoryPart, months_between)
+                           CategoryPart, months_between, double_entrify_auto)
 
 from typing import Any, Iterable, TypeVar, Callable
 from collections import defaultdict
@@ -220,8 +220,8 @@ class Command(BaseCommand):
             assert sum(transaction_category_parts.values()) == 0
         assert sum(transaction_account_parts.values()) == 0
         assert len(transaction_account_parts) > 0
-        transaction.set_parts_raw(accounts=transaction_account_parts,
-                                  categories=transaction_category_parts)
+        transaction.set_parts_raw(accounts=double_entrify_auto(transaction_account_parts),
+                                  categories=double_entrify_auto(transaction_category_parts))
         return None
 
     @transaction.atomic
@@ -286,7 +286,7 @@ class Command(BaseCommand):
 
             transaction = Transaction(date=month, kind=kind)
             transaction.save()
-            transaction.set_parts_raw(accounts = {}, categories = transaction_category_parts)
+            transaction.set_parts_raw(accounts = {}, categories = double_entrify_auto(transaction_category_parts))
 
 def YNAB_string_to_date(ynab_string: str):
     return date(*[int(i) for i in ynab_string.split('.')][::-1])
