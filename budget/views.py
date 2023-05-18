@@ -12,7 +12,7 @@ import cProfile
 
 from .models import (sum_by,
                      BaseAccount, Account, Category, Budget, Transaction,
-                     accounts_overview)
+                     accounts_overview, entries_for)
 from .forms import (TransactionForm, TransactionPartFormSet,
                     BudgetingFormSet, rename_form, BudgetForm,
                     ReorderingFormSet, AccountManagementFormSet,
