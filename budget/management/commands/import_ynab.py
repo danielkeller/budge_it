@@ -190,38 +190,9 @@ class Command(BaseCommand):
         transaction = Transaction(date=date, kind=kind)
         transaction.save()
 
-        transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
-        transaction_category_parts: 'dict[tuple[Category, Category], int]' = defaultdict(int)
-        for raw_transaction_part in raw_transaction_parts:
-            raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
+        transaction_account_parts, transaction_category_parts = get_transaction_parts(raw_transaction_parts, target_budget)
 
-            raw_account = raw_transaction_part.Account.removesuffix(" (Original)")
-            account = target_budget.account(raw_account, ynab_currency)
-            transaction_account_parts[account] += raw_transaction_part_inflow
-
-            raw_payee = raw_transaction_part.Payee
-
-            if not is_transfer(raw_transaction_part):  # Payment to external payee
-                if not raw_payee: # payment to an off-budget debt account")
-                    raw_payee = f"{interest_prefix}{raw_transaction_part.Account}"
-                raw_category_group_category = raw_transaction_part.CategoryGroupCategory
-                if not raw_category_group_category: # off-budget account")
-                    raw_category_group_category = f"{import_off_budget_prefix}{raw_account}"
-
-                payee = target_budget.payee(raw_payee)
-                payee_account = payee.get_inbox(Account, currency=ynab_currency)
-                transaction_account_parts[payee_account] += -raw_transaction_part_inflow
-
-                raw_category, raw_group = split_category_group_category(raw_category_group_category)
-                category = target_budget.category(raw_category, raw_group, ynab_currency)
-                payee_category = payee.get_inbox(Category, currency=ynab_currency)
-
-                transaction_category_parts[(payee_category, category)] += raw_transaction_part_inflow
-
-        assert sum(transaction_account_parts.values()) == 0
-        assert len(transaction_account_parts) > 0
-
-        transaction.set_parts_raw(accounts=double_entrify_auto(transaction_account_parts),
+        transaction.set_parts_raw(accounts=transaction_account_parts,
                                   categories=transaction_category_parts)
         return None
 
@@ -335,3 +306,41 @@ def get_category_activity_iterable(category: Category):
 
 def split_category_group_category(raw_category_group_category):
     return raw_category_group_category.split(": ")[::-1]
+
+"""
+Convert ynab format RawTransactionPartRecords into budge-it double entry transaction parts
+"""
+def get_transaction_parts(raw_transaction_parts: 'list[RawTransactionPartRecord]', target_budget: TargetBudget):
+        single_entry_transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
+        transaction_category_parts: 'dict[tuple[Category, Category], int]' = defaultdict(int)
+        for raw_transaction_part in raw_transaction_parts:
+            raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
+
+            raw_account = raw_transaction_part.Account.removesuffix(" (Original)")
+            account = target_budget.account(raw_account, ynab_currency)
+            single_entry_transaction_account_parts[account] += raw_transaction_part_inflow
+
+            raw_payee = raw_transaction_part.Payee
+
+            if not is_transfer(raw_transaction_part):  # Payment to external payee
+                if not raw_payee: # payment to an off-budget debt account")
+                    raw_payee = f"{interest_prefix}{raw_transaction_part.Account}"
+                raw_category_group_category = raw_transaction_part.CategoryGroupCategory
+                if not raw_category_group_category: # off-budget account")
+                    raw_category_group_category = f"{import_off_budget_prefix}{raw_account}"
+
+                payee = target_budget.payee(raw_payee)
+                payee_account = payee.get_inbox(Account, currency=ynab_currency)
+                single_entry_transaction_account_parts[payee_account] += -raw_transaction_part_inflow
+
+                raw_category, raw_group = split_category_group_category(raw_category_group_category)
+                category = target_budget.category(raw_category, raw_group, ynab_currency)
+                payee_category = payee.get_inbox(Category, currency=ynab_currency)
+
+                transaction_category_parts[(payee_category, category)] += raw_transaction_part_inflow
+        assert sum(single_entry_transaction_account_parts.values()) == 0
+        assert len(single_entry_transaction_account_parts) > 0
+
+        transaction_account_parts = double_entrify_auto(single_entry_transaction_account_parts)
+
+        return transaction_account_parts, transaction_category_parts
