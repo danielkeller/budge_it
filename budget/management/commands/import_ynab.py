@@ -330,7 +330,7 @@ def get_last_day_of_month(month: date):
 
 def get_category_activity_iterable(category: Category):
     return (CategoryPart.objects
-            .filter(to=category)
+            .filter(sink=category)
             .values_list(Trunc(F('transaction__date'), 'month'))
             .annotate(total=Sum('amount'))
             .order_by('trunc1'))
