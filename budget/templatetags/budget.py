@@ -6,6 +6,7 @@ from django.utils.safestring import mark_safe
 
 register = template.Library()
 
+
 @register.simple_tag
 def account_in_budget(account: models.BaseAccount, budget: models.Budget):
     if not account:
@@ -20,10 +21,6 @@ def account_in_budget(account: models.BaseAccount, budget: models.Budget):
         return format_html('<a href="{}"><i>{}</i></a>',
                            mark_safe(account.get_absolute_url()),
                            account.budget.name)
-
-@register.filter
-def tabular(value: models.Transaction, budget: models.Budget):
-    return value.tabular(budget)
 
 
 @register.filter

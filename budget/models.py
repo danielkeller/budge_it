@@ -439,11 +439,10 @@ class Transaction(models.Model):
                              'amount': amount})
         return rows
 
-    # def auto_description(self, in_account: BaseAccount):
-    #     if self.kind == self.Kind.BUDGETING:
-    #         return "Budget"
-    #     if self.description:
-    #         return self.description
+    def auto_description(self, in_account: BaseAccount):
+        if self.kind == self.Kind.BUDGETING:
+            return "Budget"
+        return ""
     #     accounts, categories = self.parts(in_account.budget)
     #     names = (
     #         [account.name or "Inbox"
@@ -594,16 +593,23 @@ def months_between(start: date, end: date):
 #     return reversed(qs)
 
 
-# def entries_for(account: BaseAccount) -> Iterable[TransactionPart[BaseAccount]]:
-#     qs = (account.entries
-#           .order_by('transaction__date', '-transaction__kind')
-#           .prefetch_related('transaction__account_parts__to__budget__friends',
-#                             'transaction__category_parts__to__budget__friends'))
-#     total = 0
-#     for part in qs:
-#         total += part.amount
-#         setattr(part, 'running_sum', total)
-#     return reversed(qs)
+def entries_for(account: BaseAccount) -> Iterable[Transaction]:
+    if isinstance(account, Account):  # gross
+        filter, amount = 'accounts', 'accountparts__amount'
+    else:
+        filter, amount = 'categories', 'categoryparts__amount'
+
+    qs = (Transaction.objects
+          .filter_for(account.budget)
+          .filter(**{filter: account})
+          .annotate(change=Sum(amount))
+          .exclude(change=0)
+          .order_by('date', '-kind'))
+    total = 0
+    for transaction in qs:
+        total += getattr(transaction, 'change')
+        setattr(transaction, 'running_sum', total)
+    return reversed(qs)
 
 
 # def entries_for_balance(account: Balance) -> Iterable[TransactionDebtPart]:
