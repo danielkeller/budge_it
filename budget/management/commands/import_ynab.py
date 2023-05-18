@@ -183,10 +183,10 @@ class Command(BaseCommand):
             first_raw_transaction_part.Date)  # filter for past dates
 
         kind = Transaction.Kind.TRANSACTION
-        description = join_memos(raw_transaction_parts)
+        #description = join_memos(raw_transaction_parts) #TODO fix notes
 
         transaction = Transaction(
-            date=date, kind=kind, description=description)
+            date=date, kind=kind)#, description=description) #TODO fix notes
         transaction.save()
 
         transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
