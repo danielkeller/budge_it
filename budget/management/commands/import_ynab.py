@@ -3,7 +3,7 @@ from django.db.models import F, Min, Max, Sum
 from django.db.models.functions import Trunc
 from django.core.management.base import BaseCommand
 from budget.models import (User, Budget, Account, Category, Transaction,
-                           TransactionCategoryPart, months_between)
+                           CategoryPart, months_between, double_entrify_auto)
 
 from typing import Any, Iterable, TypeVar, Callable
 from collections import defaultdict
@@ -183,10 +183,10 @@ class Command(BaseCommand):
             first_raw_transaction_part.Date)  # filter for past dates
 
         kind = Transaction.Kind.TRANSACTION
-        description = join_memos(raw_transaction_parts)
+        #description = join_memos(raw_transaction_parts) #TODO fix notes
 
         transaction = Transaction(
-            date=date, kind=kind, description=description)
+            date=date, kind=kind)#, description=description) #TODO fix notes
         transaction.save()
 
         transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
@@ -209,19 +209,19 @@ class Command(BaseCommand):
                     raw_category_group_category = f"Off-budget: {raw_account}"
 
                 payee = target_budget.payee(raw_payee)
-                payee_account = payee.get_hidden(Account, currency=ynab_currency)
+                payee_account = payee.get_inbox(Account, currency=ynab_currency)
                 transaction_account_parts[payee_account] += raw_transaction_part_outflow
 
                 raw_category, raw_group = split_category_group_category(raw_category_group_category)
                 category = target_budget.category(raw_category, raw_group, ynab_currency)
                 transaction_category_parts[category] += raw_transaction_part_inflow
-                payee_category = payee.get_hidden(Category, currency=ynab_currency)
+                payee_category = payee.get_inbox(Category, currency=ynab_currency)
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
             assert sum(transaction_category_parts.values()) == 0
         assert sum(transaction_account_parts.values()) == 0
         assert len(transaction_account_parts) > 0
-        transaction.set_parts_raw(accounts=transaction_account_parts,
-                                  categories=transaction_category_parts)
+        transaction.set_parts_raw(accounts=double_entrify_auto(transaction_account_parts),
+                                  categories=double_entrify_auto(transaction_category_parts))
         return None
 
     @transaction.atomic
@@ -286,7 +286,7 @@ class Command(BaseCommand):
 
             transaction = Transaction(date=month, kind=kind)
             transaction.save()
-            transaction.set_parts_raw(accounts = {}, categories = transaction_category_parts)
+            transaction.set_parts_raw(accounts = {}, categories = double_entrify_auto(transaction_category_parts))
 
 def YNAB_string_to_date(ynab_string: str):
     return date(*[int(i) for i in ynab_string.split('.')][::-1])
@@ -329,8 +329,8 @@ def get_last_day_of_month(month: date):
             - timedelta(days=1))
 
 def get_category_activity_iterable(category: Category):
-    return (TransactionCategoryPart.objects
-            .filter(to=category)
+    return (CategoryPart.objects
+            .filter(sink=category)
             .values_list(Trunc(F('transaction__date'), 'month'))
             .annotate(total=Sum('amount'))
             .order_by('trunc1'))
