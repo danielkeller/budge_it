@@ -2,7 +2,7 @@ from typing import Optional, Iterable, TypeVar, Type, Union, Any, Self, Generic
 from collections import defaultdict, deque
 import functools
 from itertools import chain
-from datetime import date
+from datetime import date, timedelta
 from dataclasses import dataclass
 
 from django.db import models, IntegrityError
@@ -498,6 +498,11 @@ def creates_debt():
     return Exists(account_sum.difference(category_sum).union(
         category_sum.difference(account_sum)))
 
+def months_between(start: date, end: date):
+    start = start.replace(day=1)
+    while start <= end:
+        yield start
+        start = (start + timedelta(days=31)).replace(day=1)
 
 def transactions_with_debt(budget_id: int) -> Iterable[Transaction]:
     filter = (Q(accounts__budget_id=budget_id) |
