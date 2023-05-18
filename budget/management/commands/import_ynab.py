@@ -209,13 +209,13 @@ class Command(BaseCommand):
                     raw_category_group_category = f"Off-budget: {raw_account}"
 
                 payee = target_budget.payee(raw_payee)
-                payee_account = payee.get_hidden(Account, currency=ynab_currency)
+                payee_account = payee.get_inbox(Account, currency=ynab_currency)
                 transaction_account_parts[payee_account] += raw_transaction_part_outflow
 
                 raw_category, raw_group = split_category_group_category(raw_category_group_category)
                 category = target_budget.category(raw_category, raw_group, ynab_currency)
                 transaction_category_parts[category] += raw_transaction_part_inflow
-                payee_category = payee.get_hidden(Category, currency=ynab_currency)
+                payee_category = payee.get_inbox(Category, currency=ynab_currency)
                 transaction_category_parts[payee_category] += raw_transaction_part_outflow
             assert sum(transaction_category_parts.values()) == 0
         assert sum(transaction_account_parts.values()) == 0
