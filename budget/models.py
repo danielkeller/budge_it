@@ -6,9 +6,8 @@ from datetime import date, timedelta
 from dataclasses import dataclass
 import heapq
 
-from django.db import models, IntegrityError, transaction
-from django.db.models import (Q, Sum, F, OuterRef, Prefetch, Exists,
-                              prefetch_related_objects)
+from django.db import models,  transaction
+from django.db.models import Q, Sum, F, Prefetch, prefetch_related_objects
 from django.db.models.functions import Trunc
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
@@ -81,10 +80,6 @@ class Budget(Id):
     def view_permission(self, user: Union[AbstractBaseUser, AnonymousUser]):
         return user.is_authenticated and user.pk == self.owner()
 
-    def isvisible(self, other: 'Budget'):
-        return ((self.owner() and self.owner() == other.owner())
-                or other in self.friends.all())
-
     def visible_budgets(self):
         filter = Q(friends=self)
         if self.owner():
@@ -139,19 +134,6 @@ class BaseAccount(Id):
             return f"{self.budget.name} ({self.currency})"
         else:
             return f"{self.budget.name} - {str(self.name)}  ({self.currency})"
-
-    def name_for(self, user: Optional[User]):
-        # This logic is duplicated in account_in_budget.html
-        if self.budget.budget_of == user:
-            return self.name or "Inbox"
-        if isinstance(self, Category):
-            return f"[{self.budget.name}]"
-        return self.budget.name
-
-    def to_inbox(self):
-        if self.is_inbox():
-            return self
-        return self.budget.get_inbox(type(self), self.currency)
 
     def __lt__(self, other: Self):
         """Not actually important"""
@@ -376,30 +358,6 @@ class Transaction(models.Model):
     def month(self, value: 'Optional[date]'):
         self.date = value and value.replace(day=1)
 
-    # @property
-    # def budgets(self):
-    #     return {account.budget for part
-    #             in chain(self.accountparts.all(), self.categoryparts.all())
-    #             for account in part.accounts}
-
-    # def debts(self):
-    #     owed = sum_by(chain(
-    #         (((part.to.budget_id, part.to.currency), part.amount)
-    #          for part in self.account_parts.all()),
-    #         (((part.to.budget_id, part.to.currency), -part.amount)
-    #          for part in self.category_parts.all())))
-    #     owed = {currency: {debt[0][0]: debt[1] for debt in owed.items()
-    #                        if debt[0][1] == currency}
-    #             for currency in {to[1] for to in owed}}
-    #     return combine_debts(owed)
-
-    # def visible_from(self, budget: Budget):
-    #     return budget in self.budgets
-
-    # def parts(self, in_budget: Budget):
-    #     return (self.account_parts.parts_in(in_budget),
-    #             self.category_parts.parts_in(in_budget))
-
     def set_parts(self, in_budget: Budget,
                   accounts: dict[Account, int], categories: dict[Category, int]):
         """Set the contents of this transaction from the perspective of one budget. 'accounts' and 'categories' both must to sum to zero."""
@@ -553,40 +511,11 @@ class TransactionDebtPart:
     running_sum: int
 
 
-# def creates_debt():
-#     account_sum = (Transaction.objects.filter(id=OuterRef('id'))
-#                    .annotate(b=F('accounts__budget_id'),
-#                              value=Sum('account_parts__amount'))
-#                    .exclude(value=0))
-#     category_sum = (Transaction.objects.filter(id=OuterRef('id'))
-#                     .annotate(b=F('categories__budget_id'),
-#                               value=Sum('category_parts__amount'))
-#                     .exclude(value=0))
-#     return Exists(account_sum.difference(category_sum).union(
-#         category_sum.difference(account_sum)))
-
 def months_between(start: date, end: date):
     start = start.replace(day=1)
     while start <= end:
         yield start
         start = (start + timedelta(days=31)).replace(day=1)
-
-# def transactions_with_debt(budget_id: int) -> Iterable[Transaction]:
-#     filter = (Q(accounts__budget_id=budget_id) |
-#               Q(categories__budget_id=budget_id))
-#     qs = (Transaction.objects
-#           .filter(filter, creates_debt())
-#           .distinct()
-#           .order_by('date', '-kind')
-#           .prefetch_related('account_parts__to__budget',
-#                             'category_parts__to__budget'))
-#     total = 0
-#     for transaction in qs:
-#         for part in transaction.category_parts.all():
-#             if part.to.budget_id == budget_id:
-#                 total += part.amount
-#         setattr(transaction, 'running_sum', total)
-#     return reversed(qs)
 
 
 def entries_for(account: BaseAccount) -> Iterable[Transaction]:
