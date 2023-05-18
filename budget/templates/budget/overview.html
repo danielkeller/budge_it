@@ -61,10 +61,10 @@
         <td class="number" data-currency="{{ account.currency }}">{{ account.balance | default:0 }}</td>
     </tr>
     {% endfor %}
-    {% for currency, other, amount in debts %}
+    {% for debt in debts %}
     <tr class="{% cycle rowcolor %}">
-        <td><a href="{% url 'balance' currency budget.id other.id %}">Owed by {{ other }}</a></td>
-        <td class="number" data-currency="{{ currency }}">{{ amount }}</td>
+        <td><a href="{% url 'balance' debt.currency budget.id debt.id %}">Owed by {{ debt }}</a></td>
+        <td class="number" data-currency="{{ debt.currency }}">{{ debt.balance }}</td>
     </tr>
     {% endfor %}
     {% for currency, total in totals.items %}

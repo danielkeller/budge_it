@@ -301,6 +301,8 @@ def double_entrify(in_budget: Budget,
 
 class TransactionManager(models.Manager['Transaction']):
     def filter_for(self, budget: Budget):
+        """Adjust and prefetch the parts of this transaction to ones visible to
+        'budget'."""
         source_visible = Q(source__budget=budget) | (
             Q(source__name="") & (
                 Q(source__budget__budget_of_id=budget.owner())
@@ -600,10 +602,8 @@ def entries_for(account: BaseAccount) -> Iterable[Transaction]:
         filter, amount = 'categories', 'categoryparts__amount'
 
     qs = (Transaction.objects
-          .filter_for(account.budget)
-          .filter(**{filter: account})
-          .annotate(change=Sum(amount))
-          .exclude(change=0)
+          .filter_for(account.budget).filter(**{filter: account})
+          .annotate(change=Sum(amount)).exclude(change=0)
           .order_by('date', '-kind'))
     total = 0
     for transaction in qs:
@@ -648,8 +648,18 @@ def accounts_overview(budget_id: int):
                   .annotate(balance=Sum('entries__amount', default=0))
                   .order_by('order', 'group', 'name')
                   .select_related('budget'))
-
-    return (accounts, categories, [])
+    category = (Budget.objects
+                .filter(category__entries__source__budget_id=budget_id)
+                .annotate(currency=F('category__currency'),
+                          balance=-Sum('category__entries__amount'))
+                .exclude(balance=0))
+    account = (Budget.objects
+               .filter(account__entries__source__budget_id=budget_id)
+               .annotate(currency=F('account__currency'),
+                         balance=-Sum('account__entries__amount'))
+               .exclude(balance=0))
+    debts = account.difference(category).union(category.difference(account))
+    return (accounts, categories, debts)
 
 
 # def category_history(budget_id: int):
