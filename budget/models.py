@@ -117,7 +117,7 @@ class BaseAccount(Id):
     budget_id: int  # Sigh
     balance: int
     source_entries: 'models.Manager[TransactionPart[Self]]'
-    sink_entries: 'models.Manager[TransactionPart[Self]]'
+    entries: 'models.Manager[TransactionPart[Self]]'
     currency = models.CharField(max_length=5, blank=True)
 
     group = models.CharField(max_length=100, blank=True)
@@ -314,10 +314,10 @@ class TransactionManager(models.Manager['Transaction']):
 
         accountparts = (AccountPart.objects
                         .filter(source_visible, sink_visible)
-                        .select_related('source__budget', 'sink__budget'))
+                        .select_related('sink__budget'))
         categoryparts = (CategoryPart.objects
                          .filter(source_visible, sink_visible)
-                         .select_related('source__budget', 'sink__budget'))
+                         .select_related('sink__budget'))
         accountnotes = AccountNote.objects.filter(user=budget.owner())
         categorynotes = CategoryNote.objects.filter(user=budget.owner())
         return self.prefetch_related(
@@ -342,6 +342,12 @@ class Transaction(models.Model):
     id: models.BigAutoField
     date = models.DateField()
 
+    accounts: 'models.ManyToManyField[Account, AccountPart]'
+    accounts = models.ManyToManyField(Account, through='AccountPart',
+                                      through_fields=('transaction', 'sink'))
+    categories: 'models.ManyToManyField[Category, CategoryPart]'
+    categories = models.ManyToManyField(Category, through='CategoryPart',
+                                        through_fields=('transaction', 'sink'))
     accountparts: 'PartManager[Account]'
     categoryparts: 'PartManager[Category]'
     accountnotes: 'models.Manager[AccountNote]'
@@ -510,14 +516,14 @@ class AccountPart(TransactionPart[Account]):
     source = models.ForeignKey(Account, on_delete=models.PROTECT,
                                related_name="source_entries")  # make nameless?
     sink = models.ForeignKey(Account, on_delete=models.PROTECT,
-                             related_name="sink_entries")
+                             related_name="entries")
 
 
 class CategoryPart(TransactionPart[Category]):
     source = models.ForeignKey(Category, on_delete=models.PROTECT,
                                related_name="source_entries")
     sink = models.ForeignKey(Category, on_delete=models.PROTECT,
-                             related_name="sink_entries")
+                             related_name="entries")
 
 
 class TransactionNote(Generic[AccountT], models.Model):
@@ -627,13 +633,13 @@ def accounts_overview(budget_id: int):
     accounts = (Account.objects
                 .filter(budget_id=budget_id)
                 .exclude(closed=True)
-                .annotate(balance=Sum('sink_entries__amount', default=0))
+                .annotate(balance=Sum('entries__amount', default=0))
                 .order_by('order', 'group', 'name')
                 .select_related('budget'))
     categories = (Category.objects
                   .filter(budget_id=budget_id)
                   .exclude(closed=True)
-                  .annotate(balance=Sum('sink_entries__amount', default=0))
+                  .annotate(balance=Sum('entries__amount', default=0))
                   .order_by('order', 'group', 'name')
                   .select_related('budget'))
 
