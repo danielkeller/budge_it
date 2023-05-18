@@ -3,7 +3,7 @@ from django.db.models import F, Min, Max, Sum
 from django.db.models.functions import Trunc
 from django.core.management.base import BaseCommand
 from budget.models import (User, Budget, Account, Category, Transaction,
-                           TransactionCategoryPart, months_between)
+                           CategoryPart, months_between)
 
 from typing import Any, Iterable, TypeVar, Callable
 from collections import defaultdict
@@ -329,7 +329,7 @@ def get_last_day_of_month(month: date):
             - timedelta(days=1))
 
 def get_category_activity_iterable(category: Category):
-    return (TransactionCategoryPart.objects
+    return (CategoryPart.objects
             .filter(to=category)
             .values_list(Trunc(F('transaction__date'), 'month'))
             .annotate(total=Sum('amount'))
