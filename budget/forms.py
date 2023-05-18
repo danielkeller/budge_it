@@ -8,7 +8,7 @@ from django.db import transaction
 from django.forms import ValidationError
 
 from .models import (Id, Budget, BaseAccount, Account, Category,
-                     Transaction, budgeting_transactions)
+                     Transaction)
 
 
 class AccountChoiceField(forms.Field):
@@ -27,7 +27,7 @@ class AccountChoiceField(forms.Field):
         return value and value.id
 
     def to_python(self, value: Any):
-        if value == '':
+        if not value:
             return None
         try:
             return self.type.objects.get(id=value)
@@ -47,9 +47,9 @@ class AccountChoiceField(forms.Field):
 class TransactionPartForm(forms.Form):
     account = AccountChoiceField(type=Account, required=False)
     category = AccountChoiceField(type=Category, required=False)
-    transferred = forms.DecimalField(
+    transferred = forms.IntegerField(
         required=False, widget=forms.HiddenInput)
-    moved = forms.DecimalField(
+    moved = forms.IntegerField(
         required=False, widget=forms.HiddenInput)
     transferred_currency = forms.CharField(
         required=False, widget=forms.HiddenInput)
@@ -74,7 +74,7 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
                  instance: Transaction, **kwargs: Any):
         self.budget = budget
         if instance:
-            initial = instance.tabular(budget)
+            initial = instance.tabular()
             for row in initial:
                 if row['account']:
                     row['transferred'] = row['amount']
@@ -91,7 +91,6 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
         form.fields['account'].user_id = self.budget.owner()
         form.fields['category'].user_id = self.budget.owner()
 
-    @transaction.atomic
     def save(self, *, instance: Transaction):
         accounts: dict[Account, int] = defaultdict(int)
         categories: dict[Category, int] = defaultdict(int)
@@ -112,7 +111,7 @@ TransactionPartFormSet = forms.formset_factory(
 class BudgetingForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = Transaction
-        fields = ('date', 'description')
+        fields = ('date',)
     date = forms.DateField(widget=forms.HiddenInput())
 
     def __init__(self, *args: Any,
@@ -120,7 +119,7 @@ class BudgetingForm(forms.ModelForm):
         super().__init__(*args, instance=instance, **kwargs)
         self.budget = budget
         for category in budget.category_set.all():
-            self.fields[str(category.id)] = forms.DecimalField(
+            self.fields[str(category.id)] = forms.IntegerField(
                 required=False, widget=forms.HiddenInput(
                     attrs={'form': 'form'}))
         if instance:
@@ -159,7 +158,7 @@ class BaseBudgetingFormSet(forms.BaseModelFormSet):
         extras = set(dates) - {transaction.month for transaction in queryset}
         initial = [{'date': date} for date in sorted(extras)]
         self.extra = len(initial)
-        if len(initial) + len(queryset) > self.max_num: #type: ignore
+        if len(initial) + len(queryset) > self.max_num:  # type: ignore
             raise ValueError("Too many transactions")
         super().__init__(*args, initial=initial, form_kwargs={'budget': budget},
                          queryset=queryset, **kwargs)
@@ -180,7 +179,7 @@ BudgetingFormSet = forms.modelformset_factory(  # type: ignore
 class TransactionForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = Transaction
-        fields = ('date', 'description')
+        fields = ('date',)
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}),
                            initial=date.today)
 
@@ -219,21 +218,22 @@ def rename_form(*, instance: BaseAccount,
         return NewAccountForm(instance=instance, data=data)
     return AccountForm(instance=instance, data=data)
 
+
 ReorderingFormSet = forms.modelformset_factory(
     Category,
-    fields = ('group', 'order',),
-    widgets = {'group': forms.HiddenInput, 'order': forms.HiddenInput,
-               'id_ptr': forms.HiddenInput},
+    fields=('group', 'order',),
+    widgets={'group': forms.HiddenInput, 'order': forms.HiddenInput,
+             'id_ptr': forms.HiddenInput},
     extra=0)
 
 AccountManagementFormSet = forms.modelformset_factory(
     Account,
-    fields = ('name', 'closed'),
-    widgets = {'name': forms.TextInput(attrs={'required': True})},
+    fields=('name', 'closed'),
+    widgets={'name': forms.TextInput(attrs={'required': True})},
     extra=0)
 
 CategoryManagementFormSet = forms.modelformset_factory(
     Category,
-    fields = ('name', 'closed'),
-    widgets = {'name': forms.TextInput(attrs={'required': True})},
+    fields=('name', 'closed'),
+    widgets={'name': forms.TextInput(attrs={'required': True})},
     extra=0)

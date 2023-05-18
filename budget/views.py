@@ -10,10 +10,9 @@ from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
 import cProfile
 
-from .models import (
-    entries_for_balance, entries_for,
-    accounts_overview, category_history, sum_by,
-    BaseAccount, Account, Category, Budget, Transaction, Balance)
+from .models import (sum_by,
+                     BaseAccount, Account, Category, Budget, Transaction,
+                     accounts_overview)
 from .forms import (TransactionForm, TransactionPartFormSet,
                     BudgetingFormSet, rename_form, BudgetForm,
                     ReorderingFormSet, AccountManagementFormSet,
@@ -169,8 +168,8 @@ def edit(request: HttpRequest, budget_id: int,
     if transaction_id == None:
         transaction = None
     else:
-        transaction = get_object_or_404(Transaction, id=transaction_id)
-        if not transaction.visible_from(budget):
+        transaction = Transaction.objects.get_for(budget, transaction_id)
+        if not transaction:
             raise Http404()
 
     if request.method == 'POST':

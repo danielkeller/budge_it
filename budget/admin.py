@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django import forms
 
 from .models import *
 
@@ -6,11 +7,17 @@ from .models import *
 class AccountInline(admin.TabularInline):  # type: ignore
     model = Account
     fk_name = 'budget'
+    formfield_overrides = {
+        models.CharField: {"widget": forms.TextInput(attrs={'size': 20})},
+    }
 
 
 class CategoryInline(admin.TabularInline):  # type: ignore
     model = Category
     fk_name = 'budget'
+    formfield_overrides = {
+        models.CharField: {"widget": forms.TextInput(attrs={'size': 20})},
+    }
 
 
 class BudgetAdmin(admin.ModelAdmin):  # type: ignore
@@ -22,24 +29,37 @@ class BudgetAdmin(admin.ModelAdmin):  # type: ignore
 
 
 admin.site.register(Budget, BudgetAdmin)
+admin.site.register(BudgetFriends)
 admin.site.register(Account)
 admin.site.register(Category)
 
 
-class TransactionAccountPartInline(admin.TabularInline):  # type: ignore
-    model = TransactionAccountPart
-    raw_id_fields = ['to']
+class AccountPartInline(admin.TabularInline):  # type: ignore
+    model = AccountPart
+    raw_id_fields = ['source', 'sink']
 
 
-class TransactionCategoryPartInline(admin.TabularInline):  # type: ignore
-    model = TransactionCategoryPart
-    raw_id_fields = ['to']
+class CategoryPartInline(admin.TabularInline):  # type: ignore
+    model = CategoryPart
+    raw_id_fields = ['source', 'sink']
+
+
+class AccountNoteInline(admin.TabularInline):  # type: ignore
+    model = AccountNote
+    raw_id_fields = ['account']
+
+
+class CategoryNoteInline(admin.TabularInline):  # type: ignore
+    model = CategoryNote
+    raw_id_fields = ['account']
 
 
 class TransactionAdmin(admin.ModelAdmin):  # type: ignore
     inlines = [
-        TransactionAccountPartInline,
-        TransactionCategoryPartInline,
+        AccountPartInline,
+        CategoryPartInline,
+        AccountNoteInline,
+        CategoryNoteInline,
     ]
 
 
