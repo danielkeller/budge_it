@@ -444,27 +444,21 @@ class Transaction(models.Model):
     def auto_description(self, in_account: BaseAccount):
         if self.kind == self.Kind.BUDGETING:
             return "Budget"
-        return ""
-    #     accounts, categories = self.parts(in_account.budget)
-    #     names = (
-    #         [account.name or "Inbox"
-    #          for account in chain(accounts, categories)
-    #          if account.budget.budget_of_id == in_account.budget.owner()
-    #          and account != in_account] +
-    #         list({account.budget.name
-    #               for account in chain(accounts, categories)
-    #               if account.budget.budget_of_id != in_account.budget.owner()
-    #               and account.budget != in_account.budget})
-    #     )
-    #     if len(names) > 2:
-    #         names = names[:2] + ['...']
-    #     return ", ".join(names)
-
-
-# def sum_debts(debts_1: 'dict[tuple[str, int, int], int]',
-#               debts_2: 'dict[tuple[str, int, int], int]'):
-#     keys = debts_1.keys() | debts_2.keys()
-#     return {key: debts_1.get(key, 0) + debts_2.get(key, 0) for key in keys}
+        accounts = self.accountparts.entries()
+        categories = self.categoryparts.entries()
+        names = (
+            [account.name or "Inbox"
+             for account in chain(accounts, categories)
+             if account.budget.budget_of_id == in_account.budget.owner()
+             and account != in_account] +
+            list({account.budget.name
+                  for account in chain(accounts, categories)
+                  if account.budget.budget_of_id != in_account.budget.owner()
+                  and account.budget != in_account.budget})
+        )
+        if len(names) > 2:
+            names = names[:2] + ['...']
+        return ", ".join(names)
 
 
 class PartManager(Generic[AccountT],
