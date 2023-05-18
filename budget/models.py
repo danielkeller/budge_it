@@ -199,7 +199,8 @@ def sum_by(input: 'Iterable[tuple[T, int]]') -> 'dict[T, int]':
     return {key: value for key, value in result.items() if value}
 
 
-def double_entrify_auto(amounts: dict[AccountT, int]):
+def double_entrify_auto(amounts: dict[AccountT, int]
+                        ) -> dict[tuple[AccountT, AccountT], int]:
     currencies = {amount.currency for amount in amounts}
     return combine_debts({account: amount
                           for account, amount in amounts.items()
@@ -464,15 +465,16 @@ class PartManager(Generic[AccountT],
     instance: Transaction  # When used as a relatedmanager
 
     def entries(self) -> dict[AccountT, int]:
-        return sum_by(chain(
-            ((part.source, -part.amount) for part in self.distinct()),
-            ((part.sink, part.amount) for part in self.distinct())))
+        return sum_by((part.sink, part.amount) for part in self.distinct())
 
     def set_parts(self, parts: dict[tuple[AccountT, AccountT], int]):
         self.all().delete()
-        updates = [self.model(source=source, sink=sink, amount=amount,
-                              transaction=self.instance)
-                   for (source, sink), amount in parts.items() if amount]
+        updates = chain.from_iterable(
+            (self.model(source=source, sink=sink, amount=amount,
+                        transaction=self.instance),
+             self.model(source=sink, sink=source, amount=-amount,
+                        transaction=self.instance))
+            for (source, sink), amount in parts.items() if amount)
         if updates:
             self.bulk_create(
                 updates, update_conflicts=True,
@@ -500,21 +502,13 @@ class TransactionPart(Generic[AccountT], models.Model):
     def accounts(self):
         return (self.source, self.sink)
 
-    @classmethod
-    def update_(cls, transaction: Transaction, to: BaseAccount, amount: int):
-        if amount == 0:
-            cls.objects.filter(transaction=transaction, to=to).delete()
-        else:
-            cls.objects.update_or_create(
-                transaction=transaction, to=to, defaults={'amount': amount})
-
     def __str__(self):
         return f"{self.source} -> {self.sink}: {self.amount}"
 
 
 class AccountPart(TransactionPart[Account]):
     source = models.ForeignKey(Account, on_delete=models.PROTECT,
-                               related_name="source_entries")
+                               related_name="source_entries")  # make nameless?
     sink = models.ForeignKey(Account, on_delete=models.PROTECT,
                              related_name="sink_entries")
 
@@ -633,15 +627,13 @@ def accounts_overview(budget_id: int):
     accounts = (Account.objects
                 .filter(budget_id=budget_id)
                 .exclude(closed=True)
-                .annotate(balance=Sum('sink_entries__amount', default=0)
-                          - Sum('source_entries__amount', default=0))
+                .annotate(balance=Sum('sink_entries__amount', default=0))
                 .order_by('order', 'group', 'name')
                 .select_related('budget'))
     categories = (Category.objects
                   .filter(budget_id=budget_id)
                   .exclude(closed=True)
-                  .annotate(balance=Sum('sink_entries__amount', default=0)
-                            - Sum('source_entries__amount', default=0))
+                  .annotate(balance=Sum('sink_entries__amount', default=0))
                   .order_by('order', 'group', 'name')
                   .select_related('budget'))
 
