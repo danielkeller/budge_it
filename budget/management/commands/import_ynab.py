@@ -268,7 +268,7 @@ class Command(BaseCommand):
         months = list(months_between(range['date__min'] or date.today(),
                                      range['date__max'] or date.today()))
         for month in months:
-            transaction_category_parts: dict[Category, int] = {}
+            transaction_category_parts: dict[tuple[Category, Category], int] = {}
             for category in target_budget.budget.category_set.all():
                 if category.name.startswith(import_off_budget_prefix): continue # this is a new category built by us
                 budgeted = month_budgets[month][category]
@@ -279,14 +279,11 @@ class Command(BaseCommand):
                 if running_sums[category] < 0: #ynab doesn't let you roll negative categories over
                     budgeted += -running_sums[category]
                     running_sums[category] = 0
-                transaction_category_parts[category] = budgeted
-
-            total_budgeted = sum(transaction_category_parts.values())
-            transaction_category_parts[inflow_budget_category] = -total_budgeted
+                transaction_category_parts[(inflow_budget_category, category)] = budgeted
 
             transaction = Transaction(date=month, kind=kind)
             transaction.save()
-            transaction.set_parts_raw(accounts = {}, categories = double_entrify_auto(transaction_category_parts))
+            transaction.set_parts_raw(accounts = {}, categories = transaction_category_parts)
 
 def YNAB_string_to_date(ynab_string: str):
     return date(*[int(i) for i in ynab_string.split('.')][::-1])
