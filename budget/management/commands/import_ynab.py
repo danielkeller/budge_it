@@ -14,7 +14,9 @@ from dataclasses import dataclass
 import functools
 
 ynab_transfer_prefix = "Transfer : "
+
 import_off_budget_prefix = "Off-budget: "
+interest_prefix = "Interest: "
 
 @dataclass
 class RawTransactionPartRecord:
@@ -185,8 +187,7 @@ class Command(BaseCommand):
         kind = Transaction.Kind.TRANSACTION
         #description = join_memos(raw_transaction_parts) #TODO fix notes
 
-        transaction = Transaction(
-            date=date, kind=kind)#, description=description) #TODO fix notes
+        transaction = Transaction(date=date, kind=kind)
         transaction.save()
 
         transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
@@ -202,10 +203,10 @@ class Command(BaseCommand):
 
             if not is_transfer(raw_transaction_part):  # Payment to external payee
                 if not raw_payee: # payment to an off-budget debt account")
-                    raw_payee = f"Interest: {raw_transaction_part.Account}"
+                    raw_payee = f"{interest_prefix}{raw_transaction_part.Account}"
                 raw_category_group_category = raw_transaction_part.CategoryGroupCategory
                 if not raw_category_group_category: # off-budget account")
-                    raw_category_group_category = f"Off-budget: {raw_account}"
+                    raw_category_group_category = f"{import_off_budget_prefix}{raw_account}"
 
                 payee = target_budget.payee(raw_payee)
                 payee_account = payee.get_inbox(Account, currency=ynab_currency)
