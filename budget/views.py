@@ -12,7 +12,8 @@ import cProfile
 
 from .models import (sum_by,
                      BaseAccount, Account, Category, Budget, Transaction,
-                     accounts_overview, entries_for)
+                     accounts_overview, entries_for,
+                     Balance, entries_for_balance)
 from .forms import (TransactionForm, TransactionPartFormSet,
                     BudgetingFormSet, rename_form, BudgetForm,
                     ReorderingFormSet, AccountManagementFormSet,
@@ -75,7 +76,6 @@ def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: 
     other = get_object_or_404(Budget, id=budget_id_2)
     account = Balance(budget, other, currency)
     entries = entries_for_balance(account)
-    # print(account, list(entries))
     data = {'budget': budget.id}
     context = {'entries': entries, 'account': account,
                'form': None, 'data': data}
