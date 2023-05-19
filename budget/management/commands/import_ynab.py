@@ -112,6 +112,8 @@ class Command(BaseCommand):
         day_transaction_parts: list[RawTransactionPartRecord] = []
 
         for raw_transaction_part in reader:
+            process_transaction_renames(raw_transaction_part)
+
             if not current_date:
                 current_date = raw_transaction_part.Date
                 print(current_date)
@@ -212,6 +214,8 @@ class Command(BaseCommand):
 
         #parse csv
         for raw_budget_event in reader:
+            process_budget_renames(raw_budget_event)
+
             if raw_budget_event.CategoryGroup == "Credit Card Payments": continue #TODO this works for me as I have no credit card debt
             amount = raw_budget_event.TotalBudgeted()
             if not amount: continue
@@ -345,3 +349,15 @@ def get_transaction_parts(raw_transaction_parts: 'list[RawTransactionPartRecord]
     transaction_account_parts = double_entrify_auto(single_entry_transaction_account_parts)
 
     return transaction_account_parts, transaction_category_parts
+
+renames = {"Not My Money: Splitwise": f"{import_off_budget_prefix}Flat splitwise",  "Hidden Categories: Dan tracking": f"{import_off_budget_prefix}Dan tracking"}
+def process_transaction_renames(raw_transaction_part: RawTransactionPartRecord):
+    raw_category_group_category = raw_transaction_part.CategoryGroupCategory
+    if raw_category_group_category in renames.keys():
+        raw_transaction_part.CategoryGroupCategory = renames[raw_category_group_category]
+    return
+def process_budget_renames(raw_budget_event: RawBudgetEventRecord):
+    raw_category_group_category = raw_budget_event.CategoryGroupCategory
+    if raw_category_group_category in renames.keys():
+        raw_budget_event.CategoryGroupCategory = renames[raw_category_group_category]
+    return
