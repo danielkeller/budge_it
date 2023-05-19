@@ -91,8 +91,12 @@ class Command(BaseCommand):
         register_filename = "../Swiss Budget as of 2023-05-01 20-59 - Register.csv"
         self.process_csv(register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
 
+        #TODO do magic *(*) algorithm
+
         budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
         self.process_csv(budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
+
+        #TODO delete any categories/accounts with no transactions
 
     def process_csv(self, filename: str,
                     from_row: Callable[[list[str]], T],
@@ -237,6 +241,8 @@ class Command(BaseCommand):
                 for category in target_budget.budget.category_set.all()
                 }
         running_sums: dict[Category, int] = defaultdict(int) #cat -> sum
+
+        #TODO if there are no transactions in a category, and the total budgeted amount sums to zero, do not create those budgeting events
 
         range = (Transaction.objects
                  .filter(categories__budget=target_budget.budget)
