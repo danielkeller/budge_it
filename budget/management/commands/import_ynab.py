@@ -311,36 +311,37 @@ def split_category_group_category(raw_category_group_category):
 Convert ynab format RawTransactionPartRecords into budge-it double entry transaction parts
 """
 def get_transaction_parts(raw_transaction_parts: 'list[RawTransactionPartRecord]', target_budget: TargetBudget):
-        single_entry_transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
-        transaction_category_parts: 'dict[tuple[Category, Category], int]' = defaultdict(int)
-        for raw_transaction_part in raw_transaction_parts:
-            raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
+    single_entry_transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
+    transaction_category_parts: 'dict[tuple[Category, Category], int]' = defaultdict(int)
 
-            raw_account = raw_transaction_part.Account.removesuffix(" (Original)")
-            account = target_budget.account(raw_account, ynab_currency)
-            single_entry_transaction_account_parts[account] += raw_transaction_part_inflow
+    for raw_transaction_part in raw_transaction_parts:
+        raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
 
-            raw_payee = raw_transaction_part.Payee
+        raw_account = raw_transaction_part.Account.removesuffix(" (Original)")
+        account = target_budget.account(raw_account, ynab_currency)
+        single_entry_transaction_account_parts[account] += raw_transaction_part_inflow
 
-            if not is_transfer(raw_transaction_part):  # Payment to external payee
-                if not raw_payee: # payment to an off-budget debt account")
-                    raw_payee = f"{interest_prefix}{raw_transaction_part.Account}"
-                raw_category_group_category = raw_transaction_part.CategoryGroupCategory
-                if not raw_category_group_category: # off-budget account")
-                    raw_category_group_category = f"{import_off_budget_prefix}{raw_account}"
+        raw_payee = raw_transaction_part.Payee
 
-                payee = target_budget.payee(raw_payee)
-                payee_account = payee.get_inbox(Account, currency=ynab_currency)
-                single_entry_transaction_account_parts[payee_account] += -raw_transaction_part_inflow
+        if not is_transfer(raw_transaction_part):  # Payment to external payee
+            if not raw_payee: # payment to an off-budget debt account")
+                raw_payee = f"{interest_prefix}{raw_transaction_part.Account}"
+            raw_category_group_category = raw_transaction_part.CategoryGroupCategory
+            if not raw_category_group_category: # off-budget account")
+                raw_category_group_category = f"{import_off_budget_prefix}{raw_account}"
 
-                raw_category, raw_group = split_category_group_category(raw_category_group_category)
-                category = target_budget.category(raw_category, raw_group, ynab_currency)
-                payee_category = payee.get_inbox(Category, currency=ynab_currency)
+            payee = target_budget.payee(raw_payee)
+            payee_account = payee.get_inbox(Account, currency=ynab_currency)
+            single_entry_transaction_account_parts[payee_account] += -raw_transaction_part_inflow
 
-                transaction_category_parts[(payee_category, category)] += raw_transaction_part_inflow
-        assert sum(single_entry_transaction_account_parts.values()) == 0
-        assert len(single_entry_transaction_account_parts) > 0
+            raw_category, raw_group = split_category_group_category(raw_category_group_category)
+            category = target_budget.category(raw_category, raw_group, ynab_currency)
+            payee_category = payee.get_inbox(Category, currency=ynab_currency)
 
-        transaction_account_parts = double_entrify_auto(single_entry_transaction_account_parts)
+            transaction_category_parts[(payee_category, category)] += raw_transaction_part_inflow
+    assert sum(single_entry_transaction_account_parts.values()) == 0
+    assert len(single_entry_transaction_account_parts) > 0
 
-        return transaction_account_parts, transaction_category_parts
+    transaction_account_parts = double_entrify_auto(single_entry_transaction_account_parts)
+
+    return transaction_account_parts, transaction_category_parts
