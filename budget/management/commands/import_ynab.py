@@ -97,7 +97,7 @@ class Command(BaseCommand):
         budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
         self.process_csv(budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
 
-        #TODO delete any categories/accounts with no transactions
+        #TODO delete any accounts with no transactions
 
     def process_csv(self, filename: str,
                     from_row: Callable[[list[str]], T],
