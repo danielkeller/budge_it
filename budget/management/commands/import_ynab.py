@@ -4,7 +4,7 @@ from django.db.models.functions import Trunc
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from budget.models import (Budget, Account, Category, Transaction,
-                           CategoryPart, months_between, double_entrify, CategoryNote)
+                           CategoryPart, months_between, double_entrify, CategoryNote, AccountNote)
 
 from typing import Any, Iterable, TypeVar, Callable
 from collections import defaultdict
@@ -200,13 +200,16 @@ class Command(BaseCommand):
         transaction = Transaction(date=date, kind=kind)
         transaction.save()
 
-        transaction_account_parts, transaction_category_parts, transaction_category_notes = get_transaction_parts_notes(raw_transaction_parts, target_budget)
+        transaction_account_parts, transaction_category_parts, transaction_category_notes, transaction_account_notes = get_transaction_parts_notes(raw_transaction_parts, target_budget)
         transaction.set_parts_raw(accounts=transaction_account_parts,
                                   categories=transaction_category_parts)
 
         for (category, note) in transaction_category_notes.items():
             cn = CategoryNote.objects.create(user=target_budget.budget.budget_of, transaction=transaction, account=category, note=note)
             cn.save()
+        for (account, note) in transaction_account_notes.items():
+            an = AccountNote.objects.create(user=target_budget.budget.budget_of, transaction=transaction, account=account, note=note)
+            an.save()
 
         return None
 
@@ -329,12 +332,13 @@ def split_category_group_category(raw_category_group_category):
     return raw_category_group_category.split(": ")[::-1]
 
 """
-Convert ynab format RawTransactionPartRecords into budge-it double entry transaction parts and category notes
+Convert ynab format RawTransactionPartRecords into budge-it double entry transaction parts and category/account notes
 """
 def get_transaction_parts_notes(raw_transaction_parts: 'list[RawTransactionPartRecord]', target_budget: TargetBudget):
     single_entry_transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
     transaction_category_parts: 'dict[tuple[Category, Category], int]' = defaultdict(int)
     category_notes: 'dict[Category, str]' = dict()
+    account_notes: 'dict[Account, str]' = dict()
 
     for raw_transaction_part in raw_transaction_parts:
         raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
@@ -368,16 +372,15 @@ def get_transaction_parts_notes(raw_transaction_parts: 'list[RawTransactionPartR
 
             transaction_category_parts[(payee_category, category)] += raw_transaction_part_inflow
         else:
-            pass
-#            if memo: #TODO something with these memos
-#                print(memo)
+            if memo: 
+                account_notes[account] = memo
     assert sum(single_entry_transaction_account_parts.values()) == 0
     assert len(single_entry_transaction_account_parts) > 0
 
     transaction_account_parts = double_entrify(
         target_budget.budget, Account, single_entry_transaction_account_parts)
 
-    return transaction_account_parts, transaction_category_parts, category_notes
+    return transaction_account_parts, transaction_category_parts, category_notes, account_notes
 
 renames = {"Not My Money: Splitwise": f"{import_off_budget_prefix}Flat splitwise",  "Hidden Categories: Dan tracking": f"{import_off_budget_prefix}Dan tracking"}
 def process_transaction_renames(raw_transaction_part: RawTransactionPartRecord):
