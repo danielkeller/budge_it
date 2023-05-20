@@ -240,6 +240,14 @@ class Command(BaseCommand):
                     ) 
                 for category in target_budget.budget.category_set.all()
                 }
+
+        #delete zeroed_categories if they have no transactions
+        zeroed_categories = [category for (category, month_activities) in category_month_activities.items() if sum(month_activities.values()) == 0]
+        for category in zeroed_categories:
+            if CategoryPart.objects.filter(sink=category).count() == 0:
+                del category_month_activities[category]
+                category.delete()
+
         running_sums: dict[Category, int] = defaultdict(int) #cat -> sum
 
         #TODO if there are no transactions in a category, and the total budgeted amount sums to zero, do not create those budgeting events
