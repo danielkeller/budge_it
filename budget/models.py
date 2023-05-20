@@ -339,6 +339,13 @@ class Transaction(models.Model):
             except StopIteration:
                 return None
 
+        account_notes: dict[Account | None, str]
+        account_notes = {note.account: note.note
+                         for note in self.accountnotes.all()}
+        category_notes: dict[Category | None, str]
+        category_notes = {note.account: note.note
+                         for note in self.categorynotes.all()}
+
         accounts = self.accountparts.entries()
         categories = self.categoryparts.entries()
         amounts = sorted((account.currency, amount)
@@ -350,8 +357,10 @@ class Transaction(models.Model):
             account = pop_by_(accounts, currency, amount)
             category = pop_by_(categories, currency, amount)
             if account or category:
+                note = (category_notes.get(category, '')
+                        or account_notes.get(account, ''))
                 rows.append({'account': account, 'category': category,
-                             'amount': amount})
+                             'amount': amount, 'note': note})
         return rows
 
     def auto_description(self, in_account: BaseAccount):
