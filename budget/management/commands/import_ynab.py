@@ -108,6 +108,8 @@ class Command(BaseCommand):
         for account in Account.objects.filter(Q(budget__payee_of=user)|Q(budget__budget_of=user), entries = None):
             account.delete()
 
+        #TODO order categories?
+
         #TODO delete (or don't create??) any orphan notes
         assert not AccountNote.objects.filter(transaction__accounts = None)
         # assert not CategoryNote.objects.filter(transaction__categories = None)
