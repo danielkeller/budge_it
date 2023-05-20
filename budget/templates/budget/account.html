@@ -56,8 +56,8 @@
                         <th class="t9">Account</th>
                         <th class="t9">Category</th>
                         <th class="t4">Amount</th>
-                        <th class="t4">Note</th>
-                        <th class="t4">Note</th>
+                        <th class="t4">Account Note</th>
+                        <th class="t4">Category Note</th>
                         {% for part in transaction.tabular %}
                         <tr class="{% cycle 'a' 'b' %}">
                             <td>{% account_in_budget part.account account.budget %}</td>
