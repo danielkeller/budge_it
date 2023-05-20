@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import F, Min, Max, Sum
+from django.db.models import Q, F, Min, Max, Sum
 from django.db.models.functions import Trunc
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
@@ -101,7 +101,9 @@ class Command(BaseCommand):
         budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
         self.process_csv(target_budget, budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
 
-        #TODO delete any accounts with no transactions
+        #delete any accounts with no transactions
+        for account in Account.objects.filter(Q(budget__payee_of=user)|Q(budget__budget_of=user), entries = None):
+            account.delete()
 
     def process_csv(self, 
                     target_budget: TargetBudget,
