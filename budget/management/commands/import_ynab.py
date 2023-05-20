@@ -4,7 +4,7 @@ from django.db.models.functions import Trunc
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from budget.models import (Budget, Account, Category, Transaction,
-                           CategoryPart, months_between, double_entrify_auto, CategoryNote)
+                           CategoryPart, months_between, double_entrify, CategoryNote)
 
 from typing import Any, Iterable, TypeVar, Callable
 from collections import defaultdict
@@ -374,7 +374,8 @@ def get_transaction_parts_notes(raw_transaction_parts: 'list[RawTransactionPartR
     assert sum(single_entry_transaction_account_parts.values()) == 0
     assert len(single_entry_transaction_account_parts) > 0
 
-    transaction_account_parts = double_entrify_auto(single_entry_transaction_account_parts)
+    transaction_account_parts = double_entrify(
+        target_budget.budget, Account, single_entry_transaction_account_parts)
 
     return transaction_account_parts, transaction_category_parts, category_notes
 
