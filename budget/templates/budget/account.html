@@ -57,13 +57,15 @@
                         <th class="t9">Category</th>
                         <th class="t4">Amount</th>
                         <th class="t4">Note</th>
+                        <th class="t4">Note</th>
                         {% for part in transaction.tabular %}
                         <tr class="{% cycle 'a' 'b' %}">
                             <td>{% account_in_budget part.account account.budget %}</td>
                             <td>{% account_in_budget part.category account.budget %}</td>
                             {% firstof part.account.currency part.category.currency as currency %}
                             <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{part.amount}}</td>
-                            <td>{{part.note}}</td>
+                            <td>{{part.account_note}}</td>
+                            <td>{{part.category_note}}</td>
                         </tr>
                         {% endfor %}
                         {% resetcycle %}
