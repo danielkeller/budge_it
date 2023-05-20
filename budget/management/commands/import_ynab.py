@@ -98,12 +98,19 @@ class Command(BaseCommand):
 
         fix_splitwise_transactions(target_budget)
 
+        #delete duplicate notes
+        AccountNote.objects.filter(transaction__categorynotes__note = F('note')).delete()
+
         budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
         self.process_csv(target_budget, budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
 
         #delete any accounts with no transactions
         for account in Account.objects.filter(Q(budget__payee_of=user)|Q(budget__budget_of=user), entries = None):
             account.delete()
+
+        #TODO delete (or don't create??) any orphan notes
+        assert not AccountNote.objects.filter(transaction__accounts = None)
+        # assert not CategoryNote.objects.filter(transaction__categories = None)
 
     def process_csv(self, 
                     target_budget: TargetBudget,
@@ -420,8 +427,14 @@ def fix_splitwise_transactions(target_budget):
         double_category_parts = double_entrify(target_budget.budget, Category, category_parts)
         splitwise_transaction.set_parts_raw(accounts=double_account_parts,
                                   categories=double_category_parts)
-    old_account_notes = AccountNote.objects.filter(account=ynab_splitwise_account)
-    for old_account_note in old_account_notes:
-        old_account_note.account = splitwise_payee.get_inbox(Account, "CHF")
-        old_account_note.save()
+    account_notes = AccountNote.objects.filter(account=ynab_splitwise_account)
+    for account_note in account_notes:
+        if account_note.transaction.categories:
+            cn = CategoryNote.objects.create(user=account_note.user, transaction=account_note.transaction, account=splitwise_payee.get_inbox(Category, "CHF"), note=account_note.note)
+            cn.save()
+            account_note.delete()
+        else:
+            account_note.account = splitwise_payee.get_inbox(Account, "CHF")
+            account_note.save()
+
     return 
