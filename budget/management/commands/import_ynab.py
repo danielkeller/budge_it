@@ -201,7 +201,7 @@ class Command(BaseCommand):
                                   categories=transaction_category_parts)
 
         for (category, note) in transaction_category_notes.items():
-            cn = CategoryNote.objects.create(user=target_budget.budget.budget_of, transaction=transaction, category=category, note=note)
+            cn = CategoryNote.objects.create(user=target_budget.budget.budget_of, transaction=transaction, account=category, note=note)
             cn.save()
 
         return None
@@ -346,6 +346,8 @@ def get_transaction_parts_notes(raw_transaction_parts: 'list[RawTransactionPartR
 
         raw_payee = raw_transaction_part.Payee
 
+        memo = re.sub(r"Split \(.*\) ", "", raw_transaction_part.Memo) if raw_transaction_part.Memo else ""
+
         if not is_transfer(raw_transaction_part):  # Payment to external payee
             if not raw_payee: # payment to an off-budget debt account")
                 raw_payee = f"{interest_prefix}{raw_transaction_part.Account}"
@@ -359,9 +361,17 @@ def get_transaction_parts_notes(raw_transaction_parts: 'list[RawTransactionPartR
 
             raw_category, raw_group = split_category_group_category(raw_category_group_category)
             category = target_budget.category(raw_category, raw_group, ynab_currency)
+
+            if memo:
+                category_notes[category] = memo
+
             payee_category = payee.get_inbox(Category, currency=ynab_currency)
 
             transaction_category_parts[(payee_category, category)] += raw_transaction_part_inflow
+        else:
+            pass
+#            if memo: #TODO something with these memos
+#                print(memo)
     assert sum(single_entry_transaction_account_parts.values()) == 0
     assert len(single_entry_transaction_account_parts) > 0
 
