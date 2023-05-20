@@ -1,9 +1,10 @@
 from django.db import transaction
 from django.db.models import F, Min, Max, Sum
 from django.db.models.functions import Trunc
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from budget.models import (User, Budget, Account, Category, Transaction,
-                           CategoryPart, months_between, double_entrify_auto)
+from budget.models import (Budget, Account, Category, Transaction,
+                           CategoryPart, months_between, double_entrify_auto, CategoryNote)
 
 from typing import Any, Iterable, TypeVar, Callable
 from collections import defaultdict
