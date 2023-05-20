@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import heapq
 
 from django.db import models,  transaction
-from django.db.models import Q, Sum, F, Prefetch, prefetch_related_objects
+from django.db.models import Q, Sum, Prefetch, prefetch_related_objects
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
@@ -350,7 +350,7 @@ class Transaction(models.Model):
                          for note in self.accountnotes.all()}
         category_notes: dict[Category | None, str]
         category_notes = {note.account: note.note
-                         for note in self.categorynotes.all()}
+                          for note in self.categorynotes.all()}
 
         accounts = self.accountparts.entries()
         categories = self.categoryparts.entries()
@@ -513,10 +513,14 @@ def entries_for(account: BaseAccount) -> Iterable[Transaction]:
 def entries_for_balance(account: Balance) -> Iterable[Transaction]:
     accounts = (AccountPart.objects.filter(source__budget=account.other,
                                            sink__budget=account.budget)
-                .values('amount', 'transaction'))
+                .values('transaction')
+                .values('transaction', total=Sum('amount'))
+                .exclude(total=0))
     categories = (CategoryPart.objects.filter(source__budget=account.other,
                                               sink__budget=account.budget)
-                  .values('amount', 'transaction'))
+                  .values('transaction')
+                  .values('transaction', total=Sum('amount'))
+                  .exclude(total=0))
     parts = accounts.difference(categories).union(
         categories.difference(accounts))
     return (Transaction.objects.filter_for(account.budget)
@@ -536,18 +540,28 @@ def accounts_overview(budget_id: int):
                   .annotate(balance=Sum('entries__amount', default=0))
                   .order_by('order', 'group', 'name')
                   .select_related('budget'))
-    category = (Budget.objects
-                .filter(category__entries__source__budget_id=budget_id)
-                .annotate(currency=F('category__currency'),
-                          balance=Sum('category__entries__amount'))
-                .exclude(balance=0))
-    account = (Budget.objects
-               .filter(account__entries__source__budget_id=budget_id)
-               .annotate(currency=F('account__currency'),
-                         balance=Sum('account__entries__amount'))
-               .exclude(balance=0))
-    # Could return Balance objects here
-    debts = account.difference(category).union(category.difference(account))
+    debts = Budget.objects.raw(
+        """
+        select coalesce(has.budget, gets.budget) as id_ptr_id,
+            coalesce(has.currency, gets.currency) as currency,
+            coalesce(gets, 0) - coalesce(has, 0) as balance
+        from
+            (select sum(amount) has, source.currency, source.budget_id as budget
+            from budget_accountpart
+            inner join budget_account source on source.id_ptr_id = source_id
+            inner join budget_account sink on sink.id_ptr_id = sink_id
+            where sink.budget_id = %s
+            group by source.currency, budget) has
+        full join
+            (select sum(amount) gets, source.currency, source.budget_id as budget
+            from budget_categorypart
+            inner join budget_category source on source.id_ptr_id = source_id
+            inner join budget_category sink on sink.id_ptr_id = sink_id
+            where sink.budget_id = %s
+            group by source.currency, budget) gets
+        on has.budget = gets.budget and has.currency = gets.currency
+        where coalesce(has, 0) != coalesce(gets, 0)""",
+        [budget_id, budget_id])
     return (accounts, categories, debts)
 
 
