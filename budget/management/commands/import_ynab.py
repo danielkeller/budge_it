@@ -97,6 +97,29 @@ class Command(BaseCommand):
         self.process_csv(target_budget, register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
 
         #TODO do magic *(*) algorithm
+#        splitwise_transactions = Transaction.objects.filter(accounts__name = "Flat splitwise")
+#        ynab_splitwise_account = target_budget.account("Flat splitwise", "CHF")
+#
+#        splitwise_payee = target_budget.payee("Flat splitwise")
+#        for splitwise_transaction in splitwise_transactions:
+#            account_parts, category_parts = splitwise_transaction.entries()
+#
+#            external_payee_accs = [k for k in account_parts.keys() if k.budget.get_inbox(Category, "CHF") in category_parts.keys()]
+#            if not len(external_payee_accs) == 1:
+#                continue #TODO something here
+#
+#            external_payee = external_payee_accs[0].budget
+#            alpha = account_parts.pop(ynab_splitwise_account)
+#            account_parts[external_payee.get_inbox(Account, "CHF")] += alpha
+#
+#            category_parts[splitwise_payee.get_inbox(Category, "CHF")] = -alpha
+#            category_parts[external_payee.get_inbox(Category, "CHF")] += alpha
+#
+#            double_account_parts = double_entrify(target_budget.budget, Account, account_parts)
+#            double_category_parts = double_entrify(target_budget.budget, Category, category_parts)
+#
+#            splitwise_transaction.set_parts_raw(accounts=double_account_parts,
+#                                      categories=double_category_parts)
 
         budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
         self.process_csv(target_budget, budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
