@@ -15,8 +15,10 @@ from dataclasses import dataclass
 import functools
 
 ynab_transfer_prefix = "Transfer : "
+ynab_debt_payments_prefix = "Debt Payments:  "
 
 import_off_budget_prefix = "Off-budget: "
+import_off_budget_prefix_nocolon = "Off-budget"
 interest_prefix = "Interest: "
 
 @dataclass
@@ -275,7 +277,7 @@ class Command(BaseCommand):
         for month in months:
             transaction_category_parts: dict[tuple[Category, Category], int] = {}
             for category in target_budget.budget.category_set.all():
-                if category.name.startswith(import_off_budget_prefix): continue # this is a new category built by us
+                if category.group == import_off_budget_prefix_nocolon: continue # this is a new category built by us
                 budgeted = month_budgets[month][category]
 
                 running_sums[category] += budgeted
@@ -338,7 +340,7 @@ def get_category_activity_iterable(category: Category):
             .order_by('trunc1'))
 
 def split_category_group_category(raw_category_group_category):
-    return raw_category_group_category.split(": ")[::-1]
+    return [x.strip() for x in raw_category_group_category.split(": ")[::-1]]
 
 """
 Convert ynab format RawTransactionPartRecords into budge-it double entry transaction parts and category/account notes
@@ -380,6 +382,17 @@ def get_transaction_parts_notes(raw_transaction_parts: 'list[RawTransactionPartR
 
             transaction_category_parts[(payee_category, category)] += raw_transaction_part_inflow
         else:
+            raw_category_group_category = raw_transaction_part.CategoryGroupCategory
+            if raw_category_group_category.startswith(ynab_debt_payments_prefix):
+                debt_account = raw_category_group_category.removeprefix(ynab_debt_payments_prefix)
+
+                _, group = split_category_group_category(f"{ynab_debt_payments_prefix}")
+                payments_category = target_budget.category(debt_account, group, ynab_currency)
+
+                _, group = split_category_group_category(f"{import_off_budget_prefix}")
+                debt_category = target_budget.category(debt_account, group, ynab_currency)
+
+                transaction_category_parts[(debt_category, payments_category)] = raw_transaction_part_inflow
             if memo: 
                 account_notes[account] = memo
     assert sum(single_entry_transaction_account_parts.values()) == 0
