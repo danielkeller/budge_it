@@ -1,5 +1,4 @@
 from typing import Optional, Iterable, TypeVar, Type, Union, Any, Self, Generic
-from collections import defaultdict, deque
 import functools
 from itertools import chain
 from datetime import date, timedelta
@@ -8,11 +7,10 @@ import heapq
 
 from django.db import models,  transaction
 from django.db.models import Q, Sum, F, Prefetch, prefetch_related_objects
-from django.db.models.functions import Trunc
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
-T = TypeVar('T')
+from .algorithms import sum_by, combine_debts, reroot, double_entrify_by
 
 
 class Id(models.Model):
@@ -183,40 +181,12 @@ class Balance:
         return f"Owed by {self.other}"
 
 
-def sum_by(input: 'Iterable[tuple[T, int]]') -> 'dict[T, int]':
-    result: defaultdict[T, int] = defaultdict(int)
-    for key, value in input:
-        result[key] += value
-    return {key: value for key, value in result.items() if value}
-
-
-def double_entrify_auto(amounts: dict[AccountT, int]
-                        ) -> dict[tuple[AccountT, AccountT], int]:
-    currencies = {amount.currency for amount in amounts}
-    return combine_debts({account: amount
-                          for account, amount in amounts.items()
-                          if account.currency == currency}
-                         for currency in currencies)
-
-
-def combine_debts(owed: Iterable[dict[T, int]]) -> dict[tuple[T, T], int]:
-    result: dict[tuple[T, T], int] = {}
-    for debts in owed:
-        amounts = deque(sorted((amount, t)
-                               for (t, amount) in debts.items()
-                               if amount != 0))
-        amount, source = 0, None
-        while amounts or amount:
-            if not amount or not source:
-                amount, source = amounts.popleft()
-            if not amounts:
-                raise ValueError("Amounts do not sum to zero")
-            other, sink = amounts.pop()
-            result[(source, sink)] = min(-amount, other)
-            amount += other
-            if amount > 0:
-                amounts.append((amount, sink))
-                amount = 0
+def double_entrify_auto(amounts: dict[AccountT, int]):
+    result: dict[tuple[AccountT, AccountT], int] = {}
+    for currency in {amount.currency for amount in amounts}:
+        result |= combine_debts({account: amount
+                                 for account, amount in amounts.items()
+                                 if account.currency == currency})
     return result
 
 
@@ -242,36 +212,14 @@ def connectivity(budgets: list[Budget]) -> dict[Budget, Budget]:
     return result
 
 
-def reroot(tree: 'dict[T, T]', node: T):
-    if node in tree:
-        parent = tree[node]
-        del tree[node]
-        while parent:
-            parent2 = tree.get(parent)
-            tree[parent] = node
-            parent, node = parent2, parent
-
-
-def double_entrify_by(amounts: dict[AccountT, int],
-                      budget_tree: dict[Budget, Budget]):
-    result: dict[tuple[AccountT, AccountT], int] = {}
+def inbox_tree(accounts: Iterable[AccountT], tree: dict[Budget, Budget]
+               ) -> dict[AccountT, AccountT]:
     budget_account = {(account.currency, account.budget): account
-                      for account in amounts
+                      for account in accounts
                       if account.is_inbox()}
-    tree = {account: budget_account[currency, budget_tree[budget]]
+    return {account: budget_account[currency, tree[budget]]
             for ((currency, budget), account) in budget_account.items()
-            if budget in budget_tree}
-    leaves = deque(tree.keys() - tree.values())
-    while leaves:
-        source = leaves.popleft()
-        if source not in tree:
-            continue
-        sink = tree[source]
-        leaves.append(sink)
-        result[(source, sink)] = -amounts[source]
-        amounts[sink] += amounts[source]
-        amounts[source] = 0
-    return result
+            if budget in tree}
 
 
 def double_entrify(in_budget: Budget,
@@ -283,9 +231,10 @@ def double_entrify(in_budget: Budget,
     for currency in {account.currency for account in chain(accounts, categories)}:
         accounts.setdefault(in_budget.get_inbox(Account, currency), 0)
         categories.setdefault(in_budget.get_inbox(Category, currency), 0)
-    account_entries = double_entrify_by(accounts, tree)
+    account_entries = double_entrify_by(accounts, inbox_tree(accounts, tree))
     account_entries |= double_entrify_auto(accounts)
-    category_entries = double_entrify_by(categories, tree)
+    category_entries = double_entrify_by(
+        categories, inbox_tree(categories, tree))
     category_entries |= double_entrify_auto(categories)
     return account_entries, category_entries
 
@@ -574,12 +523,12 @@ def accounts_overview(budget_id: int):
     category = (Budget.objects
                 .filter(category__entries__source__budget_id=budget_id)
                 .annotate(currency=F('category__currency'),
-                          balance=-Sum('category__entries__amount'))
+                          balance=Sum('category__entries__amount'))
                 .exclude(balance=0))
     account = (Budget.objects
                .filter(account__entries__source__budget_id=budget_id)
                .annotate(currency=F('account__currency'),
-                         balance=-Sum('account__entries__amount'))
+                         balance=Sum('account__entries__amount'))
                .exclude(balance=0))
     # Could return Balance objects here
     debts = account.difference(category).union(category.difference(account))
