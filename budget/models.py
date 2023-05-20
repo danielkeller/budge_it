@@ -318,6 +318,12 @@ class Transaction(models.Model):
         self.set_parts_raw(double_entrify(in_budget, Account, accounts),
                            double_entrify(in_budget, Category, categories))
 
+    def parts(self):
+        return (self.accountparts.parts(), self.categoryparts.parts())
+
+    def entries(self):
+        return (self.accountparts.entries(), self.categoryparts.entries())
+
     @transaction.atomic
     def set_parts_raw(self,
                       accounts: dict[tuple[Account, Account], int],
@@ -389,6 +395,11 @@ class PartManager(Generic[AccountT],
 
     def entries(self) -> dict[AccountT, int]:
         return sum_by((part.sink, part.amount) for part in self.distinct())
+
+    def parts(self):
+        return {(part.source, part.sink): part.amount
+                for part in self.distinct()
+                if part.amount > 0}
 
     def set_parts(self, parts: dict[tuple[AccountT, AccountT], int]):
         self.all().delete()
