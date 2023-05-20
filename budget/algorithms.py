@@ -51,10 +51,9 @@ class Debts(Generic[T]):
                 source = self.pop(-amount)
                 return {(source, sink): amount}
             other, source = self.pop_by_sign(-amount)
-            if self:
+            if other:
                 edge = sign(amount) * min(abs(amount), abs(other))
             else:
-                # If 'source' is the last once, force it.
                 edge = amount
             result[(source, sink)] = edge
             self.push(other + edge, source)
