@@ -321,6 +321,9 @@ class Transaction(models.Model):
     def parts(self):
         return (self.accountparts.parts(), self.categoryparts.parts())
 
+    def entries(self):
+        return (self.accountparts.entries(), self.categoryparts.entries())
+
     @transaction.atomic
     def set_parts_raw(self,
                       accounts: dict[tuple[Account, Account], int],
