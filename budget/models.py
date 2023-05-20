@@ -10,7 +10,7 @@ from django.db.models import Q, Sum, F, Prefetch, prefetch_related_objects
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
-from .algorithms import sum_by, combine_debts, reroot, double_entrify_by
+from .algorithms import sum_by,  reroot, double_entrify_by, Debts
 
 
 class Id(models.Model):
@@ -181,13 +181,11 @@ class Balance:
         return f"Owed by {self.other}"
 
 
-def double_entrify_auto(amounts: dict[AccountT, int]):
-    result: dict[tuple[AccountT, AccountT], int] = {}
-    for currency in {amount.currency for amount in amounts}:
-        result |= combine_debts({account: amount
-                                 for account, amount in amounts.items()
-                                 if account.currency == currency})
-    return result
+def group_by_currency(amounts: dict[AccountT, int]):
+    result: dict[str, dict[AccountT, int]] = {}
+    for account, amount in amounts.items():
+        result.setdefault(account.currency, {})[account] = amount
+    return result.items()
 
 
 def connectivity(budgets: list[Budget]) -> dict[Budget, Budget]:
@@ -212,31 +210,28 @@ def connectivity(budgets: list[Budget]) -> dict[Budget, Budget]:
     return result
 
 
-def inbox_tree(accounts: Iterable[AccountT], tree: dict[Budget, Budget]
-               ) -> dict[AccountT, AccountT]:
-    budget_account = {(account.currency, account.budget): account
-                      for account in accounts
-                      if account.is_inbox()}
-    return {account: budget_account[currency, tree[budget]]
-            for ((currency, budget), account) in budget_account.items()
-            if budget in tree}
+def double_entrify(in_budget: Budget, type: Type[AccountT],
+                   all_amounts: dict[AccountT, int]):
+    entries: dict[tuple[AccountT, AccountT], int] = {}
+    for currency, amounts in group_by_currency(all_amounts):
+        amounts.setdefault(in_budget.get_inbox(type, currency), 0)
+        payees = dict(item for item in amounts.items()
+                      if item[0].budget.payee_of_id)
+        people = dict(item for item in amounts.items()
+                      if not item[0].budget.payee_of_id)
 
-
-def double_entrify(in_budget: Budget,
-                   accounts: dict[Account, int], categories: dict[Category, int]):
-    budgets = {account.budget for account in chain(accounts, categories)
-               if account.budget in in_budget.friends.all()} | {in_budget}
-    tree = connectivity(list(budgets))
-    reroot(tree, in_budget)
-    for currency in {account.currency for account in chain(accounts, categories)}:
-        accounts.setdefault(in_budget.get_inbox(Account, currency), 0)
-        categories.setdefault(in_budget.get_inbox(Category, currency), 0)
-    account_entries = double_entrify_by(accounts, inbox_tree(accounts, tree))
-    account_entries |= double_entrify_auto(accounts)
-    category_entries = double_entrify_by(
-        categories, inbox_tree(categories, tree))
-    category_entries |= double_entrify_auto(categories)
-    return account_entries, category_entries
+        budgets = {account.budget: account for account in people
+                   if account.is_inbox()}
+        tree = connectivity(list(budgets))
+        reroot(tree, in_budget)
+        account_tree = {budgets[child]: budgets[parent]
+                        for child, parent in tree.items()}
+        entries |= double_entrify_by(people, account_tree)
+        debts = Debts(people.items())
+        for payee, amount in payees.items():
+            entries |= debts.combine_one(amount, payee)
+        entries |= debts.combine()
+    return entries
 
 
 class TransactionManager(models.Manager['Transaction']):
@@ -320,7 +315,8 @@ class Transaction(models.Model):
     def set_parts(self, in_budget: Budget,
                   accounts: dict[Account, int], categories: dict[Category, int]):
         """Set the contents of this transaction from the perspective of one budget. 'accounts' and 'categories' both must to sum to zero."""
-        self.set_parts_raw(*double_entrify(in_budget, accounts, categories))
+        self.set_parts_raw(double_entrify(in_budget, Account, accounts),
+                           double_entrify(in_budget, Category, categories))
 
     @transaction.atomic
     def set_parts_raw(self,

@@ -1,7 +1,72 @@
-from typing import TypeVar, Iterable
+from typing import TypeVar, Iterable,  Generic
 from collections import defaultdict, deque
+from dataclasses import dataclass
 
 T = TypeVar('T')
+
+
+def sign(i: int) -> int:
+    return (i > 0) - (i < 0)
+
+
+@dataclass(init=False)
+class Debts(Generic[T]):
+    debts: dict[int, dict[int, list[T]]]
+
+    def __init__(self, input: Iterable[tuple[T, int]]):
+        self.debts = {-1: {}, 0: {}, 1: {}}
+        for account, key in input:
+            self.push(key, account)
+
+    def __bool__(self):
+        return any(self.debts.values())
+
+    def push(self, key: int, account: T):
+        self.debts[sign(key)].setdefault(key, []).append(account)
+
+    def pop(self, key: int) -> T:
+        result = self.debts[sign(key)][key].pop()
+        if not self.debts[sign(key)][key]:
+            del self.debts[sign(key)][key]
+        return result
+
+    def pop_by_sign(self, key: int) -> tuple[int, T]:
+        if self.debts[sign(key)]:
+            key = next(iter(self.debts[sign(key)].keys()))
+            return key, self.pop(key)
+        elif self.debts[0]:
+            return 0, self.pop(0)
+        elif self.debts[-sign(key)]:
+            key = next(iter(self.debts[-sign(key)].keys()))
+            return key, self.pop(key)
+        else:
+            raise KeyError(key)
+
+    def combine_one(self, amount: int, sink: T) -> dict[tuple[T, T], int]:
+        result: dict[tuple[T, T], int] = {}
+        while amount:
+            if not self:
+                raise ValueError("Amounts do not sum to zero")
+            if -amount in self.debts[-sign(amount)]:
+                source = self.pop(-amount)
+                return {(source, sink): amount}
+            other, source = self.pop_by_sign(-amount)
+            if self:
+                edge = sign(amount) * min(abs(amount), abs(other))
+            else:
+                # If 'source' is the last once, force it.
+                edge = amount
+            result[(source, sink)] = edge
+            self.push(other + edge, source)
+            amount -= edge
+        return result
+
+    def combine(self) -> dict[tuple[T, T], int]:
+        result: dict[tuple[T, T], int] = {}
+        while self:
+            amount, sink = self.pop_by_sign(1)
+            result |= self.combine_one(amount, sink)
+        return result
 
 
 def sum_by(input: Iterable[tuple[T, int]]) -> dict[T, int]:
@@ -10,25 +75,6 @@ def sum_by(input: Iterable[tuple[T, int]]) -> dict[T, int]:
         result[key] += value
     return {key: value for key, value in result.items() if value}
 
-
-def combine_debts(debts: dict[T, int]) -> dict[tuple[T, T], int]:
-    result: dict[tuple[T, T], int] = {}
-    amounts = deque(sorted((amount, t)
-                           for (t, amount) in debts.items()
-                           if amount != 0))
-    amount, source = 0, None
-    while amounts or amount:
-        if not amount or not source:
-            amount, source = amounts.popleft()
-        if not amounts:
-            raise ValueError("Amounts do not sum to zero")
-        other, sink = amounts.pop()
-        result[(source, sink)] = min(-amount, other)
-        amount += other
-        if amount > 0:
-            amounts.append((amount, sink))
-            amount = 0
-    return result
 
 # 'tree' below are child->parent edges, and can also be a forest
 
@@ -56,7 +102,3 @@ def double_entrify_by(amounts: dict[T, int], tree: dict[T, T]):
         amounts[sink] += amounts[source]
         amounts[source] = 0
     return result
-
-
-def to_tree(edges: Iterable[tuple[T, T]]) -> dict[T, T]:
-    pass
