@@ -96,7 +96,7 @@ class Command(BaseCommand):
         register_filename = "../Swiss Budget as of 2023-05-01 20-59 - Register.csv"
         self.process_csv(target_budget, register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
 
-        fix_splitwise_transactions(target_budget)
+        fix_tracked_debt_transactions(target_budget, "Flat splitwise")
 
         #delete duplicate notes
         AccountNote.objects.filter(transaction__categorynotes__note = F('note')).delete()
@@ -359,7 +359,6 @@ def get_transaction_parts_notes(raw_transaction_parts: 'list[RawTransactionPartR
         raw_payee = raw_transaction_part.Payee
 
         memo = re.sub(r"Split \(.*\) ", "", raw_transaction_part.Memo) if raw_transaction_part.Memo else ""
-
         if not is_transfer(raw_transaction_part):  # Payment to external payee
             if not raw_payee: # payment to an off-budget debt account")
                 raw_payee = f"{interest_prefix}{raw_transaction_part.Account}"
@@ -404,39 +403,40 @@ def process_budget_renames(raw_budget_event: RawBudgetEventRecord):
     return
 
 #magic *(*) algorithm
-def fix_splitwise_transactions(target_budget):
-    splitwise_transactions = Transaction.objects.filter(accounts__name = "Flat splitwise")
-    ynab_splitwise_account = target_budget.account("Flat splitwise", "CHF")
+def fix_tracked_debt_transactions(target_budget, debt_account : str):
+    ynab_off_budget_account = target_budget.account(debt_account, "CHF")
+    tracked_debt_transactions = Transaction.objects.filter(accounts = ynab_off_budget_account)
 
-    splitwise_payee = target_budget.payee("Flat splitwise")
-    for splitwise_transaction in splitwise_transactions:
-        account_parts, category_parts = splitwise_transaction.entries()
+    debtor_payee = target_budget.payee(debt_account)
+
+    for tracked_debt_transaction in tracked_debt_transactions:
+        account_parts, category_parts = tracked_debt_transaction.entries()
 
         external_payee_accs = [k for k in account_parts.keys() if k.budget.get_inbox(Category, "CHF") in category_parts.keys()]
         if len(external_payee_accs) == 1:
             external_payee = external_payee_accs[0].budget
-            alpha = account_parts.pop(ynab_splitwise_account)
+            alpha = account_parts.pop(ynab_off_budget_account)
             account_parts[external_payee.get_inbox(Account, "CHF")] += alpha
 
-            category_parts[splitwise_payee.get_inbox(Category, "CHF")] = -alpha
+            category_parts[debtor_payee.get_inbox(Category, "CHF")] = -alpha
             category_parts[external_payee.get_inbox(Category, "CHF")] += alpha
 
         elif len(external_payee_accs) == 0:
             assert not category_parts
-            account_parts[splitwise_payee.get_inbox(Account, "CHF")] = account_parts.pop(ynab_splitwise_account)
+            account_parts[debtor_payee.get_inbox(Account, "CHF")] = account_parts.pop(ynab_off_budget_account)
 
         double_account_parts = double_entrify(target_budget.budget, Account, account_parts)
         double_category_parts = double_entrify(target_budget.budget, Category, category_parts)
-        splitwise_transaction.set_parts_raw(accounts=double_account_parts,
+        tracked_debt_transaction.set_parts_raw(accounts=double_account_parts,
                                   categories=double_category_parts)
-    account_notes = AccountNote.objects.filter(account=ynab_splitwise_account)
+    account_notes = AccountNote.objects.filter(account=ynab_off_budget_account)
     for account_note in account_notes:
         if account_note.transaction.categories:
-            cn = CategoryNote.objects.create(user=account_note.user, transaction=account_note.transaction, account=splitwise_payee.get_inbox(Category, "CHF"), note=account_note.note)
+            cn = CategoryNote.objects.create(user=account_note.user, transaction=account_note.transaction, account=debtor_payee.get_inbox(Category, "CHF"), note=account_note.note)
             cn.save()
             account_note.delete()
         else:
-            account_note.account = splitwise_payee.get_inbox(Account, "CHF")
+            account_note.account = debtor_payee.get_inbox(Account, "CHF")
             account_note.save()
 
     return 
