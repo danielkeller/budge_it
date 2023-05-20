@@ -96,30 +96,7 @@ class Command(BaseCommand):
         register_filename = "../Swiss Budget as of 2023-05-01 20-59 - Register.csv"
         self.process_csv(target_budget, register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
 
-        #TODO do magic *(*) algorithm
-#        splitwise_transactions = Transaction.objects.filter(accounts__name = "Flat splitwise")
-#        ynab_splitwise_account = target_budget.account("Flat splitwise", "CHF")
-#
-#        splitwise_payee = target_budget.payee("Flat splitwise")
-#        for splitwise_transaction in splitwise_transactions:
-#            account_parts, category_parts = splitwise_transaction.entries()
-#
-#            external_payee_accs = [k for k in account_parts.keys() if k.budget.get_inbox(Category, "CHF") in category_parts.keys()]
-#            if not len(external_payee_accs) == 1:
-#                continue #TODO something here
-#
-#            external_payee = external_payee_accs[0].budget
-#            alpha = account_parts.pop(ynab_splitwise_account)
-#            account_parts[external_payee.get_inbox(Account, "CHF")] += alpha
-#
-#            category_parts[splitwise_payee.get_inbox(Category, "CHF")] = -alpha
-#            category_parts[external_payee.get_inbox(Category, "CHF")] += alpha
-#
-#            double_account_parts = double_entrify(target_budget.budget, Account, account_parts)
-#            double_category_parts = double_entrify(target_budget.budget, Category, category_parts)
-#
-#            splitwise_transaction.set_parts_raw(accounts=double_account_parts,
-#                                      categories=double_category_parts)
+        fix_splitwise_transactions(target_budget)
 
         budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
         self.process_csv(target_budget, budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
@@ -416,3 +393,35 @@ def process_budget_renames(raw_budget_event: RawBudgetEventRecord):
     if raw_category_group_category in renames.keys():
         raw_budget_event.CategoryGroupCategory = renames[raw_category_group_category]
     return
+
+#magic *(*) algorithm
+def fix_splitwise_transactions(target_budget):
+    splitwise_transactions = Transaction.objects.filter(accounts__name = "Flat splitwise")
+    ynab_splitwise_account = target_budget.account("Flat splitwise", "CHF")
+
+    splitwise_payee = target_budget.payee("Flat splitwise")
+    for splitwise_transaction in splitwise_transactions:
+        account_parts, category_parts = splitwise_transaction.entries()
+
+        external_payee_accs = [k for k in account_parts.keys() if k.budget.get_inbox(Category, "CHF") in category_parts.keys()]
+        if len(external_payee_accs) == 1:
+            external_payee = external_payee_accs[0].budget
+            alpha = account_parts.pop(ynab_splitwise_account)
+            account_parts[external_payee.get_inbox(Account, "CHF")] += alpha
+
+            category_parts[splitwise_payee.get_inbox(Category, "CHF")] = -alpha
+            category_parts[external_payee.get_inbox(Category, "CHF")] += alpha
+
+        elif len(external_payee_accs) == 0:
+            assert not category_parts
+            account_parts[splitwise_payee.get_inbox(Account, "CHF")] = account_parts.pop(ynab_splitwise_account)
+
+        double_account_parts = double_entrify(target_budget.budget, Account, account_parts)
+        double_category_parts = double_entrify(target_budget.budget, Category, category_parts)
+        splitwise_transaction.set_parts_raw(accounts=double_account_parts,
+                                  categories=double_category_parts)
+    old_account_notes = AccountNote.objects.filter(account=ynab_splitwise_account)
+    for old_account_note in old_account_notes:
+        old_account_note.account = splitwise_payee.get_inbox(Account, "CHF")
+        old_account_note.save()
+    return 
