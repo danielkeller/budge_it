@@ -89,30 +89,32 @@ class Command(BaseCommand):
     help = "Import a YNAB budget"
 
     def handle(self, *args: Any, **options: Any):
-        register_filename = "../Swiss Budget as of 2023-05-01 20-59 - Register.csv"
-        self.process_csv(register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
-
-        #TODO do magic *(*) algorithm
-
-        budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
-        self.process_csv(budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
-
-        #TODO delete any accounts with no transactions
-
-    def process_csv(self, filename: str,
-                    from_row: Callable[[list[str]], T],
-                    handler: Callable[[Iterable[T]], None]):
-        with open(filename, newline='', encoding='utf-8-sig') as file:
-            reader = csv.reader(file)
-            next(reader)
-            handler(map(from_row, reader))
-
-    @transaction.atomic
-    def process_transactions(self, reader: 'Iterable[RawTransactionPartRecord]'):
         user = User.objects.get(username="admin")
         target_budget = TargetBudget(Budget.objects.get_or_create(
             name="ynabimport", budget_of=user)[0])
 
+        register_filename = "../Swiss Budget as of 2023-05-01 20-59 - Register.csv"
+        self.process_csv(target_budget, register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
+
+        #TODO do magic *(*) algorithm
+
+        budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
+        self.process_csv(target_budget, budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
+
+        #TODO delete any accounts with no transactions
+
+    def process_csv(self, 
+                    target_budget: TargetBudget,
+                    filename: str,
+                    from_row: Callable[[list[str]], T],
+                    handler: Callable[[TargetBudget, Iterable[T]], None]):
+        with open(filename, newline='', encoding='utf-8-sig') as file:
+            reader = csv.reader(file)
+            next(reader)
+            handler(target_budget, map(from_row, reader))
+
+    @transaction.atomic
+    def process_transactions(self, target_budget: TargetBudget, reader: 'Iterable[RawTransactionPartRecord]'):
         current_date = None
         day_transaction_parts: list[RawTransactionPartRecord] = []
 
@@ -207,10 +209,7 @@ class Command(BaseCommand):
         return None
 
     @transaction.atomic
-    def process_budget_events(self, reader: 'Iterable[RawBudgetEventRecord]'):
-        user = User.objects.get(username="admin")
-        target_budget = TargetBudget(Budget.objects.get_or_create(
-            name="ynabimport", budget_of=user)[0])
+    def process_budget_events(self, target_budget: TargetBudget, reader: 'Iterable[RawBudgetEventRecord]'):
         raw_category_group_category = "Inflow: Ready to Assign"
         raw_category, raw_group = split_category_group_category(raw_category_group_category)
         inflow_budget_category = target_budget.category(
