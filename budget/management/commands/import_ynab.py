@@ -111,8 +111,8 @@ class Command(BaseCommand):
         #TODO order categories?
 
         #TODO delete (or don't create??) any orphan notes
-        assert not AccountNote.objects.filter(transaction__accounts = None)
-        # assert not CategoryNote.objects.filter(transaction__categories = None)
+        #assert not AccountNote.objects.exclude(transaction__accounts = F('account'))
+        #assert not CategoryNote.objects.exclude(transaction__categories = F('account'))
 
     def process_csv(self, 
                     target_budget: TargetBudget,
