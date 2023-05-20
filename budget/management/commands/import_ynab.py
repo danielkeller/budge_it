@@ -192,15 +192,18 @@ class Command(BaseCommand):
             first_raw_transaction_part.Date)  # filter for past dates
 
         kind = Transaction.Kind.TRANSACTION
-        #description = join_memos(raw_transaction_parts) #TODO fix notes
 
         transaction = Transaction(date=date, kind=kind)
         transaction.save()
 
-        transaction_account_parts, transaction_category_parts = get_transaction_parts(raw_transaction_parts, target_budget)
-
+        transaction_account_parts, transaction_category_parts, transaction_category_notes = get_transaction_parts_notes(raw_transaction_parts, target_budget)
         transaction.set_parts_raw(accounts=transaction_account_parts,
                                   categories=transaction_category_parts)
+
+        for (category, note) in transaction_category_notes.items():
+            cn = CategoryNote.objects.create(user=target_budget.budget.budget_of, transaction=transaction, category=category, note=note)
+            cn.save()
+
         return None
 
     @transaction.atomic
@@ -327,11 +330,12 @@ def split_category_group_category(raw_category_group_category):
     return raw_category_group_category.split(": ")[::-1]
 
 """
-Convert ynab format RawTransactionPartRecords into budge-it double entry transaction parts
+Convert ynab format RawTransactionPartRecords into budge-it double entry transaction parts and category notes
 """
-def get_transaction_parts(raw_transaction_parts: 'list[RawTransactionPartRecord]', target_budget: TargetBudget):
+def get_transaction_parts_notes(raw_transaction_parts: 'list[RawTransactionPartRecord]', target_budget: TargetBudget):
     single_entry_transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
     transaction_category_parts: 'dict[tuple[Category, Category], int]' = defaultdict(int)
+    category_notes: 'dict[Category, str]' = dict()
 
     for raw_transaction_part in raw_transaction_parts:
         raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
@@ -363,7 +367,7 @@ def get_transaction_parts(raw_transaction_parts: 'list[RawTransactionPartRecord]
 
     transaction_account_parts = double_entrify_auto(single_entry_transaction_account_parts)
 
-    return transaction_account_parts, transaction_category_parts
+    return transaction_account_parts, transaction_category_parts, category_notes
 
 renames = {"Not My Money: Splitwise": f"{import_off_budget_prefix}Flat splitwise",  "Hidden Categories: Dan tracking": f"{import_off_budget_prefix}Dan tracking"}
 def process_transaction_renames(raw_transaction_part: RawTransactionPartRecord):
