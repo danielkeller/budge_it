@@ -43,7 +43,7 @@ class Debts(Generic[T]):
             raise KeyError(key)
 
     def combine_one(self, amount: int, sink: T) -> dict[tuple[T, T], int]:
-        result: dict[tuple[T, T], int] = {}
+        result: dict[tuple[T, T], int] = defaultdict(int)
         while amount:
             if not self:
                 raise ValueError("Amounts do not sum to zero")
@@ -55,7 +55,7 @@ class Debts(Generic[T]):
                 edge = sign(amount) * min(abs(amount), abs(other))
             else:
                 edge = amount
-            result[(source, sink)] = edge
+            result[(source, sink)] += edge
             self.push(other + edge, source)
             amount -= edge
         return result
