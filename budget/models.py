@@ -358,11 +358,15 @@ class Transaction(models.Model):
                              'account_note': account_note})
         return rows
 
-    def auto_description(self, in_account: BaseAccount):
+    def auto_description(self, in_account: BaseAccount | Balance):
         if self.kind == self.Kind.BUDGETING:
             return "Budget"
         accounts = self.accountparts.entries()
         categories = self.categoryparts.entries()
+        if isinstance(in_account, BaseAccount):
+            this_budget = in_account.budget
+        else:
+            this_budget = in_account.other
         names = (
             [account.name or "Inbox"
              for account in chain(accounts, categories)
@@ -371,7 +375,7 @@ class Transaction(models.Model):
             list({account.budget.name
                   for account in chain(accounts, categories)
                   if account.budget.budget_of_id != in_account.budget.owner()
-                  and account.budget != in_account.budget})
+                  and account.budget != this_budget})
         )
         if len(names) > 2:
             names = names[:2] + ['...']
