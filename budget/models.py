@@ -6,7 +6,8 @@ from dataclasses import dataclass
 import heapq
 
 from django.db import models,  transaction
-from django.db.models import Q, Sum, Prefetch, prefetch_related_objects
+from django.db.models import (Q, Sum, Prefetch, Subquery, OuterRef, Value,
+                              prefetch_related_objects)
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
@@ -511,57 +512,63 @@ def entries_for(account: BaseAccount) -> Iterable[Transaction]:
 
 
 def entries_for_balance(account: Balance) -> Iterable[Transaction]:
-    accounts = (AccountPart.objects.filter(source__budget=account.other,
-                                           sink__budget=account.budget)
-                .values('transaction')
-                .values('transaction', total=Sum('amount'))
-                .exclude(total=0))
-    categories = (CategoryPart.objects.filter(source__budget=account.other,
-                                              sink__budget=account.budget)
-                  .values('transaction')
-                  .values('transaction', total=Sum('amount'))
-                  .exclude(total=0))
-    parts = accounts.difference(categories).union(
-        categories.difference(accounts))
-    return (Transaction.objects.filter_for(account.budget)
-            .filter(id__in=(part['transaction'] for part in parts)))
+    gets = (CategoryPart.objects
+            .filter(transaction=OuterRef('pk'),
+                    source__currency=account.currency,
+                    source__budget=account.other, sink__budget=account.budget)
+            .values('transaction')
+            .values(sum=Sum('amount', default=0)))
+    has = (AccountPart.objects
+           .filter(transaction=OuterRef('pk'),
+                   source__currency=account.currency,
+                   source__budget=account.other, sink__budget=account.budget)
+           .values('transaction')
+           .values(sum=Sum('amount', default=0)))
+    qs = (Transaction.objects
+          .filter_for(account.budget)
+          .annotate(change=Subquery(gets) - Subquery(has))
+          .exclude(change=0)
+          .order_by('date', '-kind'))
+    total = 0
+    for transaction in qs:
+        total += getattr(transaction, 'change')
+        setattr(transaction, 'running_sum', total)
+    return reversed(qs)
 
 
-def accounts_overview(budget_id: int):
+def accounts_overview(budget: Budget):
     accounts = (Account.objects
-                .filter(budget_id=budget_id)
+                .filter(budget=budget)
                 .exclude(closed=True)
                 .annotate(balance=Sum('entries__amount', default=0))
                 .order_by('order', 'group', 'name')
                 .select_related('budget'))
     categories = (Category.objects
-                  .filter(budget_id=budget_id)
+                  .filter(budget=budget)
                   .exclude(closed=True)
                   .annotate(balance=Sum('entries__amount', default=0))
                   .order_by('order', 'group', 'name')
                   .select_related('budget'))
-    debts = Budget.objects.raw(
-        """
-        select coalesce(has.budget, gets.budget) as id_ptr_id,
-            coalesce(has.currency, gets.currency) as currency,
-            coalesce(gets, 0) - coalesce(has, 0) as balance
-        from
-            (select sum(amount) has, source.currency, source.budget_id as budget
-            from budget_accountpart
-            inner join budget_account source on source.id_ptr_id = source_id
-            inner join budget_account sink on sink.id_ptr_id = sink_id
-            where sink.budget_id = %s
-            group by source.currency, budget) has
-        full join
-            (select sum(amount) gets, source.currency, source.budget_id as budget
-            from budget_categorypart
-            inner join budget_category source on source.id_ptr_id = source_id
-            inner join budget_category sink on sink.id_ptr_id = sink_id
-            where sink.budget_id = %s
-            group by source.currency, budget) gets
-        on has.budget = gets.budget and has.currency = gets.currency
-        where coalesce(has, 0) != coalesce(gets, 0)""",
-        [budget_id, budget_id])
+    currencies = {*budget.account_set.values_list('currency').distinct(),
+                  *budget.category_set.values_list('currency').distinct()}
+    gets = (CategoryPart.objects
+            .filter(source__currency=OuterRef('currency'),
+                    source__budget=OuterRef('pk'),
+                    sink__budget=budget)
+            .values('source__budget')
+            .values(sum=Sum('amount', default=0)))
+    has = (AccountPart.objects
+           .filter(source__currency=OuterRef('currency'),
+                   source__budget=OuterRef('pk'),
+                   sink__budget=budget)
+           .values('source__budget')
+           .values(sum=Sum('amount', default=0)))
+    debts = chain.from_iterable(
+        Budget.objects
+        .annotate(currency=Value(currency),
+                  balance=Subquery(gets) - Subquery(has))
+        .exclude(balance=0)
+        for currency, in currencies)
     return (accounts, categories, debts)
 
 

@@ -47,7 +47,7 @@ def _get_allowed_budget_or_404(request: HttpRequest, budget_id: int):
 @login_required
 def overview(request: HttpRequest, budget_id: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
-    accounts, categories, debts = accounts_overview(budget_id)
+    accounts, categories, debts = accounts_overview(budget)
     totals = sum_by((category.currency, category.balance)
                     for category in categories)
     formset = ReorderingFormSet(queryset=categories)
