@@ -6,8 +6,9 @@ from dataclasses import dataclass
 import heapq
 
 from django.db import models,  transaction
-from django.db.models import (Q, Sum, Prefetch, Subquery, OuterRef, Value,
+from django.db.models import (Q, F, Sum, Prefetch, Subquery, OuterRef, Value,
                               prefetch_related_objects)
+from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
@@ -239,24 +240,9 @@ class TransactionManager(models.Manager['Transaction']):
     def filter_for(self, budget: Budget):
         """Adjust and prefetch the parts of this transaction to ones visible to
         'budget'."""
-        source_visible = Q(source__budget=budget) | (
-            Q(source__name="") & (
-                Q(source__budget__budget_of_id=budget.owner())
-                | Q(source__budget__payee_of_id=budget.owner())
-                | Q(source__budget__friends=budget)))
-        sink_visible = Q(sink__budget=budget) | (
-            Q(sink__name="") & (
-                Q(sink__budget__budget_of_id=budget.owner())
-                | Q(sink__budget__payee_of_id=budget.owner())
-                | Q(sink__budget__friends=budget)))
-
-        accountparts = (AccountPart.objects
-                        .filter(source_visible, sink_visible)
-                        .select_related('sink__budget'))
-        categoryparts = (CategoryPart.objects
-                         .filter(source_visible, sink_visible)
-                         .select_related('sink__budget'))
-        accountnotes = AccountNote.objects.filter(user=budget.owner())
+        accountparts = AccountPart.objects.filter_for(budget)
+        categoryparts = CategoryPart.objects.filter_for(budget)
+        accountnotes = AccountNote.objects .filter(user=budget.owner())
         categorynotes = CategoryNote.objects.filter(user=budget.owner())
         return self.prefetch_related(
             Prefetch('accountparts', queryset=accountparts),
@@ -346,11 +332,11 @@ class Transaction(models.Model):
             except StopIteration:
                 return None
 
-        account_notes: dict[Account | None, str]
-        account_notes = {note.account: note.note
+        account_notes: dict[int | None, str]
+        account_notes = {note.account_id: note.note
                          for note in self.accountnotes.all()}
-        category_notes: dict[Category | None, str]
-        category_notes = {note.account: note.note
+        category_notes: dict[int | None, str]
+        category_notes = {note.account_id: note.note
                           for note in self.categorynotes.all()}
 
         accounts = self.accountparts.entries()
@@ -363,11 +349,13 @@ class Transaction(models.Model):
         for currency, amount in amounts:
             account = pop_by_(accounts, currency, amount)
             category = pop_by_(categories, currency, amount)
+            category_note = category_notes.get(category and category.id, '')
+            account_note = account_notes.get(account and account.id, '')
             if account or category:
                 rows.append({'account': account, 'category': category,
                              'amount': amount,
-                             'category_note': category_notes.get(category, ''),
-                             'account_note': account_notes.get(account, '')})
+                             'category_note': category_note,
+                             'account_note': account_note})
         return rows
 
     def auto_description(self, in_account: BaseAccount):
@@ -394,13 +382,28 @@ class PartManager(Generic[AccountT],
                   models.Manager['TransactionPart[AccountT]']):
     instance: Transaction  # When used as a relatedmanager
 
+    def filter_for(self, budget: Budget):
+        """Filter parts to ones visible to 'budget'."""
+        source_visible = Q(source__budget=budget) | (
+            Q(source__name="") & (
+                Q(source__budget__budget_of_id=budget.owner())
+                | Q(source__budget__payee_of_id=budget.owner())
+                | Q(source__budget__friends=budget)))
+        sink_visible = Q(sink__budget=budget) | (
+            Q(sink__name="") & (
+                Q(sink__budget__budget_of_id=budget.owner())
+                | Q(sink__budget__payee_of_id=budget.owner())
+                | Q(sink__budget__friends=budget)))
+        # no distinct?
+        return (self.filter(source_visible, sink_visible)
+                .select_related('sink__budget'))
+
     def entries(self) -> dict[AccountT, int]:
-        return sum_by((part.sink, part.amount) for part in self.distinct())
+        return sum_by((part.sink, part.amount) for part in self.all())
 
     def parts(self):
         return {(part.source, part.sink): part.amount
-                for part in self.distinct()
-                if part.amount > 0}
+                for part in self.all() if part.amount > 0}
 
     def set_parts(self, parts: dict[tuple[AccountT, AccountT], int]):
         self.all().delete()
@@ -433,7 +436,7 @@ class TransactionPart(Generic[AccountT], models.Model):
 
     amount = models.BigIntegerField()
 
-    @property
+    @ property
     def accounts(self):
         return (self.source, self.sink)
 
@@ -463,6 +466,7 @@ class TransactionNote(Generic[AccountT], models.Model):
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="%(class)ss")
     account: models.ForeignKey[AccountT]
+    account_id: int
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     note = models.CharField(max_length=100)
@@ -478,7 +482,7 @@ class CategoryNote(TransactionNote[Category]):
                                 related_name="notes")
 
 
-@dataclass
+@ dataclass
 class TransactionDebtPart:
     """Fake transaction part representing money owed"""
     transaction: Transaction
@@ -517,16 +521,17 @@ def entries_for_balance(account: Balance) -> Iterable[Transaction]:
                     source__currency=account.currency,
                     source__budget=account.other, sink__budget=account.budget)
             .values('transaction')
-            .values(sum=Sum('amount', default=0)))
+            .values(sum=Sum('amount')))
     has = (AccountPart.objects
            .filter(transaction=OuterRef('pk'),
                    source__currency=account.currency,
                    source__budget=account.other, sink__budget=account.budget)
            .values('transaction')
-           .values(sum=Sum('amount', default=0)))
+           .values(sum=Sum('amount')))
     qs = (Transaction.objects
           .filter_for(account.budget)
-          .annotate(change=Subquery(gets) - Subquery(has))
+          .annotate(change=Coalesce(Subquery(gets), 0)
+                    - Coalesce(Subquery(has), 0))
           .exclude(change=0)
           .order_by('date', '-kind'))
     total = 0
@@ -556,17 +561,18 @@ def accounts_overview(budget: Budget):
                     source__budget=OuterRef('pk'),
                     sink__budget=budget)
             .values('source__budget')
-            .values(sum=Sum('amount', default=0)))
+            .values(sum=Sum('amount')))
     has = (AccountPart.objects
            .filter(source__currency=OuterRef('currency'),
                    source__budget=OuterRef('pk'),
                    sink__budget=budget)
            .values('source__budget')
-           .values(sum=Sum('amount', default=0)))
+           .values(sum=Sum('amount')))
     debts = chain.from_iterable(
         Budget.objects
         .annotate(currency=Value(currency),
-                  balance=Subquery(gets) - Subquery(has))
+                  balance=Coalesce(Subquery(gets), 0)
+                  - Coalesce(Subquery(has), 0))
         .exclude(balance=0)
         for currency, in currencies)
     return (accounts, categories, debts)
