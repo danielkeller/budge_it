@@ -10,11 +10,10 @@ from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
 import cProfile
 
-from .models import (
-    entries_for_balance, entries_for,
-    accounts_overview, category_history,
-    sum_by, months_between,
-    BaseAccount, Account, Category, Budget, Transaction, Balance)
+from .models import (sum_by,
+                     BaseAccount, Account, Category, Budget, Transaction,
+                     accounts_overview, entries_for,
+                     Balance, entries_for_balance)
 from .forms import (TransactionForm, TransactionPartFormSet,
                     BudgetingFormSet, rename_form, BudgetForm,
                     ReorderingFormSet, AccountManagementFormSet,
@@ -48,7 +47,7 @@ def _get_allowed_budget_or_404(request: HttpRequest, budget_id: int):
 @login_required
 def overview(request: HttpRequest, budget_id: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
-    accounts, categories, debts = accounts_overview(budget_id)
+    accounts, categories, debts = accounts_overview(budget)
     totals = sum_by((category.currency, category.balance)
                     for category in categories)
     formset = ReorderingFormSet(queryset=categories)
@@ -77,7 +76,6 @@ def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: 
     other = get_object_or_404(Budget, id=budget_id_2)
     account = Balance(budget, other, currency)
     entries = entries_for_balance(account)
-    # print(account, list(entries))
     data = {'budget': budget.id}
     context = {'entries': entries, 'account': account,
                'form': None, 'data': data}
@@ -170,8 +168,8 @@ def edit(request: HttpRequest, budget_id: int,
     if transaction_id == None:
         transaction = None
     else:
-        transaction = get_object_or_404(Transaction, id=transaction_id)
-        if not transaction.visible_from(budget):
+        transaction = Transaction.objects.get_for(budget, transaction_id)
+        if not transaction:
             raise Http404()
 
     if request.method == 'POST':
@@ -213,6 +211,7 @@ def delete(request: HttpRequest, budget_id: int, transaction_id: int):
     transaction = get_object_or_404(Transaction, id=transaction_id)
     transaction.set_parts(budget, {}, {})
     return HttpResponseRedirect(request.GET.get('back', '/'))
+
 
 @login_required
 def history(request: HttpRequest, budget_id: int):

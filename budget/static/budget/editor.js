@@ -240,7 +240,7 @@ function setUpRows() {
 function addRow(event) {
     var tr = new_row_template.cloneNode(true);
     var [account, category, transferred, moved] = tr.children;
-    const n = rows.length - 1;
+    const n = rows.length;
     account.children[0].name = `tx-${n}-account`;
     category.children[0].name = `tx-${n}-category`;
     transferred.children[0].name = `tx-${n}-transferred_currency`;
@@ -251,7 +251,7 @@ function addRow(event) {
     setUpRow(tr);
     document.forms[0].elements["tx-TOTAL_FORMS"].value = rows.length;
     if (event) {
-        account.focus({ focusVisible: true });
+        rows[n].account.focus({ focusVisible: true });
     }
 }
 

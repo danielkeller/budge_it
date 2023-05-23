@@ -42,13 +42,13 @@
     <th class="t9">Description</th>
     <th class="t4">{{ account.currency }}</th>
     <th class="t4">Total</th>
-    {% for entry in entries %}
-    <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{entry.transaction.id}}" data-kind="{{entry.transaction.kind}}">
-        <td>{{entry.transaction.date}}</td>
-        <td>{{entry.transaction|transaction_description:account}}</td>
-        <td class="number shortcurrency" data-currency="{{ account.currency }}">{{entry.amount}}</td>
+    {% for transaction in entries %}
+    <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{transaction.id}}" data-kind="{{transaction.kind}}">
+        <td>{{transaction.date}}</td>
+        <td>{{transaction|transaction_description:account}}</td>
+        <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</td>
         <td>
-            {% if entry.transaction.kind != 'B' %}
+            {% if transaction.kind != 'B' %}
             <div class="detail-container">
                 <div class="transaction-detail">
                     <span class="line">──┐</span>
@@ -56,12 +56,16 @@
                         <th class="t9">Account</th>
                         <th class="t9">Category</th>
                         <th class="t4">Amount</th>
-                        {% for part in entry.transaction|tabular:account.budget %}
+                        <th class="t4">Account Note</th>
+                        <th class="t4">Category Note</th>
+                        {% for part in transaction.tabular %}
                         <tr class="{% cycle 'a' 'b' %}">
                             <td>{% account_in_budget part.account account.budget %}</td>
                             <td>{% account_in_budget part.category account.budget %}</td>
                             {% firstof part.account.currency part.category.currency as currency %}
                             <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{part.amount}}</td>
+                            <td>{{part.account_note}}</td>
+                            <td>{{part.category_note}}</td>
                         </tr>
                         {% endfor %}
                         {% resetcycle %}
@@ -69,7 +73,7 @@
                 </div>
             </div>
             {% endif %}
-            <div class="number shortcurrency" data-currency="{{ account.currency }}">{{entry.running_sum}}</div>
+            <div class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.running_sum}}</div>
         </td>
     </tr>
     {% endfor %}
