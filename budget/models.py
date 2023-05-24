@@ -242,7 +242,7 @@ class TransactionManager(models.Manager['Transaction']):
         'budget'."""
         accountparts = AccountPart.objects.filter_for(budget)
         categoryparts = CategoryPart.objects.filter_for(budget)
-        accountnotes = AccountNote.objects .filter(user=budget.owner())
+        accountnotes = AccountNote.objects.filter(user=budget.owner())
         categorynotes = CategoryNote.objects.filter(user=budget.owner())
         return self.prefetch_related(
             Prefetch('accountparts', queryset=accountparts),
@@ -473,6 +473,8 @@ class TransactionNote(Generic[AccountT], models.Model):
     account_id: int
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
+    balance: int  # Oh well
+
     note = models.CharField(max_length=100)
 
 
@@ -582,16 +584,27 @@ def accounts_overview(budget: Budget):
     return (accounts, categories, debts)
 
 
-# def category_history(budget_id: int):
-#     return (CategoryPart.objects
-#             .filter(to__budget_id=budget_id,
-#                     transaction__kind=Transaction.Kind.TRANSACTION)
-#             .values('to', month=Trunc(F('transaction__date'), 'month'))
-#             .annotate(total=Sum('amount')))
+def category_balance(budget: Budget, year: int, month: int):
+    start = date(year, month, 1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    # TODO: Show closed categories if you look before they were closed
+    before = (Category.objects
+              .filter(budget=budget, closed=False)
+              .annotate(balance=Sum('entries__amount',
+                                    filter=Q(entries__transaction__date__lt=start), default=0))
+              .order_by('order', 'group', 'name')
+              .select_related('budget'))
+    during = (Category.objects
+              .filter(budget=budget, closed=False,
+                      entries__transaction__kind=Transaction.Kind.TRANSACTION,
+                      entries__transaction__date__gte=start,
+                      entries__transaction__date__lt=end)
+              .annotate(balance=Sum('entries__amount', default=0)))
+    return (before, during)
 
 
-# def budgeting_transactions(budget_id: int):
-#     return (Transaction.objects
-#             .filter(kind=Transaction.Kind.BUDGETING,
-#                     category_parts__to__budget_id=budget_id)
-#             .distinct())
+def budgeting_transaction(budget: Budget, year: int, month: int):
+    return (Transaction.objects
+            .filter(kind=Transaction.Kind.BUDGETING, date=date(year, month, 1),
+                    categories__budget=budget)
+            .first())

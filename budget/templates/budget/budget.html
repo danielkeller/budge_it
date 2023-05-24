@@ -1,0 +1,48 @@
+{% load budget static %}
+
+<!DOCTYPE html>
+<link rel="stylesheet" href="{% static 'budget/style.css' %}">
+<script src="{% static 'budget/util.js' %}"></script>
+<script src="{% static 'budget/jdecimal.js' %}"></script>
+<script src="{% static 'budget/budget.js' %}"></script>
+<form id="form" method="post" action="{{ request.get_full_path }}">
+    <table id="table">
+        <tr>
+            <th>Category</th>
+            <th>Saved</th>
+            <th class="t4">Budgeted</th>
+            <th>Spent</th>
+            <th>Available</th>
+        </tr>
+        {% for row in rows %}
+        {% ifchanged row.category.group %}
+        <tr class="{% cycle 'a' 'b' as rowcolor %}">
+            <th>{{row.category.group|default:"&nbsp;"}}</th>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        {% endifchanged %}
+        <tr class="{% cycle rowcolor %}"
+            data-category="{{ row.category.id }}"
+            data-categorycurrency="{{ row.category.currency }}">
+            <td>{{ row.category.name|default:"Inbox" }}</td>
+            <td class="number" data-currency="{{ row.category.currency }}">
+                {{ row.category.balance }}
+            </td>
+            <td class="tdinput">{{ row.field }}<input class="number"></td>
+            <td class="number" data-currency="{{ row.category.currency }}">
+                {{ row.spent }}
+            </td>
+            <td class="number" data-value="{{ row.total }}"></td>
+        </tr>
+        {% endfor %}
+    </table>
+    <div>
+        {% csrf_token %}
+        <button>Save</button>
+    </div>
+</form>
+{{ data|json_script:"data" }}
+{{ form.errors|default:"" }}

@@ -1,21 +1,22 @@
+from dataclasses import dataclass
 from typing import Optional, Type, Any
-from datetime import date, timedelta
+from datetime import date
 
-from django.db.models import Min, Max
 from django.shortcuts import render
 from django.http import (HttpRequest, HttpResponseRedirect,
                          HttpResponseBadRequest, Http404)
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
+from django.forms import BoundField
 import cProfile
 
 from .models import (sum_by,
                      BaseAccount, Account, Category, Budget, Transaction,
-                     accounts_overview, entries_for,
-                     Balance, entries_for_balance)
+                     accounts_overview, entries_for, category_balance,
+                     Balance, entries_for_balance, budgeting_transaction)
 from .forms import (TransactionForm, TransactionPartFormSet,
-                    BudgetingFormSet, rename_form, BudgetForm,
+                    BudgetingForm, rename_form, BudgetForm,
                     ReorderingFormSet, AccountManagementFormSet,
                     CategoryManagementFormSet)
 
@@ -213,51 +214,39 @@ def delete(request: HttpRequest, budget_id: int, transaction_id: int):
     return HttpResponseRedirect(request.GET.get('back', '/'))
 
 
+@dataclass
+class BudgetRow:
+    category: Category
+    field: BoundField
+    spent: int
+
+    @property
+    def total(self):
+        return self.category.balance + self.spent
+
+
 @login_required
-def history(request: HttpRequest, budget_id: int):
+def budget(request: HttpRequest, budget_id: int, year: int, month: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
-
-    range = (Transaction.objects
-             .filter(categories__budget=budget)
-             .aggregate(Max('date'), Min('date')))
-    months = list(months_between(range['date__min'] or date.today(),
-                                 range['date__max'] or date.today()))
-
-    categories = budget.category_set.all()
-    currencies = categories.values_list('currency', flat=True).distinct()
+    currencies = budget.category_set.values_list('currency').distinct()
     # Make sure these are created before creating the form
-    inboxes = [budget.get_inbox(Category, currency)
-               for currency in currencies]
-
-    # Initial is supposed to be the same between GET and POST, so there is
-    # theoretically a race condition here if someone adds a transaction. I
-    # don't think it will do anything bad though.
+    inboxes = [budget.get_inbox(Category, currency).id
+               for currency, in currencies]
+    before, during = category_balance(budget, year, month)
+    spent = dict(during.values_list('id', 'balance'))
+    transaction = budgeting_transaction(budget, year, month)
     if request.method == 'POST':
-        formset = BudgetingFormSet(budget, dates=months, data=request.POST)
-        if formset.is_valid():
-            formset.save()
-            return HttpResponseRedirect(
-                request.GET.get('back', request.get_full_path()))
+        form = BudgetingForm(
+            budget=budget, instance=transaction, data=request.POST)
+        if form.is_valid():
+            with atomic():
+                form.save()
+            return HttpResponseRedirect(request.GET.get('back', '/'))
     else:
-        formset = BudgetingFormSet(budget, dates=months)
-
-    history = category_history(budget_id)
-
-    cells = {(entry['month'], entry['to']): entry['total']
-             for entry in history}
-    grid = [(category,
-             [(formset.forms_by_date[month][str(category.id)],
-               cells.get((month, category.id)))
-              for month in months])
-            for category in categories.order_by('name')]
-
-    prev_month = (months[0] - timedelta(days=1)).replace(day=1)
-    next_month = (months[-1] + timedelta(days=31)).replace(day=1)
-
-    data = {'prev_month': prev_month, 'next_month': next_month,
-            'currencies': dict(categories.values_list('id', 'currency')),
-            'inboxes': [str(inbox.id) for inbox in inboxes]}
-    context: 'dict[str, Any]'
-    context = {'budget_id': budget_id, 'formset': formset,
-               'months': months, 'grid': grid, 'data': data}
-    return render(request, 'budget/history.html', context)
+        form = BudgetingForm(budget=budget, instance=transaction)
+    rows = [BudgetRow(category, form[str(category.id)],
+                      spent.get(category.id, 0))
+            for category in before]
+    data = {'inboxes': inboxes}
+    context = {'rows': rows, 'form': form, 'budget': budget, 'data': data}
+    return render(request, 'budget/budget.html', context)

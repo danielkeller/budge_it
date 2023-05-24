@@ -111,8 +111,7 @@ TransactionPartFormSet = forms.formset_factory(
 class BudgetingForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = Transaction
-        fields = ('date',)
-    date = forms.DateField(widget=forms.HiddenInput())
+        fields = ()
 
     def __init__(self, *args: Any,
                  budget: Budget, instance: Optional[Transaction] = None, **kwargs: Any):
@@ -123,8 +122,8 @@ class BudgetingForm(forms.ModelForm):
                 required=False, widget=forms.HiddenInput(
                     attrs={'form': 'form'}))
         if instance:
-            for part in instance.category_parts.all():
-                self.initial[str(part.to_id)] = part.amount
+            for category, amount in instance.categoryparts.entries().items():
+                self.initial[str(category.id)] = amount
 
     def rows(self):
         for category in self.budget.category_set.order_by('name'):
@@ -147,33 +146,6 @@ class BudgetingForm(forms.ModelForm):
         for category in self.budget.category_set.all():
             categories[category] = self.cleaned_data[str(category.id)] or 0
         self.instance.set_parts(self.budget, {}, categories)
-
-
-class BaseBudgetingFormSet(forms.BaseModelFormSet):
-    forms_by_date: 'dict[date, BudgetingForm]'
-
-    def __init__(self, budget: Budget, *args: Any,
-                 dates: 'Iterable[date]' = [], **kwargs: Any):
-        queryset = budgeting_transactions(budget.id)
-        extras = set(dates) - {transaction.month for transaction in queryset}
-        initial = [{'date': date} for date in sorted(extras)]
-        self.extra = len(initial)
-        if len(initial) + len(queryset) > self.max_num:  # type: ignore
-            raise ValueError("Too many transactions")
-        super().__init__(*args, initial=initial, form_kwargs={'budget': budget},
-                         queryset=queryset, **kwargs)
-        self.forms_by_date = {
-            form.instance.month or form.initial.get('date'): form
-            for form in self.forms}
-
-    @transaction.atomic
-    def save(self, commit: bool = False):
-        super().save(commit)
-
-
-BudgetingFormSet: 'Type[BaseBudgetingFormSet]'
-BudgetingFormSet = forms.modelformset_factory(  # type: ignore
-    Transaction, BudgetingForm, formset=BaseBudgetingFormSet, extra=0)
 
 
 class TransactionForm(forms.ModelForm):
