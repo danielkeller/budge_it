@@ -5,6 +5,8 @@
 <script src="{% static 'budget/util.js' %}"></script>
 <script src="{% static 'budget/jdecimal.js' %}"></script>
 <script src="{% static 'budget/budget.js' %}"></script>
+
+<div><a href="{% url 'overview' budget.id %}">Overview</a></div>
 <form id="datepicker">
     <div class="datepicker">
         <div class="years">

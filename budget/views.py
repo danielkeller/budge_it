@@ -54,6 +54,7 @@ def overview(request: HttpRequest, budget_id: int):
                     for category in categories)
     formset = ReorderingFormSet(queryset=categories)
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
+               'today': date.today(),
                'totals': totals, 'formset': formset, 'budget': budget}
     return render(request, 'budget/overview.html', context)
 
