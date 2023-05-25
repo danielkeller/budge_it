@@ -42,7 +42,7 @@
     <th class="t4">{{ account.currency }}</th>
     <th class="t4">Total</th>
     {% for transaction in entries %}
-    <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{transaction.id}}" data-kind="{{transaction.kind}}">
+    <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{transaction.id}}">
         <td>{{transaction.date}}</td>
         <td>{{transaction|transaction_description:account}}</td>
         <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</td>

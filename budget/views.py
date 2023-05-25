@@ -8,10 +8,11 @@ from django.http import (HttpRequest, HttpResponseRedirect,
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
 from django.forms import BoundField
 import cProfile
 
-from .models import (sum_by,
+from .models import (sum_by, date_range, months_between,
                      BaseAccount, Account, Category, Budget, Transaction,
                      accounts_overview, entries_for, category_balance,
                      Balance, entries_for_balance, budgeting_transaction)
@@ -173,6 +174,11 @@ def edit(request: HttpRequest, budget_id: int,
         if not transaction:
             raise Http404()
 
+    if transaction and transaction.kind == Transaction.Kind.BUDGETING:
+        return HttpResponseRedirect(reverse(
+            'budget',
+            args=(budget_id, transaction.date.year, transaction.date.month)))
+
     if request.method == 'POST':
         form = TransactionForm(instance=transaction, data=request.POST)
         formset = TransactionPartFormSet(
@@ -228,25 +234,38 @@ class BudgetRow:
 @login_required
 def budget(request: HttpRequest, budget_id: int, year: int, month: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
+    try:
+        budget_date = date(year, month, 1)
+    except ValueError:
+        raise Http404()
+
+    min_date, max_date = date_range(budget)
+    years = range(min_date.year, max_date.year + 2)
+    months = months_between(date(year, 1, 1), date(year, 12, 31))
+
     currencies = budget.category_set.values_list('currency').distinct()
     # Make sure these are created before creating the form
     inboxes = [budget.get_inbox(Category, currency).id
                for currency, in currencies]
-    before, during = category_balance(budget, year, month)
+    before, during = category_balance(budget, budget_date)
     spent = dict(during.values_list('id', 'balance'))
-    transaction = budgeting_transaction(budget, year, month)
+    transaction = budgeting_transaction(budget, budget_date)
     if request.method == 'POST':
         form = BudgetingForm(
             budget=budget, instance=transaction, data=request.POST)
         if form.is_valid():
             with atomic():
                 form.save()
-            return HttpResponseRedirect(request.GET.get('back', '/'))
+            return HttpResponseRedirect(
+                request.GET.get('back', request.get_full_path()))
     else:
         form = BudgetingForm(budget=budget, instance=transaction)
     rows = [BudgetRow(category, form[str(category.id)],
                       spent.get(category.id, 0))
             for category in before]
     data = {'inboxes': inboxes}
-    context = {'rows': rows, 'form': form, 'budget': budget, 'data': data}
+    context = {'rows': rows, 'form': form, 'budget': budget,
+               'current_year': year, 'current_month': month,
+               'years': years, 'months': months,
+               'data': data}
     return render(request, 'budget/budget.html', context)

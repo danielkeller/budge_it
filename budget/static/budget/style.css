@@ -21,6 +21,8 @@ html {
     background-color: var(--canvas);
     --line-height: 1.5em;
     --td-border: 1px;
+    --line: #888;
+    --td-hpad: calc(var(--line-height) * 0.2);
     font-size: 14px;
     line-height: var(--line-height);
     font-family: Avenir, 'Avenir Next LT Pro', Montserrat, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
@@ -99,8 +101,7 @@ th {
     --td-line-height: calc(var(--line-height) - var(--td-border));
     line-height: var(--td-line-height);
     width: var(--cell-width);
-    --td-hpad: calc(var(--line-height) * 0.2);
-    border: var(--td-border) solid #888;
+    border: var(--td-border) solid var(--line);
     padding: 0 var(--td-hpad);
 }
 
@@ -213,4 +214,44 @@ form.edit {
 
 .tdinput .sigil+input {
     padding-left: calc(var(--td-hpad) + 2ch);
+}
+
+.datepicker {
+    width: max-content;
+    border: var(--td-border) solid var(--line);
+}
+
+.months,
+.years {
+    display: flex;
+}
+
+.years>input {
+    display: none;
+}
+
+.years {
+    gap: var(--td-border);
+    background-color: var(--line);
+}
+
+.years>label {
+    background-color: var(--canvas);
+}
+
+.years>:not(:checked)+label {
+    border-bottom: var(--td-border) solid var(--line);
+}
+
+.years>label,
+.months>a {
+    flex-grow: 1;
+    padding: 0 var(--td-hpad);
+    text-align: center;
+}
+
+.months>.current {
+    font-weight: bold;
+    text-decoration: inherit;
+    color: inherit;
 }

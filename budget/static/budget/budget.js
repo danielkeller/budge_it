@@ -36,10 +36,10 @@ class CurrencyInput {
 addEventListener("DOMContentLoaded", function () {
     formatCurrencies();
     window.data = JSON.parse(document.getElementById("data").textContent);
-    window.form = document.getElementById("form");
     window.tbody = document.getElementById("table").children[0];
     window.rows = {};
     tbody.addEventListener('input', update);
+    document.forms.datepicker.addEventListener('change', updateDatePicker);
 
     for (const tr of tbody.children) {
         const category = tr.dataset.category;
@@ -58,6 +58,19 @@ addEventListener("DOMContentLoaded", function () {
     }
     update();
 });
+
+function updateDatePicker() {
+    const year = document.forms.datepicker.year.value;
+    for (const link of document.querySelectorAll(".months>a")) {
+        const href = link.getAttribute('href').replace(/\d{4}/, year);
+        if (href === window.location.pathname) {
+            link.classList.add('current');
+        } else {
+            link.classList.remove('current');
+        }
+        link.setAttribute('href', href);
+    }
+}
 
 function update() {
     var sums = {};

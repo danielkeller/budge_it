@@ -56,12 +56,8 @@ function edit() {
     if (current) {
         const back = encodeURIComponent(
             window.location.pathname + window.location.hash);
-        if (current.dataset.kind === 'T') {
-            const id = current.dataset.id;
-            window.location.href = `/transaction/${data.budget}/${id}/?back=${back}`;
-        } else {
-            window.location.href = `/history/${data.budget}/?back=${back}`;
-        }
+        const id = current.dataset.id;
+        window.location.href = `/transaction/${data.budget}/${id}/?back=${back}`;
     }
 }
 

@@ -6,7 +6,8 @@ from dataclasses import dataclass
 import heapq
 
 from django.db import models,  transaction
-from django.db.models import (Q, F, Sum, Prefetch, Subquery, OuterRef, Value,
+from django.db.models import (Q, Prefetch, Subquery, OuterRef, Value,
+                              Min, Max, Sum,
                               prefetch_related_objects)
 from django.db.models.functions import Coalesce
 from django.urls import reverse
@@ -584,8 +585,7 @@ def accounts_overview(budget: Budget):
     return (accounts, categories, debts)
 
 
-def category_balance(budget: Budget, year: int, month: int):
-    start = date(year, month, 1)
+def category_balance(budget: Budget, start: date):
     end = (start + timedelta(days=31)).replace(day=1)
     # TODO: Show closed categories if you look before they were closed
     before = (Category.objects
@@ -603,8 +603,17 @@ def category_balance(budget: Budget, year: int, month: int):
     return (before, during)
 
 
-def budgeting_transaction(budget: Budget, year: int, month: int):
+def budgeting_transaction(budget: Budget, date: date):
     return (Transaction.objects
-            .filter(kind=Transaction.Kind.BUDGETING, date=date(year, month, 1),
+            .filter(kind=Transaction.Kind.BUDGETING, date=date,
                     categories__budget=budget)
             .first())
+
+
+def date_range(budget: Budget) -> tuple[date, date]:
+    range = (Transaction.objects
+             .filter(categories__budget=budget)
+             .aggregate(Max('date', default=date.today()),
+                        Min('date', default=date.today())))
+    return (min(range['date__min'], date.today()),
+            max(range['date__max'], date.today()))

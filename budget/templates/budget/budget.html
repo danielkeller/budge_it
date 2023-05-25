@@ -5,6 +5,25 @@
 <script src="{% static 'budget/util.js' %}"></script>
 <script src="{% static 'budget/jdecimal.js' %}"></script>
 <script src="{% static 'budget/budget.js' %}"></script>
+<form id="datepicker">
+    <div class="datepicker">
+        <div class="years">
+            {% for year in years %}
+            <input type="radio" name="year" id="year{{ year }}" value="{{ year }}"
+                {% if year == current_year %}checked{% endif %}>
+            <label for="year{{ year }}">{{ year }}</label>
+            {% endfor %}
+        </div>
+        <div class="months">
+            {% for month in months %}
+            <a href="{% url 'budget' budget.id month.year month.month %}"
+                {% if month.month == current_month %}class="current" {% endif %}>
+                {{ month|date:"M" }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</form>
 <form id="form" method="post" action="{{ request.get_full_path }}">
     <table id="table">
         <tr>
@@ -16,7 +35,7 @@
         </tr>
         {% for row in rows %}
         {% ifchanged row.category.group %}
-        <tr class="{% cycle 'a' 'b' as rowcolor %}">
+        <tr class=" {% cycle 'a' 'b' as rowcolor %}">
             <th>{{row.category.group|default:"&nbsp;"}}</th>
             <td></td>
             <td></td>
