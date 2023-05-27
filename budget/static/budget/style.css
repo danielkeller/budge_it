@@ -11,7 +11,7 @@
 
 @media (prefers-color-scheme: dark) {
     html {
-        --canvas: rgb(50, 50, 50);
+        --canvas: rgb(46, 42, 48);
         --alt-canvas: #1e4438;
     }
 }
@@ -242,6 +242,7 @@ form.edit {
 
 .years>:not(:checked)+label {
     border-bottom: var(--td-border) solid var(--line);
+    background-color: var(--alt-canvas);
 }
 
 .years>:focus-visible+label {
