@@ -34,11 +34,11 @@ class Debts(Generic[T]):
         if self.debts[sign(key)]:
             key = next(iter(self.debts[sign(key)].keys()))
             return key, self.pop(key)
-        elif self.debts[0]:
-            return 0, self.pop(0)
         elif self.debts[-sign(key)]:
             key = next(iter(self.debts[-sign(key)].keys()))
             return key, self.pop(key)
+        elif self.debts[0]:
+            return 0, self.pop(0)
         else:
             raise KeyError(key)
 
