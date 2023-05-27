@@ -6,7 +6,6 @@ addEventListener("DOMContentLoaded", function () {
     document.addEventListener("keydown", key);
     window.tbody = document.getElementById("table").children[0];
     document.addEventListener('focusin', updateHash);
-    document.addEventListener('focusout', updateHash);
     tbody.addEventListener('dblclick', edit);
     document.getElementById('new').addEventListener('click', create);
 
@@ -32,6 +31,8 @@ function key(event) {
         } else if (tbody.children.length >= 2) {
             tbody.children[tbody.children.length - 1].focus();
         }
+    } else if (event.key === "g") {
+        tbody.children[1].focus();
     } else if (event.key === "Enter" || event.key === "i") {
         edit();
     } else if (event.key === "o") {
@@ -43,11 +44,6 @@ function updateHash(event) {
     const current = currentRow();
     if (current) {
         history.replaceState(undefined, undefined, "#" + current.dataset.id);
-    } else if (!event.relatedTarget?.dataset.id) {
-        // When moving between rows, no row has :focus-within after focusout and
-        // before focusin. Instead use relatedTarget to see if the new target
-        // is another row.
-        history.replaceState(undefined, undefined, "#");
     }
 }
 
