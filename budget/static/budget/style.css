@@ -155,9 +155,15 @@ th {
     display: none;
 }
 
-.transaction-detail-table {
+.transaction-detail-table,
+.transaction-detail-edit {
     margin: 0 var(--line-height);
 }
+
+.transaction-detail-edit {
+    line-height: var(--line-height);
+}
+
 
 tr:focus-within .transaction-detail {
     display: initial;

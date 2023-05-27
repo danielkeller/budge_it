@@ -322,6 +322,13 @@ class Transaction(models.Model):
                 not CategoryPart.objects.filter(transaction=self).exists()):
             self.delete()
 
+    @dataclass
+    class Row:
+        account: Optional[Account]
+        category: Optional[Category]
+        amount: int
+        note: str
+
     def tabular(self):
         def pop_by_(parts: 'dict[AccountT, int]',
                     currency: str, amount: int):
@@ -345,18 +352,16 @@ class Transaction(models.Model):
         amounts = sorted((account.currency, amount)
                          for account, amount
                          in chain(accounts.items(), categories.items()))
-        rows: list[dict[str, Any]]
+        rows: list[Transaction.Row]
         rows = []
         for currency, amount in amounts:
             account = pop_by_(accounts, currency, amount)
             category = pop_by_(categories, currency, amount)
-            category_note = category_notes.get(category and category.id, '')
-            account_note = account_notes.get(account and account.id, '')
+            note = category_notes.get(category and category.id,
+                                      account_notes.get(account and account.id,
+                                                        ''))
             if account or category:
-                rows.append({'account': account, 'category': category,
-                             'amount': amount,
-                             'category_note': category_note,
-                             'account_note': account_note})
+                rows.append(Transaction.Row(account, category, amount, note))
         return rows
 
     def auto_description(self, in_account: BaseAccount | Balance):

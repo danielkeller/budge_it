@@ -47,31 +47,30 @@
         <td>{{transaction|transaction_description:account}}</td>
         <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</td>
         <td>
-            {% if transaction.kind != 'B' %}
             <div class="detail-container">
                 <div class="transaction-detail">
+                    {% if transaction.kind != 'B' %}
                     <span class="line">──┐</span>
                     <table class="transaction-detail-table">
-                        <th class="t9">Account</th>
-                        <th class="t9">Category</th>
+                        <th class="t6">Account</th>
+                        <th class="t6">Category</th>
                         <th class="t4">Amount</th>
-                        <th class="t4">Account Note</th>
-                        <th class="t4">Category Note</th>
+                        <th class="t4">Note</th>
                         {% for part in transaction.tabular %}
                         <tr class="{% cycle 'a' 'b' %}">
                             <td>{% account_in_budget part.account account.budget %}</td>
                             <td>{% account_in_budget part.category account.budget %}</td>
                             {% firstof part.account.currency part.category.currency as currency %}
                             <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{part.amount}}</td>
-                            <td>{{part.account_note}}</td>
-                            <td>{{part.category_note}}</td>
+                            <td>{{part.note}}</td>
                         </tr>
                         {% endfor %}
                         {% resetcycle %}
                     </table>
+                    {% endif %}
+                    <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}">Edit...</a></div>
                 </div>
             </div>
-            {% endif %}
             <div class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.running_sum}}</div>
         </td>
     </tr>
