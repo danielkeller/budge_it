@@ -227,7 +227,8 @@ form.edit {
 }
 
 .years>input {
-    display: none;
+    position: absolute;
+    left: -100px;
 }
 
 .years {
@@ -241,6 +242,14 @@ form.edit {
 
 .years>:not(:checked)+label {
     border-bottom: var(--td-border) solid var(--line);
+}
+
+.years>:focus-visible+label {
+    outline: 3px solid LinkText;
+    outline: 3px solid AccentColor;
+    border-radius: 2px;
+    position: relative;
+    z-index: 1;
 }
 
 .years>label,
