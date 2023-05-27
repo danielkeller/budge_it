@@ -201,6 +201,7 @@ class CurrencyInput {
     addEventListener(event, func) {
         this.#input.addEventListener(event, e => func({ target: this }));
     }
+    get disabled() { return this.#input.disabled; }
     set disabled(value) { this.#input.disabled = value; }
     set name(value) {
         this.#amount.name = value;
@@ -209,7 +210,7 @@ class CurrencyInput {
 }
 
 function setUpRow(tr) {
-    var [account, category, transferred, moved] =
+    var [account, category, transferred, moved, [note]] =
         Array.prototype.map.call(tr.children, n => n.children);
     account = new Selector(account, account_options, accountChanged);
     category = new Selector(category, category_options, categoryChanged);
@@ -221,11 +222,12 @@ function setUpRow(tr) {
     moved = new CurrencyInput(moved, category.value in data.categories);
     transferred.disabled = !account.value;
     moved.disabled = !category.value;
+    note.disabled = !account.value && !category.value;
     transferred.addEventListener('input', amountChanged);
     transferred.addEventListener('blur', suggestAmounts);
     moved.addEventListener('input', amountChanged);
     moved.addEventListener('blur', suggestAmounts);
-    const row = { account, category, moved, transferred };
+    const row = { account, category, moved, transferred, note };
     rows.push(row);
     return row;
 }
@@ -239,7 +241,7 @@ function setUpRows() {
 
 function addRow(event) {
     var tr = new_row_template.cloneNode(true);
-    var [account, category, transferred, moved] = tr.children;
+    var [account, category, transferred, moved, note] = tr.children;
     const n = rows.length;
     account.children[0].name = `tx-${n}-account`;
     category.children[0].name = `tx-${n}-category`;
@@ -247,6 +249,7 @@ function addRow(event) {
     transferred.children[1].name = `tx-${n}-transferred`;
     moved.children[0].name = `tx-${n}-moved_currency`;
     moved.children[1].name = `tx-${n}-moved`;
+    note.children[0].name = `tx-${n}-note`;
     tbody.insertBefore(tr, adder_row);
     setUpRow(tr);
     document.forms[0].elements["tx-TOTAL_FORMS"].value = rows.length;
@@ -266,7 +269,7 @@ function accountChanged({ target }) {
     //     }
     // }
 
-    var { category, transferred, moved } = rows[findRow(target)];
+    var { category, transferred, moved, note } = rows[findRow(target)];
     category.unsuggest();
     if (!ownAccount(target.value)) {
         if (target.value in data.budgets) category.suggest(target.value);
@@ -275,10 +278,13 @@ function accountChanged({ target }) {
 
     target.sigil = ownAccount(target.value);
 
-    moved.disabled = !category.value;
-
-    if (!target.value) transferred.clear();
     transferred.disabled = !target.value;
+    if (transferred.disabled) transferred.clear();
+    moved.disabled = !category.value;
+    if (moved.disabled) moved.clear();
+    note.disabled = !target.value && !category.value;
+    if (note.disabled) note.value = '';
+
     const currency = data.accounts[target.value];
     if (currency) transferred.currency = currency;
     transferred.currencyFixed = !!currency;
@@ -300,9 +306,12 @@ function categoryChanged({ target }) {
     // }
     target.sigil = ownAccount(target.value);
 
-    var { moved } = rows[findRow(target)];
-    if (!target.value) moved.clear();
+    var { account, moved, note } = rows[findRow(target)];
     moved.disabled = !target.value;
+    if (moved.disabled) moved.clear();
+    note.disabled = !account.value && !target.value;
+    if (note.disabled) note.value = '';
+
     const currency = data.categories[target.value];
     if (currency) moved.currency = currency;
     moved.currencyFixed = !!currency;

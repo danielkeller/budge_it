@@ -238,6 +238,8 @@ def double_entrify(in_budget: Budget, type: Type[AccountT],
 
 
 class TransactionManager(models.Manager['Transaction']):
+    # This could possibly be done with a proxy model, which would allow eg
+    # related managers to tell which budget we're looking through.
     def filter_for(self, budget: Budget):
         """Adjust and prefetch the parts of this transaction to ones visible to
         'budget'."""
@@ -276,8 +278,8 @@ class Transaction(models.Model):
                                         through_fields=('transaction', 'sink'))
     accountparts: 'PartManager[Account]'
     categoryparts: 'PartManager[Category]'
-    accountnotes: 'models.Manager[AccountNote]'
-    categorynotes: 'models.Manager[CategoryNote]'
+    accountnotes: 'NoteManager[Account]'
+    categorynotes: 'NoteManager[Category]'
 
     objects = TransactionManager()
 
@@ -390,6 +392,7 @@ class Transaction(models.Model):
 
 class PartManager(Generic[AccountT],
                   models.Manager['TransactionPart[AccountT]']):
+    # This could be a generic arg actually...
     instance: Transaction  # When used as a relatedmanager
 
     def filter_for(self, budget: Budget):
@@ -468,19 +471,36 @@ class CategoryPart(TransactionPart[Category]):
                              related_name="entries")
 
 
+class NoteManager(Generic[AccountT],
+                  models.Manager['TransactionNote[AccountT]']):
+    instance: Transaction  # When used as a relatedmanager
+
+    def set_notes(self, user_id: int, notes: dict[AccountT, str]):
+        # 'self' is already filtered for a user, we just can't see which one
+        # Does this call the database if the prefetch is empty?
+        self.all().delete()
+        updates = [self.model(account=account, note=note, user_id=user_id,
+                              transaction=self.instance)
+                   for account, note in notes.items()]
+        if updates:
+            self.bulk_create(
+                updates, update_conflicts=True,
+                update_fields=['note'],
+                unique_fields=[  # type: ignore
+                    'account_id', 'user_id', 'transaction_id'])
+
+
 class TransactionNote(Generic[AccountT], models.Model):
     class Meta:  # type: ignore
         abstract = True
         constraints = [models.UniqueConstraint(
             fields=["transaction", "account", "user"], name="m2m_%(class)s")]
+    objects = NoteManager[AccountT]()
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="%(class)ss")
     account: models.ForeignKey[AccountT]
     account_id: int
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-
-    balance: int  # Oh well
-
     note = models.CharField(max_length=100)
 
 

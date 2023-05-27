@@ -1,10 +1,9 @@
 from collections import defaultdict
-from typing import Any, Union, Mapping, Optional, Type, Iterable
+from typing import Any, Union, Mapping, Optional, Type
 from datetime import date
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from django.db import transaction
 from django.forms import ValidationError
 
 from .models import (Id, Budget, BaseAccount, Account, Category,
@@ -55,6 +54,21 @@ class TransactionPartForm(forms.Form):
         required=False, widget=forms.HiddenInput)
     moved_currency = forms.CharField(
         required=False, widget=forms.HiddenInput)
+    note = forms.CharField(required=False)
+
+    def __init__(self, *args: Any, initial: Optional[Transaction.Row] = None,
+                 **kwargs: Any):
+        values: dict[str, Any] = {}
+        if initial:
+            values = {'note': initial.note,
+                      'account': initial.account, 'category': initial.category}
+            if initial.account:
+                values['transferred'] = initial.amount
+                values['transferred_currency'] = initial.account.currency
+            if initial.category:
+                values['moved'] = initial.amount
+                values['moved_currency'] = initial.category.currency
+        super().__init__(*args, initial=values, **kwargs)
 
     def clean(self):
         data = self.cleaned_data
@@ -73,17 +87,7 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
     def __init__(self, budget: Budget, *args: Any,
                  instance: Transaction, **kwargs: Any):
         self.budget = budget
-        if instance:
-            initial = instance.tabular()
-            for row in initial:
-                if row['account']:
-                    row['transferred'] = row['amount']
-                    row['transferred_currency'] = row['account'].currency
-                if row['category']:
-                    row['moved'] = row['amount']
-                    row['moved_currency'] = row['category'].currency
-        else:
-            initial = None
+        initial = instance and instance.tabular()
         super().__init__(*args, initial=initial, **kwargs)
 
     def add_fields(self, form: TransactionPartForm, index: int):
@@ -92,16 +96,26 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
         form.fields['category'].user_id = self.budget.owner()
 
     def save(self, *, instance: Transaction):
+        # Make these one dict?
         accounts: dict[Account, int] = defaultdict(int)
         categories: dict[Category, int] = defaultdict(int)
+        account_notes: dict[Account, str] = {}
+        category_notes: dict[Category, str] = {}
         for form in self.forms:
-            account = form.cleaned_data.get('account')
-            if account and form.cleaned_data.get('transferred'):
-                accounts[account] += form.cleaned_data['transferred']
-            category = form.cleaned_data.get('category')
-            if category and form.cleaned_data.get('moved'):
-                categories[category] += form.cleaned_data['moved']
+            data: dict[str, Any] = form.cleaned_data
+            account = data.get('account')
+            if account and data.get('transferred'):
+                accounts[account] += data['transferred']
+            category = data.get('category')
+            if category and data.get('moved'):
+                categories[category] += data['moved']
+            if category and data.get('note'):
+                category_notes[category] = data['note']
+            elif account and data.get('note'):
+                account_notes[account] = data['note']
         instance.set_parts(self.budget, accounts, categories)
+        instance.accountnotes.set_notes(self.budget.owner(), account_notes)
+        instance.categorynotes.set_notes(self.budget.owner(), category_notes)
 
 
 TransactionPartFormSet = forms.formset_factory(
