@@ -114,8 +114,8 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
             elif account and data.get('note'):
                 account_notes[account] = data['note']
         instance.set_parts(self.budget, accounts, categories)
-        instance.accountnotes.set_notes(self.budget.owner(), account_notes)
-        instance.categorynotes.set_notes(self.budget.owner(), category_notes)
+        instance.accountnotes.set_notes(self.budget, account_notes)
+        instance.categorynotes.set_notes(self.budget, category_notes)
 
 
 TransactionPartFormSet = forms.formset_factory(

@@ -427,11 +427,7 @@ class PartManager(Generic[AccountT],
                         transaction=self.instance))
             for (source, sink), amount in parts.items() if amount)
         if updates:
-            self.bulk_create(
-                updates, update_conflicts=True,
-                update_fields=['amount'],
-                unique_fields=[  # type: ignore (???)
-                    'source_id', 'sink_id', 'transaction_id'])
+            self.bulk_create(updates)
 
 
 class TransactionPart(Generic[AccountT], models.Model):
@@ -475,19 +471,26 @@ class NoteManager(Generic[AccountT],
                   models.Manager['TransactionNote[AccountT]']):
     instance: Transaction  # When used as a relatedmanager
 
-    def set_notes(self, user_id: int, notes: dict[AccountT, str]):
+    def set_notes(self, budget: Budget, notes: dict[AccountT, str]):
         # 'self' is already filtered for a user, we just can't see which one
         # Does this call the database if the prefetch is empty?
         self.all().delete()
-        updates = [self.model(account=account, note=note, user_id=user_id,
+        updates = [self.model(account=account, user_id=budget.owner(),  note=note,
                               transaction=self.instance)
                    for account, note in notes.items()]
+        for account, note in notes.items():
+            other = account.budget.owner()
+            if other and other != budget.owner():
+                corresponding = budget.get_inbox(self.model.AccountType,
+                                                 account.currency)
+                # This will be dropped by ignore_conflicts if there is a note
+                # already
+                updates.append(self.model(account=corresponding, user_id=other,
+                                          transaction=self.instance,
+                                          note=note))
+
         if updates:
-            self.bulk_create(
-                updates, update_conflicts=True,
-                update_fields=['note'],
-                unique_fields=[  # type: ignore
-                    'account_id', 'user_id', 'transaction_id'])
+            self.bulk_create(updates, ignore_conflicts=True)
 
 
 class TransactionNote(Generic[AccountT], models.Model):
@@ -495,6 +498,7 @@ class TransactionNote(Generic[AccountT], models.Model):
         abstract = True
         constraints = [models.UniqueConstraint(
             fields=["transaction", "account", "user"], name="m2m_%(class)s")]
+    AccountType: Type[AccountT]
     objects = NoteManager[AccountT]()
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
                                     related_name="%(class)ss")
@@ -505,11 +509,13 @@ class TransactionNote(Generic[AccountT], models.Model):
 
 
 class AccountNote(TransactionNote[Account]):
+    AccountType = Account
     account = models.ForeignKey(Account, on_delete=models.PROTECT,
                                 related_name="notes")
 
 
 class CategoryNote(TransactionNote[Category]):
+    AccountType = Category
     account = models.ForeignKey(Category, on_delete=models.PROTECT,
                                 related_name="notes")
 
