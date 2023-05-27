@@ -401,13 +401,12 @@ class PartManager(Generic[AccountT],
             Q(source__name="") & (
                 Q(source__budget__budget_of_id=budget.owner())
                 | Q(source__budget__payee_of_id=budget.owner())
-                | Q(source__budget__friends=budget)))
+                | Q(source__budget__in=budget.friends.all())))
         sink_visible = Q(sink__budget=budget) | (
             Q(sink__name="") & (
                 Q(sink__budget__budget_of_id=budget.owner())
                 | Q(sink__budget__payee_of_id=budget.owner())
-                | Q(sink__budget__friends=budget)))
-        # no distinct?
+                | Q(sink__budget__in=budget.friends.all())))
         return (self.filter(source_visible, sink_visible)
                 .select_related('sink__budget'))
 
