@@ -1,4 +1,4 @@
-from typing import Optional, Iterable, TypeVar, Type, Union, Any, Self, Generic
+from typing import Optional, Iterable, TypeVar, Type, Union, Self, Generic
 import functools
 from itertools import chain
 from datetime import date, timedelta
@@ -61,12 +61,8 @@ class Budget(Id):
     def get_absolute_url(self):
         return reverse('overview', kwargs={'budget_id': self.id})
 
-    def get_inbox(self, cls: 'Type[AccountT]', currency: str
-                  ) -> 'AccountT':
-        return self.get_inbox_(cls, currency)
-
-    @functools.cache
-    def get_inbox_(self, cls: 'Type[AccountT]', currency: str) -> 'Any':
+    def get_inbox(self, cls: 'Type[AccountT]', currency: str) -> 'AccountT':
+        # Caching this doesn't work well with rollbacks
         return cls.objects.get_or_create(name="", budget=self,
                                          currency=currency)[0]
 
@@ -305,6 +301,7 @@ class Transaction(models.Model):
     def set_parts(self, in_budget: Budget,
                   accounts: dict[Account, int], categories: dict[Category, int]):
         """Set the contents of this transaction from the perspective of one budget. 'accounts' and 'categories' both must to sum to zero."""
+        # 'self' is already filtered for a user, we just can't see which one
         self.set_parts_raw(double_entrify(in_budget, Account, accounts),
                            double_entrify(in_budget, Category, categories))
 
