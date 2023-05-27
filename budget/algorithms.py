@@ -49,7 +49,8 @@ class Debts(Generic[T]):
                 raise ValueError("Amounts do not sum to zero")
             if -amount in self.debts[-sign(amount)]:
                 source = self.pop(-amount)
-                return {(source, sink): amount}
+                result[(source, sink)] = amount
+                return result
             other, source = self.pop_by_sign(-amount)
             if other:
                 edge = sign(amount) * min(abs(amount), abs(other))
