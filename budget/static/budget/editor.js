@@ -259,16 +259,6 @@ function addRow(event) {
 }
 
 function accountChanged({ target }) {
-    // Enforce uniqueness ?
-    // if (target.value) {
-    //     for (var { account } of rows) {
-    //         if (account !== target && account.value === target.value) {
-    //             account.value = "";
-    //             accountChanged({ target: account });
-    //         }
-    //     }
-    // }
-
     var { category, transferred, moved, note } = rows[findRow(target)];
     category.unsuggest();
     if (!ownAccount(target.value)) {
@@ -295,15 +285,6 @@ function accountChanged({ target }) {
 function categoryChanged({ target }) {
     target.accept();
 
-    // Enforce uniqueness ?
-    // if (target.value) {
-    //     for (var { category } of rows) {
-    //         if (category !== target && category.value === target.value) {
-    //             category.value = "";
-    //             categoryChanged({ target: category });
-    //         }
-    //     }
-    // }
     target.sigil = ownAccount(target.value);
 
     var { account, moved, note } = rows[findRow(target)];
@@ -368,8 +349,12 @@ function suggestSums() {
                 }
             }
         }
-        if (isFinite(category_total) && to_category.length === 1) {
-            result |= to_category[0].suggest(category_total ? -category_total : "");
+        if (isFinite(category_total) && to_category.length) {
+            const div = Math.floor(category_total / to_category.length);
+            const rem = category_total - div * (to_category.length - 1);
+            result |= to_category[0].suggest(-rem);
+            for (let i = 1; i < to_category.length; ++i)
+                result |= to_category[i].suggest(-div);
         }
         if (isFinite(account_total) && to_account.length === 1) {
             result |= to_account[0].suggest(account_total ? -account_total : "");
