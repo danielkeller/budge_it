@@ -351,10 +351,9 @@ function suggestSums() {
         }
         if (isFinite(category_total) && to_category.length) {
             const div = Math.floor(category_total / to_category.length);
-            const rem = category_total - div * (to_category.length - 1);
-            result |= to_category[0].suggest(-rem);
-            for (let i = 1; i < to_category.length; ++i)
-                result |= to_category[i].suggest(-div);
+            const rem = category_total - div * to_category.length;
+            for (let i = 0; i < to_category.length; ++i)
+                result |= to_category[i].suggest(-div - (i < rem));
         }
         if (isFinite(account_total) && to_account.length === 1) {
             result |= to_account[0].suggest(account_total ? -account_total : "");
