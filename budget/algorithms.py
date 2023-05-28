@@ -40,7 +40,7 @@ class Debts(Generic[T]):
         elif self.debts[0]:
             return 0, self.pop(0)
         else:
-            raise KeyError(key)
+            raise KeyError(key)  # pragma: no cover
 
     def combine_one(self, amount: int, sink: T) -> dict[tuple[T, T], int]:
         result: dict[tuple[T, T], int] = defaultdict(int)

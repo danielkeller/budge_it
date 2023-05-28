@@ -14,6 +14,30 @@ class ModelTests(TestCase):
             name="bar", budget_of=User.objects.create(username="bar"))
         self.bar.friends.add(self.foo)
 
+    def test_budget(self):
+        self.assertEqual(str(self.foo), "foo")
+        self.assertRegex(self.foo.get_absolute_url(), str(self.foo.id))
+        self.assertRegex(str(self.foo.budgetfriends_set.first()), "foo")
+        self.assertEqual(self.foo.main_budget(), self.foo)
+        self.assertEqual(self.payee.main_budget(), self.foo)
+        self.assertFalse(self.foo.view_permission(AnonymousUser()))
+        self.assertFalse(self.foo.view_permission(self.bar.budget_of))
+        self.assertTrue(self.foo.view_permission(self.foo.budget_of))
+        self.assertEqual(list(self.foo.visible_budgets()),
+                         [self.payee, self.bar])
+        disowned = Budget.objects.create(name="disowned")
+        disowned.friends.add(self.foo)
+        self.assertEqual(list(disowned.visible_budgets()), [self.foo])
+
+    def test_account(self):
+        self.assertRegex(self.category.get_absolute_url(),
+                         str(self.category.id))
+        self.assertRegex(str(self.category), "cat")
+        self.assertRegex(str(self.foo.get_inbox(Category, 'CHF')), "foo")
+        self.assertLess(self.category, self.foo.get_inbox(Category, 'CHF'))
+        self.assertEqual(self.category.kind(), 'category')
+        self.assertEqual(self.foo.get_inbox(Account, 'CHF').kind(), 'account')
+
     def test_simple_transaction(self):
         t = Transaction.objects.create(date=date(2023, 1, 1))
         payee = self.payee.get_inbox(Category, 'CHF')
@@ -24,11 +48,19 @@ class ModelTests(TestCase):
         self.assertEqual(t.parts()[0], {})
         self.assertEqual(t.parts()[1], {(self.category, payee): 10})
 
-    def test_wring_transaction(self):
+    def test_wrong_transaction(self):
         t = Transaction.objects.create(date=date(2023, 1, 1))
         payee = self.payee.get_inbox(Category, 'CHF')
         with self.assertRaises(Exception):
             t.set_parts(self.foo, {}, {self.category: -10, payee: 7})
+
+    def test_disconnected(self):
+        t = Transaction.objects.create(date=date(2023, 1, 1))
+        self.foo.friends.clear()
+        bar = self.bar.get_inbox(Category, 'CHF')
+        inbox = self.foo.get_inbox(Category, 'CHF')
+        with self.assertRaises(Exception):
+            t.set_parts(self.foo, {}, {inbox: -10, bar: 10})
 
     def test_split_transaction1(self):
         t = Transaction.objects.create(date=date(2023, 1, 1))
@@ -84,6 +116,15 @@ class ModelTests(TestCase):
                                         (self.category, foo): 10,
                                         (foo, bar): 20})
 
+    def test_get_for_none(self):
+        t = Transaction.objects.create(date=date(2023, 1, 1))
+        payee = self.payee.get_inbox(Category, 'CHF')
+        t.set_parts(self.foo, {}, {self.category: -10, payee: 10})
+        t_bar = Transaction.objects.get_for(self.bar, t.id)
+        self.assertIsNone(t_bar)
+        t_bar = Transaction.objects.get_for(self.bar, 1234)
+        self.assertIsNone(t_bar)
+
     def test_payees_via_inbox(self):
         t = Transaction.objects.create(date=date(2023, 1, 1))
         payee = self.payee.get_inbox(Category, 'CHF')
@@ -115,3 +156,65 @@ class ModelTests(TestCase):
         t.set_parts(self.foo, {}, {self.category: -10, payee: -5, payee2: 15})
         self.assertEqual(t.parts()[1], {(payee, self.category): 5,
                                         (self.category, payee2): 15})
+
+    def test_tabluar1(self):
+        t = Transaction.objects.create(date=date(2023, 1, 1))
+        payee = self.payee.get_inbox(Category, 'CHF')
+        out_account = self.foo.get_inbox(Account, 'CHF')
+        in_account = self.payee.get_inbox(Account, 'CHF')
+        t.set_parts(self.foo, {out_account: -10, in_account: 10},
+                    {self.category: -10, payee: 10})
+        self.assertEqual(t.tabular(), [
+            Transaction.Row(out_account, self.category, -10, ''),
+            Transaction.Row(in_account, payee, 10, '')])
+
+    def test_tabluar2(self):
+        t = Transaction.objects.create(date=date(2023, 1, 1))
+        payee = self.payee.get_inbox(Category, 'CHF')
+        out_account = self.foo.get_inbox(Account, 'CHF')
+        in_account = self.payee.get_inbox(Account, 'CHF')
+        t.set_parts(self.foo, {out_account: -10, in_account: 10},
+                    {self.category: -20, payee: 20})
+        self.assertEqual(t.tabular(), [
+            Transaction.Row(None, self.category, -20, ''),
+            Transaction.Row(out_account, None, -10, ''),
+            Transaction.Row(in_account, None, 10, ''),
+            Transaction.Row(None, payee, 20, '')])
+
+    def test_auto_description1(self):
+        t = Transaction.objects.create(date=date(2023, 1, 1))
+        payee = self.payee.get_inbox(Category, 'CHF')
+        bar = self.bar.get_inbox(Category, 'CHF')
+        t.set_parts(self.foo, {}, {self.category: -20, payee: 10, bar: 10})
+        self.assertRegex(t.auto_description(self.category), "payee")
+        self.assertRegex(t.auto_description(self.category), "bar")
+        self.assertNotRegex(t.auto_description(self.category), r"\.\.\.")
+        self.assertNotRegex(t.auto_description(self.category), "cat")
+
+    def test_auto_description2(self):
+        t = Transaction.objects.create(date=date(2023, 1, 1))
+        payee = self.payee.get_inbox(Category, 'CHF')
+        bar = self.bar.get_inbox(Category, 'CHF')
+        inbox = self.foo.get_inbox(Category, 'CHF')
+        t.set_parts(self.foo, {}, {self.category: -
+                    20, payee: 10, bar: 15, inbox: -5})
+        self.assertRegex(t.auto_description(self.category), "payee")
+        self.assertRegex(t.auto_description(self.category), "bar")
+        self.assertRegex(t.auto_description(self.category), r"\.\.\.")
+        self.assertNotRegex(t.auto_description(self.category), "Inbox")
+        self.assertNotRegex(t.auto_description(self.category), "cat")
+
+    def test_auto_description3(self):
+        t = Transaction.objects.create(date=date(2023, 1, 1))
+        payee = self.payee.get_inbox(Category, 'CHF')
+        bar = self.bar.get_inbox(Category, 'CHF')
+        t.set_parts(self.foo, {}, {self.category: -20, payee: 10, bar: 10})
+        account = Balance(self.foo, self.bar, 'CHF')
+        self.assertRegex(t.auto_description(account), "payee")
+        self.assertRegex(t.auto_description(account), "cat")
+        self.assertNotRegex(t.auto_description(account), "bar")
+        self.assertNotRegex(t.auto_description(account), "Inbox")
+
+
+class FormTests(TestCase):
+    pass  # todo

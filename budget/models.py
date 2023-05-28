@@ -116,8 +116,7 @@ class BaseAccount(Id):
     order = models.IntegerField(default=0)
     closed = models.BooleanField(default=False)
 
-    def kind(self) -> str:
-        return ''
+    def kind(self) -> str: ...  # pragma: no cover
 
     @functools.cache
     def get_absolute_url(self):
@@ -255,7 +254,7 @@ class TransactionManager(models.Manager['Transaction']):
             value = self.filter_for(budget).get(id=id)
         except self.model.DoesNotExist:
             return None
-        if not value.accountparts and not value.categoryparts:
+        if not value.accountparts.all() and not value.categoryparts.all():
             return None
         return value
 
@@ -373,14 +372,14 @@ class Transaction(models.Model):
         else:
             this_budget = in_account.other
         names = (
-            [account.name or "Inbox"
-             for account in chain(accounts, categories)
-             if account.budget.budget_of_id == in_account.budget.owner()
-             and account != in_account] +
             list({account.budget.name
                   for account in chain(accounts, categories)
                   if account.budget.budget_of_id != in_account.budget.owner()
                   and account.budget != this_budget})
+            + [account.name or "Inbox"
+               for account in chain(accounts, categories)
+               if account.budget.budget_of_id == in_account.budget.owner()
+               and account != in_account]
         )
         if len(names) > 2:
             names = names[:2] + ['...']
