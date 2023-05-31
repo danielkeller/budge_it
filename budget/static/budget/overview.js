@@ -21,6 +21,7 @@ addEventListener("DOMContentLoaded", function () {
         const element = findTarget(event.target);
         if (element) {
             event.preventDefault();
+            // TODO: This doesn't really work on 'tbody'
             element.classList.add('droppable');
             if (isCategory(dragging)) {
                 const group = findGroup(event.target);

@@ -59,7 +59,7 @@ button {
 }
 
 table {
-    border-collapse: collapse;
+    border-spacing: 1px;
 }
 
 .t4 {
@@ -101,7 +101,7 @@ th {
     --td-line-height: calc(var(--line-height) - var(--td-border));
     line-height: var(--td-line-height);
     width: var(--cell-width);
-    border: var(--td-border) solid var(--line);
+    outline: var(--td-border) solid var(--line);
     padding: 0 var(--td-hpad);
 }
 
@@ -115,9 +115,9 @@ th {
 
 .droppable {
     /* work around chrome bug */
-    border-bottom: 4px solid LinkText;
-    border-bottom: 4px solid AccentColor;
-    border-radius: 1px;
+    box-shadow: 0 2px 0 LinkText, inset 0 -1px 0 LinkText;
+    box-shadow: 0 2px 0 AccentColor, inset 0 -1px 0 AccentColor;
+    position: relative;
 }
 
 .groupname {
