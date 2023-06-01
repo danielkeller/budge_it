@@ -59,7 +59,7 @@ button {
 }
 
 table {
-    border-spacing: 1px;
+    border-collapse: collapse;
 }
 
 .t4 {
@@ -101,7 +101,7 @@ th {
     --td-line-height: calc(var(--line-height) - var(--td-border));
     line-height: var(--td-line-height);
     width: var(--cell-width);
-    outline: var(--td-border) solid var(--line);
+    border: var(--td-border) solid var(--line);
     padding: 0 var(--td-hpad);
 }
 
@@ -113,11 +113,17 @@ th {
     cursor: grabbing;
 }
 
-.droppable {
+tr.droppable,
+tbody.droppable>:last-child {
     /* work around chrome bug */
-    box-shadow: 0 2px 0 LinkText, inset 0 -1px 0 LinkText;
-    box-shadow: 0 2px 0 AccentColor, inset 0 -1px 0 AccentColor;
-    position: relative;
+    box-shadow: inset 0 -2px 0 LinkText;
+    box-shadow: inset 0 -2px 0 AccentColor;
+}
+
+.droppable+tr,
+.droppable+tbody>:first-child {
+    box-shadow: inset 0 2px 0 LinkText;
+    box-shadow: inset 0 2px 0 AccentColor;
 }
 
 .groupname {
