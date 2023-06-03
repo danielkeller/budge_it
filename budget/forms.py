@@ -184,15 +184,6 @@ class AccountForm(forms.ModelForm):
     name = forms.CharField()
 
 
-class NewAccountForm(forms.ModelForm):
-    class Meta:  # type: ignore
-        model = BaseAccount
-        fields = ('name', 'currency')
-    name = forms.CharField()
-    currency = forms.CharField(widget=forms.TextInput(
-        attrs={"placeholder": "Currency", "list": "currencies"}))
-
-
 def rename_form(*, instance: BaseAccount,
                 data: Union[Mapping[str, Any], None] = None
                 ) -> Optional[forms.ModelForm]:
@@ -200,8 +191,6 @@ def rename_form(*, instance: BaseAccount,
         return None
     elif instance.is_inbox():
         return BudgetForm(instance=instance.budget, data=data)
-    elif not instance.entries.exists():
-        return NewAccountForm(instance=instance, data=data)
     return AccountForm(instance=instance, data=data)
 
 
@@ -212,14 +201,28 @@ ReorderingFormSet = forms.modelformset_factory(
              'id_ptr': forms.HiddenInput},
     extra=0)
 
+
+class AccountManagementForm(forms.ModelForm):
+    def __init__(self, *args: Any, instance: BaseAccount, **kwargs: Any):
+        super().__init__(*args, instance=instance, **kwargs)
+        if instance.entries.exists():  # Optimize?
+            self.fields['currency'].disabled = True
+
+
 AccountManagementFormSet = forms.modelformset_factory(
     Account,
-    fields=('name', 'closed'),
-    widgets={'name': forms.TextInput(attrs={'required': True})},
+    form=AccountManagementForm,
+    fields=('name', 'currency', 'closed'),
+    widgets={'name': forms.TextInput(attrs={'required': True}),
+             'currency': forms.TextInput(attrs={"list": "currencies",
+                                                "size": 4})},
     extra=0)
 
 CategoryManagementFormSet = forms.modelformset_factory(
     Category,
-    fields=('name', 'closed'),
-    widgets={'name': forms.TextInput(attrs={'required': True})},
+    form=AccountManagementForm,
+    fields=('name', 'currency', 'closed'),
+    widgets={'name': forms.TextInput(attrs={'required': True}),
+             'currency': forms.TextInput(attrs={"list": "currencies",
+                                                "size": 4})},
     extra=0)

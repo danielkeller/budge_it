@@ -3,29 +3,57 @@
 <!DOCTYPE html>
 <link rel="stylesheet" href="{% static 'budget/style.css' %}">
 
+<div><a href="{% url 'overview' budget.id %}">Overview</a></div>
+
 <form id="form" method="post">
     <div>Budget name for others: {{ budget_form.name }}</div>
     <table>
         <tr>
             <th>Category</th>
+            <th>Currency</th>
             <th>Closed</th>
         </tr>
         {% for form in category_formset %}
+        {% ifchanged form.instance.group %}
         <tr>
+            <th class="groupname">
+                {{form.instance.group|default:"&nbsp;"}}
+            </th>
+            <th colspan="2"></th>
+        </tr>
+        {% endifchanged %}
+        <tr {% if request.GET.hl == form.instance.id|slugify %}class="hl" {% endif %}>
             <td class="tdinput">{{ form.name }}</td>
-            <td>{{ form.closed }}{{form.id_ptr}}</td>
+            <td class="tdinput">{{ form.currency }}</td>
+            <td>{{ form.closed }}{{form.id_ptr}}
+                {% if request.GET.hl == form.instance.id|slugify %}<span class="newaccount"></span>
+                {% endif %}
+            </td>
         </tr>
         {% endfor %}
         <tr>
+            <td><button form="newcategory">New Category</button></td>
+            <td colspan="2"></td>
+        </tr>
+        <tr>
             <th>Account</th>
+            <th>Currency</th>
             <th>Closed</th>
         </tr>
         {% for form in account_formset %}
-        <tr>
+        <tr {% if request.GET.hl == form.instance.id|slugify %}class="hl" {% endif %}>
             <td class="tdinput">{{ form.name }}</td>
-            <td>{{ form.closed }}{{form.id_ptr}}</td>
+            <td class="tdinput">{{ form.currency }}</td>
+            <td>{{ form.closed }}{{form.id_ptr}}
+                {% if request.GET.hl == form.instance.id|slugify %}<span class="newaccount"></span>
+                {% endif %}
+            </td>
         </tr>
         {% endfor %}
+        <tr>
+            <td><button form="newaccount">New Account</button></td>
+            <td colspan="2"></td>
+        </tr>
     </table>
     {{ category_formset.management_form }}
     {{ account_formset.management_form }}
@@ -38,3 +66,19 @@
     {{ account_formset.errors|default:"" }}
     {{ account_formset.non_form_errors }}
 </div>
+<form method="post" action="{% url 'new_category' budget.id %}" id="newcategory">
+    {% csrf_token %}
+</form>
+<form method="post" action="{% url 'new_account' budget.id %}" id="newaccount">
+    {% csrf_token %}
+</form>
+<datalist id="currencies">
+    <option value="USD">
+    <option value="EUR">
+    <option value="JPY">
+    <option value="GBP">
+    <option value="AUD">
+    <option value="CHF">
+    <option value="CNH">
+    <option value="INR">
+</datalist>

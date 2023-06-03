@@ -6,6 +6,9 @@
     html {
         --canvas: rgb(246, 246, 246);
         --alt-canvas: #e0f0eb;
+        --line: #888;
+        --field-highlight: rgb(255, 254, 239);
+        --canvas-highlight: rgb(255, 249, 173);
     }
 }
 
@@ -13,6 +16,9 @@
     html {
         --canvas: rgb(46, 42, 48);
         --alt-canvas: #1e4438;
+        --line: #888;
+        --field-highlight: rgb(60, 56, 0);
+        --canvas-highlight: rgb(96, 89, 0);
     }
 }
 
@@ -21,7 +27,6 @@ html {
     background-color: var(--canvas);
     --line-height: 1.5em;
     --td-border: 1px;
-    --line: #888;
     --td-hpad: calc(var(--line-height) * 0.2);
     font-size: 14px;
     line-height: var(--line-height);
@@ -276,4 +281,23 @@ form.edit {
     font-weight: bold;
     text-decoration: inherit;
     color: inherit;
+}
+
+.hl {
+    background-color: var(--canvas-highlight);
+
+}
+
+.hl>.tdinput {
+    background-color: var(--field-highlight);
+}
+
+.newaccount {
+    float: right;
+}
+
+.newaccount::before {
+    content: '←';
+    position: absolute;
+    margin-left: calc(var(--td-hpad) + var(--td-border));
 }

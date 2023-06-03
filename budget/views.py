@@ -131,14 +131,14 @@ def manage_accounts(request: HttpRequest, budget_id: int):
             category_formset.save()
             account_formset.save()
             budget_form.save()
-            return HttpResponseRedirect(budget.get_absolute_url())
+            return HttpResponseRedirect(request.get_full_path())
     else:
         budget_form = BudgetForm(instance=budget, prefix="budget")
         category_formset = CategoryManagementFormSet(
             queryset=categories, prefix="category")
         account_formset = AccountManagementFormSet(
             queryset=accounts, prefix="accounts")
-    context = {'budget_form': budget_form,
+    context = {'budget': budget, 'budget_form': budget_form,
                'category_formset': category_formset,
                'account_formset': account_formset}
     return render(request, 'budget/manage.html', context)
@@ -150,7 +150,8 @@ def new_account(request: HttpRequest, budget_id: int):
     if request.method != 'POST':
         return HttpResponseBadRequest('Wrong method')
     account = Account.objects.create(budget_id=budget_id, name="New Account")
-    return HttpResponseRedirect(account.get_absolute_url())
+    return HttpResponseRedirect(
+        f"{reverse('manage', args=(budget_id,))}?hl={account.id}")
 
 
 @login_required
@@ -160,7 +161,8 @@ def new_category(request: HttpRequest, budget_id: int):
         return HttpResponseBadRequest('Wrong method')
     category = Category.objects.create(
         budget_id=budget_id, name="New Category")
-    return HttpResponseRedirect(category.get_absolute_url())
+    return HttpResponseRedirect(
+        f"{reverse('manage', args=(budget_id,))}?hl={category.id}")
 
 
 @login_required

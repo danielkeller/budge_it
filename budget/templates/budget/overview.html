@@ -6,7 +6,7 @@
 <script src="{% static 'budget/overview.js' %}"></script>
 
 <div>
-    <a href="{% url 'manage' budget.id %}">Manage</a><br>
+    <a href="{% url 'manage' budget.id %}">Edit accounts and categories</a><br>
     <a href="{% url 'budget' budget.id today.year today.month %}">Budget</a>
 </div>
 
@@ -39,14 +39,6 @@
         <td class="number" data-currency="{{ currency }}">{{ total }}</td>
     </tr>
     {% endfor %}
-    <tr class="{% cycle rowcolor %}">
-        <td>
-            <form method="post" action="{% url 'new_category' budget.id %}">
-                <button>New Category</button>{% csrf_token %}
-            </form>
-        </td>
-        <td></td>
-    </tr>
 </table>
 <template id="new-group-t">
     <tr id="new-group">
@@ -74,12 +66,4 @@
         <td class="number" data-currency="{{ currency }}">{{ total }}</td>
     </tr>
     {% endfor %}
-    <tr class="{% cycle rowcolor %}">
-        <td>
-            <form method="post" action="{% url 'new_account' budget.id %}">
-                <button>New Account</button>{% csrf_token %}
-            </form>
-        </td>
-        <td></td>
-    </tr>
 </table>
