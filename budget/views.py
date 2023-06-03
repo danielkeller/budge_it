@@ -131,7 +131,7 @@ def manage_accounts(request: HttpRequest, budget_id: int):
             category_formset.save()
             account_formset.save()
             budget_form.save()
-            return HttpResponseRedirect(request.get_full_path())
+            return HttpResponseRedirect(budget.get_absolute_url())
     else:
         budget_form = BudgetForm(instance=budget, prefix="budget")
         category_formset = CategoryManagementFormSet(
