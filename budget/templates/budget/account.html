@@ -68,7 +68,7 @@
                         {% resetcycle %}
                     </table>
                     {% endif %}
-                    <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}">Edit...</a></div>
+                    <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">Edit...</a></div>
                 </div>
             </div>
             <div class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.running_sum}}</div>
