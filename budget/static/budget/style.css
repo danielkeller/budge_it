@@ -147,6 +147,13 @@ tbody.droppable>:last-child {
     cursor: grabbing;
 }
 
+.longtext {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: var(--cell-width);
+}
+
 .detail-container {
     /* Start in the upper right corner of the cell's contents */
     float: right;

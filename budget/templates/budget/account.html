@@ -34,14 +34,14 @@
 <div><button type="button" id="new">Add transaction</button></div>
 {% spaceless %}
 <table id="table">
-    <th class="t6">Date</th>
-    <th class="t9">Description</th>
+    <th>Date</th>
+    <th class="t9">Transaction</th>
     <th class="t4">{{ account.currency }}</th>
     <th class="t4">Total</th>
     {% for transaction in entries %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}" tabindex="0" data-id="{{transaction.id}}">
         <td>{{transaction.date|date:"SHORT_DATE_FORMAT"}}</td>
-        <td>{{transaction|transaction_description:account}}</td>
+        <td class="t9 longtext">{{transaction|transaction_description:account}}</td>
         <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</td>
         <td>
             <div class="detail-container">

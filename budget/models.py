@@ -381,8 +381,6 @@ class Transaction(models.Model):
                if account.budget.budget_of_id == in_account.budget.owner()
                and account != in_account]
         )
-        if len(names) > 2:
-            names = names[:2] + ['...']
         return ", ".join(names)
 
 
