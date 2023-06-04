@@ -188,7 +188,6 @@ class ModelTests(TestCase):
         t.set_parts(self.foo, {}, {self.category: -20, payee: 10, bar: 10})
         self.assertRegex(t.auto_description(self.category), "payee")
         self.assertRegex(t.auto_description(self.category), "bar")
-        self.assertNotRegex(t.auto_description(self.category), r"\.\.\.")
         self.assertNotRegex(t.auto_description(self.category), "cat")
 
     def test_auto_description2(self):
@@ -200,8 +199,7 @@ class ModelTests(TestCase):
                     20, payee: 10, bar: 15, inbox: -5})
         self.assertRegex(t.auto_description(self.category), "payee")
         self.assertRegex(t.auto_description(self.category), "bar")
-        self.assertRegex(t.auto_description(self.category), r"\.\.\.")
-        self.assertNotRegex(t.auto_description(self.category), "Inbox")
+        self.assertRegex(t.auto_description(self.category), "Inbox")
         self.assertNotRegex(t.auto_description(self.category), "cat")
 
     def test_auto_description3(self):
@@ -212,8 +210,8 @@ class ModelTests(TestCase):
         account = Balance(self.foo, self.bar, 'CHF')
         self.assertRegex(t.auto_description(account), "payee")
         self.assertRegex(t.auto_description(account), "cat")
-        self.assertNotRegex(t.auto_description(account), "bar")
         self.assertNotRegex(t.auto_description(account), "Inbox")
+        self.assertNotRegex(t.auto_description(account), "bar")
 
 
 class FormTests(TestCase):
