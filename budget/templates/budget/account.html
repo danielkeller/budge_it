@@ -18,7 +18,7 @@
     <script src="{% static 'budget/account.js' %}"></script>
 </head>
 
-<div><a href="{% url 'overview' account.budget.id %}">Overview</a></div>
+<div><a href="{% url 'overview' account.budget.main_budget.id %}">Overview</a></div>
 
 <div>
     {% if form %}
