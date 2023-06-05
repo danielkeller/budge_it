@@ -39,11 +39,21 @@ def index(request: HttpRequest):
     return HttpResponseRedirect(request.user.budget.get_absolute_url())
 
 
-def _get_allowed_budget_or_404(request: HttpRequest, budget_id: int):
-    budget = get_object_or_404(Budget, id=budget_id)
+def _get_allowed_budget_or_404(request: HttpRequest, id: int):
+    budget = get_object_or_404(Budget, id=id)
     if not budget.view_permission(request.user):
         raise Http404()
     return budget
+
+
+def _get_allowed_account_or_404(request: HttpRequest, id: int):
+    try:
+        account = BaseAccount.get(id)
+    except BaseAccount.DoesNotExist:
+        raise Http404()
+    if not account.budget.view_permission(request.user):
+        raise Http404()
+    return account
 
 
 @login_required
@@ -76,6 +86,7 @@ def reorder(request: HttpRequest, budget_id: int):
 @login_required
 def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: int):
     budget = _get_allowed_budget_or_404(request, budget_id_1)
+    # FIXME: This leaks the existence of budget ids
     other = get_object_or_404(Budget, id=budget_id_2)
     account = Balance(budget, other, currency)
     entries = entries_for_balance(account)
@@ -88,29 +99,27 @@ def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: 
 # @profileit
 @login_required
 def account(request: HttpRequest, account_id: int):
-    return _base_account(request, Account, account_id)
-
-
-@login_required
-def category(request: HttpRequest, category_id: int):
-    return _base_account(request, Category, category_id)
-
-
-def _base_account(request: HttpRequest, type: Type[BaseAccount], id: int):
-    account = get_object_or_404(type, id=id)
-    budget = account.budget
-    if not budget.view_permission(request.user):
-        raise Http404()
+    account = _get_allowed_account_or_404(request, account_id)
     if request.method == 'POST':
         form = rename_form(instance=account, data=request.POST)
         if form and form.is_valid():
             form.save()
         return HttpResponseRedirect(request.get_full_path())
     form = rename_form(instance=account)
-    data = {'budget': budget.id}
+    data = {'budget': account.budget_id}
     context = {'entries': entries_for(account), 'account': account,
                'form': form, 'data': data}
     return render(request, 'budget/account.html', context)
+
+
+@login_required
+def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
+    account = _get_allowed_account_or_404(request, account_id)
+    transaction = Transaction.objects.get_for(account.budget, transaction_id)
+    if not transaction:
+        raise Http404()
+    transaction.change_inbox_to(account)
+    return HttpResponseRedirect(f"{account.get_absolute_url()}#{transaction.id}")
 
 
 def manage_accounts(request: HttpRequest, budget_id: int):

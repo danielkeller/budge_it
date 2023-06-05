@@ -105,6 +105,7 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
             data: dict[str, Any] = form.cleaned_data
             account = data.get('account')
             if account and data.get('transferred'):
+                # Leave it a list of tuples and do later?
                 accounts[account] += data['transferred']
             category = data.get('category')
             if category and data.get('moved'):
