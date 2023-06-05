@@ -1,0 +1,40 @@
+{% load budget static %}
+
+<!DOCTYPE html>
+
+<head>
+    <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+    <script src="{% static 'budget/jdecimal.js' %}"></script>
+    <script src="{% static 'budget/util.js' %}"></script>
+    <script src="{% static 'budget/onthego.js' %}"></script>
+</head>
+
+<div><a href="{% url 'overview' budget.main_budget.id %}">Overview</a></div>
+<form action="" method="post">
+    <table id="table">
+        <tr>
+            <th>Amount</th>
+            <td class="tdinput">{{ form.amount }}<input class="number" required></td>
+        </tr>
+        <tr>
+            <th>Note</th>
+            <td class="tdinput">{{ form.note }}</td>
+        </tr>
+        <tr>
+            <th>Currency</th>
+            <td class="tdinput">{{ form.currency }}</td>
+        </tr>
+    </table>
+    {% csrf_token %}
+    <div><button>Add Transaction</button></div>
+</form>
+<datalist id="payee-list">
+    {% for id, name in payees %}
+    <option data-id="{{ id }}" value="{{ name }}"></option>
+    {% endfor %}
+</datalist>
+<datalist id="currencies">
+    {% for currency in currencies %}
+    <option value="{{ currency }}"></option>
+    {% endfor %}
+</datalist>

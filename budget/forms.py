@@ -12,16 +12,16 @@ from .models import (Id, Budget, BaseAccount, Account, Category,
 
 class AccountChoiceField(forms.Field):
     user_id: int
-    type: Type[BaseAccount]
+    type: Type[Id]
 
-    def __init__(self, *, type: Type[BaseAccount], **kwargs: Any):
+    def __init__(self, *, type: Type[Id], **kwargs: Any):
         self.type = type
         super().__init__(**kwargs, widget=forms.HiddenInput)
 
     def prepare_value(self, value: Any):
         if isinstance(value, str):
             return value
-        if isinstance(value, self.type) and value.is_inbox():
+        if isinstance(value, BaseAccount) and value.is_inbox():
             return value.budget_id
         return value and value.id
 
@@ -227,3 +227,43 @@ CategoryManagementFormSet = forms.modelformset_factory(
              'currency': forms.TextInput(attrs={"list": "currencies",
                                                 "size": 4})},
     extra=0)
+
+
+class OnTheGoForm(forms.Form):
+    budget: Budget
+    amount = forms.IntegerField(widget=forms.HiddenInput)
+    note = forms.CharField(required=False)
+    currency = forms.CharField(widget=forms.TextInput(
+        attrs={"list": "currencies"}))
+
+    def __init__(self, *args: Any, budget: Budget, **kwargs: Any):
+        self.budget = budget
+        if budget.initial_currency:
+            currency = budget.initial_currency
+        else:
+            category = budget.category_set.first()
+            if category:
+                currency = category.currency
+            else:
+                currency = 'CHF'
+        initial = {'currency': currency}
+        super().__init__(*args, initial=initial, **kwargs)
+
+    def save(self):
+        transaction = Transaction(date=date.today())
+        transaction.save()
+        currency = self.cleaned_data['currency']
+        self.budget.initial_currency = currency
+        self.budget.save()
+        amount = self.cleaned_data['amount']
+        payee = Budget.objects.get_or_create(
+            name="Payee", payee_of_id=self.budget.owner())[0]
+        accounts = {self.budget.get_inbox(Account, currency): -amount,
+                    payee.get_inbox(Account, currency): amount}
+        categories = {self.budget.get_inbox(Category, currency): -amount,
+                      payee.get_inbox(Category, currency): amount}
+        transaction.set_parts(self.budget, accounts, categories)
+        if self.cleaned_data['note']:
+            notes = {self.budget.get_inbox(Category, currency):
+                     self.cleaned_data['note']}
+            transaction.categorynotes.set_notes(self.budget, notes)

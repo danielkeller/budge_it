@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Type, Any
+from typing import Optional, Any
 from datetime import date
 
 from django.shortcuts import render
@@ -18,6 +18,7 @@ from .models import (sum_by, date_range, months_between,
                      Balance, entries_for_balance, budgeting_transaction)
 from .forms import (TransactionForm, TransactionPartFormSet,
                     BudgetingForm, rename_form, BudgetForm,
+                    OnTheGoForm,
                     ReorderingFormSet, AccountManagementFormSet,
                     CategoryManagementFormSet)
 
@@ -81,6 +82,26 @@ def reorder(request: HttpRequest, budget_id: int):
     else:
         raise ValueError(formset.errors())
     return HttpResponseRedirect(budget.get_absolute_url())
+
+
+@login_required
+def onthego(request: HttpRequest, budget_id: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    if request.method == 'POST':
+        form = OnTheGoForm(budget=budget, data=request.POST)
+        if form.is_valid():
+            with atomic():
+                form.save()
+            return HttpResponseRedirect(request.get_full_path())
+        else:
+            raise ValueError(form.errors)
+    else:
+        form = OnTheGoForm(budget=budget)
+    currencies = (budget.category_set
+                  .values_list('currency', flat=True).distinct())
+    context = {'budget': budget, 'currencies': currencies,
+               'form': form}
+    return render(request, 'budget/onthego.html', context)
 
 
 @login_required

@@ -8,6 +8,7 @@ urlpatterns = [
     path('overview/<int:budget_id>/', views.overview, name='overview'),
     path('reorder/<int:budget_id>/', views.reorder, name='reorder'),
     path('manage/<int:budget_id>/', views.manage_accounts, name='manage'),
+    path('otg/<int:budget_id>/', views.onthego, name='otg'),
     path('account/<int:account_id>/', views.account, name='account'),
     path('account/<int:account_id>/add/<int:transaction_id>/',
          views.add_to_account, name='add_to_account'),

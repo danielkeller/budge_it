@@ -56,6 +56,8 @@ class Budget(Id):
     friends = models.ManyToManyField(
         'self', through='BudgetFriends', blank=True)
 
+    initial_currency = models.CharField(max_length=5, blank=True)
+
     def __str__(self):
         return self.name
 
