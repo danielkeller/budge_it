@@ -402,6 +402,9 @@ class Transaction(models.Model):
     def auto_description(self, in_account: BaseAccount | Balance):
         if self.kind == self.Kind.BUDGETING:
             return "Budget"
+        notes = [*self.accountnotes.all(), *self.categorynotes.all()]
+        if len(notes) == 1:
+            return notes[0].note
         accounts = self.accountparts.entries()
         categories = self.categoryparts.entries()
         if isinstance(in_account, BaseAccount):
