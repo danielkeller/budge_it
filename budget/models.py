@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Optional, Iterable, TypeVar, Type, Union, Self, Generic
 import functools
 from itertools import chain
@@ -5,8 +6,9 @@ from datetime import date, timedelta
 from dataclasses import dataclass
 import heapq
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models,  transaction
-from django.db.models import (Q, Prefetch, Subquery, OuterRef, Value,
+from django.db.models import (Q, F, Prefetch, Subquery, OuterRef, Value,
                               Min, Max, Sum,
                               prefetch_related_objects)
 from django.db.models.functions import Coalesce
@@ -53,6 +55,8 @@ class Budget(Id):
     friends: 'models.ManyToManyField[Budget, BudgetFriends]'
     friends = models.ManyToManyField(
         'self', through='BudgetFriends', blank=True)
+
+    initial_currency = models.CharField(max_length=5, blank=True)
 
     def __str__(self):
         return self.name
@@ -117,10 +121,24 @@ class BaseAccount(Id):
     closed = models.BooleanField(default=False)
 
     def kind(self) -> str: ...  # pragma: no cover
+    def kind_name(self) -> str: ...  # pragma: no cover
+
+    class DoesNotExist(ObjectDoesNotExist):
+        pass
+
+    @staticmethod
+    def get(id: int):
+        try:
+            return Account.objects.get(id=id)
+        except Account.DoesNotExist:
+            try:
+                return Category.objects.get(id=id)
+            except Category.DoesNotExist:
+                raise BaseAccount.DoesNotExist()
 
     @functools.cache
     def get_absolute_url(self):
-        return reverse(self.kind(), kwargs={self.kind() + '_id': self.id})
+        return reverse('account', kwargs={'account_id': self.id})
 
     def is_inbox(self):
         return self.name == ""
@@ -148,6 +166,9 @@ class Account(BaseAccount):
     def kind(self):
         return 'account'
 
+    def kind_name(self):
+        return 'Account'
+
 
 class Category(BaseAccount):
     """Categories describe the conceptual ownership of money."""
@@ -160,6 +181,9 @@ class Category(BaseAccount):
 
     def kind(self):
         return 'category'
+
+    def kind_name(self):
+        return 'Category'
 
 
 @dataclass
@@ -320,6 +344,19 @@ class Transaction(models.Model):
                 not CategoryPart.objects.filter(transaction=self).exists()):
             self.delete()
 
+    def change_inbox_to(self, account: Account | Category):
+        accounts, categories = self.entries()
+        if isinstance(account, Account):
+            inbox = account.budget.get_inbox(Account, account.currency)
+            account_value = accounts.pop(inbox, 0) + accounts.pop(account, 0)
+            accounts[account] = account_value
+        else:
+            inbox = account.budget.get_inbox(Category, account.currency)
+            account_value = (categories.pop(inbox, 0)
+                             + categories.pop(account, 0))
+            categories[account] = account_value
+        self.set_parts(account.budget, accounts, categories)
+
     @dataclass
     class Row:
         account: Optional[Account]
@@ -365,6 +402,9 @@ class Transaction(models.Model):
     def auto_description(self, in_account: BaseAccount | Balance):
         if self.kind == self.Kind.BUDGETING:
             return "Budget"
+        notes = [*self.accountnotes.all(), *self.categorynotes.all()]
+        if len(notes) == 1:
+            return notes[0].note
         accounts = self.accountparts.entries()
         categories = self.categoryparts.entries()
         if isinstance(in_account, BaseAccount):
@@ -529,18 +569,26 @@ def months_between(start: date, end: date):
 
 def entries_for(account: BaseAccount) -> Iterable[Transaction]:
     if isinstance(account, Account):  # gross
-        filter, amount = 'accounts', 'accountparts__amount'
+        field, amount = 'accounts', 'accountparts__amount'
     else:
-        filter, amount = 'categories', 'categoryparts__amount'
+        field, amount = 'categories', 'categoryparts__amount'
 
+    if not account.is_inbox():
+        inbox = account.budget.get_inbox(type(account), account.currency).id
+    else:
+        inbox = None
     qs = (Transaction.objects
-          .filter_for(account.budget).filter(**{filter: account})
-          .annotate(change=Sum(amount)).exclude(change=0)
+          .filter_for(account.budget)
+          .filter(Q(**{field: account}) | Q(**{field: inbox}))
+          .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
           .order_by('date', '-kind'))
     total = 0
     for transaction in qs:
-        total += getattr(transaction, 'change')
-        setattr(transaction, 'running_sum', total)
+        if getattr(transaction, 'account') == inbox:
+            setattr(transaction, 'is_inbox', True)
+        else:
+            total += getattr(transaction, 'change')
+            setattr(transaction, 'running_sum', total)
     return reversed(qs)
 
 

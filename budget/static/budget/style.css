@@ -154,6 +154,11 @@ tbody.droppable>:last-child {
     max-width: var(--cell-width);
 }
 
+.is_inbox {
+    color: GrayText;
+    font-style: italic;
+}
+
 .detail-container {
     /* Start in the upper right corner of the cell's contents */
     float: right;
