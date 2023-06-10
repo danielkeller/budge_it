@@ -46,3 +46,9 @@ function formatCurrencies() {
                 element.textContent, element.dataset.currency);
     }
 }
+
+function findAncestor(element, predicate) {
+    for (; element && (!element.tagName || !(predicate(element)));
+        element = element.parentElement);
+    return element;
+}

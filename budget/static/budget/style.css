@@ -6,6 +6,7 @@
     html {
         --canvas: rgb(246, 246, 246);
         --alt-canvas: #e0f0eb;
+        --inactive-selected: rgb(200, 200, 200);
         --line: #888;
         --field-highlight: rgb(255, 254, 239);
         --canvas-highlight: rgb(255, 249, 173);
@@ -15,6 +16,7 @@
 @media (prefers-color-scheme: dark) {
     html {
         --canvas: rgb(46, 42, 48);
+        --inactive-selected: rgb(100, 100, 100);
         --alt-canvas: #1e4438;
         --line: #888;
         --field-highlight: rgb(60, 56, 0);
@@ -35,12 +37,14 @@ html {
 
 body {
     margin: 0;
-    margin-bottom: var(--line-height);
+    padding-bottom: var(--line-height);
 }
 
-body>div,
-body>form>div,
-table {
+/* TODO: Clean this up */
+body:not(.window)>div,
+body:not(.window)>form>div,
+body:not(.window)>table,
+body:not(.window)>form>table {
     margin: var(--line-height);
     margin-bottom: 0;
 }
@@ -59,12 +63,16 @@ td input {
     margin: 0;
 }
 
+td button {
+    min-width: max-content;
+}
+
 button {
     line-height: 0;
 }
 
 table {
-    border-collapse: collapse;
+    border-spacing: var(--td-border);
 }
 
 .t4 {
@@ -106,7 +114,7 @@ th {
     --td-line-height: calc(var(--line-height) - var(--td-border));
     line-height: var(--td-line-height);
     width: var(--cell-width);
-    border: var(--td-border) solid var(--line);
+    outline: var(--td-border) solid var(--line);
     padding: 0 var(--td-hpad);
 }
 
@@ -147,6 +155,59 @@ tbody.droppable>:last-child {
     cursor: grabbing;
 }
 
+.window {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    padding: var(--line-height);
+    gap: var(--line-height);
+}
+
+.window>main {
+    min-height: 0;
+}
+
+.account {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--line-height);
+}
+
+@media (max-width: 900px) {
+    .account {
+        grid-template-columns: 1fr;
+        grid-template-rows: 2fr 1fr;
+    }
+}
+
+.listview {
+    align-self: start;
+    max-height: 100%;
+    overflow-y: scroll;
+}
+
+.listview>table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.listview tr:first-child {
+    position: sticky;
+    top: var(--td-border);
+    background-color: var(--canvas);
+}
+
+.listview .checked {
+    background-color: var(--inactive-selected);
+    color: ButtonText;
+}
+
+.listview:focus .checked {
+    background-color: SelectedItem;
+    color: SelectedItemText;
+}
+
 .longtext {
     text-overflow: ellipsis;
     overflow: hidden;
@@ -159,37 +220,17 @@ tbody.droppable>:last-child {
     font-style: italic;
 }
 
-.detail-container {
-    /* Start in the upper right corner of the cell's contents */
-    float: right;
+.transaction-details {
+    overflow-y: auto;
 }
 
-.line {
-    /* Align to bottom of row */
-    line-height: 1;
-    vertical-align: bottom;
-    font-weight: bold;
-}
-
-.transaction-detail {
-    /* Allow table to fill screen width */
-    position: absolute;
-    margin-left: calc(var(--td-hpad) + var(--td-border));
+.transaction-details>:not(.checked) {
     display: none;
 }
 
-.transaction-detail-table,
-.transaction-detail-edit {
-    margin: 0 var(--line-height);
-}
-
-.transaction-detail-edit {
-    line-height: var(--line-height);
-}
-
-
-tr:focus-within .transaction-detail {
-    display: initial;
+.transaction-details table {
+    width: 100%;
+    table-layout: fixed;
 }
 
 form.edit {

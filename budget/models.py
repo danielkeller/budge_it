@@ -567,7 +567,7 @@ def months_between(start: date, end: date):
         start = (start + timedelta(days=31)).replace(day=1)
 
 
-def entries_for(account: BaseAccount) -> Iterable[Transaction]:
+def entries_for(account: BaseAccount) -> list[Transaction]:
     if isinstance(account, Account):  # gross
         field, amount = 'accounts', 'accountparts__amount'
     else:
@@ -589,7 +589,7 @@ def entries_for(account: BaseAccount) -> Iterable[Transaction]:
         else:
             total += getattr(transaction, 'change')
             setattr(transaction, 'running_sum', total)
-    return reversed(qs)
+    return list(reversed(qs))
 
 
 def entries_for_balance(account: Balance) -> Iterable[Transaction]:

@@ -18,69 +18,76 @@
     <script src="{% static 'budget/account.js' %}"></script>
 </head>
 
-<div><a href="{% url 'overview' account.budget.main_budget.id %}">Overview</a></div>
+<body class="window">
+    <div><a href="{% url 'overview' account.budget.main_budget.id %}">Overview</a></div>
 
-<div>
-    {% if form %}
-    <form method="post">
-        {% csrf_token %}
-        {{ form.name }}
-        <button>Rename</button>
-    </form>
-    {% else %}
-    {% account_in_budget account account.budget %}
-    {% endif %}
-</div>
-<div><button type="button" id="new">Add transaction</button></div>
-{% spaceless %}
-<table id="table">
-    <th>Date</th>
-    <th class="t9">Transaction</th>
-    <th class="t4">{{ account.currency }}</th>
-    <th>Total</th>
-    {% for transaction in entries %}
-    <tr class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
-        tabindex="0" data-id="{{transaction.id}}">
-        <td>{{transaction.date|date:"SHORT_DATE_FORMAT"}}</td>
-        <td class="t9 longtext">{{transaction|transaction_description:account}}</td>
-        <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</td>
-        <td>
-            <div class="detail-container">
-                <div class="transaction-detail">
-                    {% if transaction.kind != 'B' %}
-                    <span class="line">──┐</span>
-                    <table class="transaction-detail-table">
-                        <th class="t6">Account</th>
-                        <th class="t6">Category</th>
-                        <th class="t4">Amount</th>
-                        <th class="t4">Note</th>
-                        {% for part in transaction.tabular %}
-                        <tr class="{% cycle 'a' 'b' %}">
-                            <td>{% account_in_budget part.account account.budget %}</td>
-                            <td>{% account_in_budget part.category account.budget %}</td>
-                            {% firstof part.account.currency part.category.currency as currency %}
-                            <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{part.amount}}</td>
-                            <td>{{part.note}}</td>
-                        </tr>
-                        {% endfor %}
-                        {% resetcycle %}
-                    </table>
-                    {% endif %}
-                    <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">Edit...</a></div>
-                </div>
+    <div>
+        {% if form %}
+        <form method="post">
+            {% csrf_token %}
+            {{ form.name }}
+            <button>Rename</button>
+        </form>
+        {% else %}
+        {% account_in_budget account account.budget %}
+        {% endif %}
+    </div>
+    <div><button type="button" id="new">Add transaction</button></div>
+    {% spaceless %}
+    <main class="account">
+        <div class="listview" tabindex="0">
+            <table id="table">
+                <th class="t4">Date</th>
+                <th>Transaction</th>
+                <th class="t4">{{ account.currency }}</th>
+                <th class="t4">Total</th>
+                {% for transaction in entries %}
+                <tr class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }} {% if request.GET.t == transaction.id|slugify %}checked{% endif %}"
+                    data-id="{{transaction.id}}">
+                    <td>{{transaction.date|date:"SHORT_DATE_FORMAT"}}</td>
+                    <td class="longtext">{{transaction|transaction_description:account}}</td>
+                    <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</td>
+                    <td>
+                        {% if transaction.is_inbox %}
+                        <form action="{% url 'add_to_account' account.id transaction.id%}"
+                            method="post">
+                            {% csrf_token %}
+                            <button>Add to {{account.kind_name}}</button>
+                        </form>
+                        {% else %}
+                        <div class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.running_sum}}</div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        <div class="transaction-details">
+            {% for transaction in entries %}
+            <div class="{% if request.GET.t == transaction.id|slugify %}checked{% endif %}" data-id="{{transaction.id}}">
+                {% if transaction.kind != 'B' %}
+                <table>
+                    <th class="t6">Account</th>
+                    <th class="t6">Category</th>
+                    <th class="t4">Amount</th>
+                    <th class="t4">Note</th>
+                    {% for part in transaction.tabular %}
+                    <tr class="{% cycle 'a' 'b' %}">
+                        <td>{% account_in_budget part.account account.budget %}</td>
+                        <td>{% account_in_budget part.category account.budget %}</td>
+                        {% firstof part.account.currency part.category.currency as currency %}
+                        <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{part.amount}}</td>
+                        <td>{{part.note}}</td>
+                    </tr>
+                    {% endfor %}
+                    {% resetcycle %}
+                </table>
+                {% endif %}
+                <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">Edit...</a></div>
             </div>
-            {% if transaction.is_inbox %}
-            <form action="{% url 'add_to_account' account.id transaction.id%}"
-                method="post">
-                {% csrf_token %}
-                <button>Add to {{account.kind_name}}</button>
-            </form>
-            {% else %}
-            <div class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.running_sum}}</div>
-            {% endif %}
-        </td>
-    </tr>
-    {% endfor %}
-</table>
-{{ data|json_script:"data" }}
+            {% endfor %}
+        </div>
+    </main>
+    {{ data|json_script:"data" }}
+</body>
 {% endspaceless %}

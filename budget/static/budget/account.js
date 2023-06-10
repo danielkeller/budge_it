@@ -4,46 +4,90 @@ addEventListener("DOMContentLoaded", function () {
     formatCurrencies();
     window.data = JSON.parse(document.getElementById('data').textContent);
     document.addEventListener("keydown", key);
+    window.listview = document.querySelector('.listview');
     window.tbody = document.getElementById("table").children[0];
-    document.addEventListener('focusin', updateHash);
-    tbody.addEventListener('dblclick', edit);
+    listview.addEventListener('dblclick', edit);
     document.getElementById('new').addEventListener('click', create);
+    listview.addEventListener('mousedown', mousedown);
+    listview.addEventListener('keydown', listkey);
 
     const hash = document.location.hash;
     if (hash) document.querySelector(`[data-id="${hash.substring(1)}"]`)?.focus();
 });
 
+function mousedown(event) {
+    selectItem(findAncestor(event.target, el => el.dataset.id));
+}
+
+function prev() {
+    const current = currentRow();
+    if (current && current != tbody.children[1]) {
+        selectItem(current.previousElementSibling);
+    } else if (tbody.children.length >= 2) {
+        selectItem(tbody.children[tbody.children.length - 1]);
+    }
+}
+function next() {
+    const current = currentRow();
+    if (current && current.nextElementSibling) {
+        selectItem(current.nextElementSibling);
+    } else if (tbody.children.length >= 2) {
+        selectItem(tbody.children[1]);
+    }
+
+}
+
+function listkey(event) {
+    if (event.key === "ArrowUp") {
+        prev();
+        event.preventDefault();
+    } else if (event.key === "ArrowDown") {
+        next();
+        event.preventDefault();
+    }
+}
+
+function currentRow() {
+    return tbody.querySelector(".listview .checked");
+}
+
+function selectItem(row) {
+    if (!row) return;
+    const prev = currentRow();
+    if (prev) prev.classList.remove('checked');
+    const id = row.dataset.id;
+    row.classList.add('checked');
+    history.replaceState({}, '', `?t=${id}`);
+    const rowRect = row.getBoundingClientRect();
+    const viewRect = listview.getBoundingClientRect();
+    const headerRect = tbody.children[0].getBoundingClientRect();
+    const border = 1; // Not nice but w/e
+    if (rowRect.top < headerRect.bottom) {
+        listview.scrollTop += rowRect.top - headerRect.bottom - border;
+    } else if (rowRect.bottom > viewRect.bottom) {
+        listview.scrollTop += rowRect.bottom - viewRect.bottom + border;
+    }
+
+    const prev_item = document.querySelector('.transaction-details .checked');
+    if (prev_item) prev_item.classList.remove('checked');
+    const item = document.querySelector(`.transaction-details [data-id="${id}"]`);
+    item.classList.add('checked');
+}
+
 function key(event) {
     if (document.activeElement.type === "text") return;
-    if (event.key === "j" || event.key === "ArrowDown") {
-        event.preventDefault();
-        const current = currentRow();
-        if (current && current.nextElementSibling) {
-            current.nextElementSibling.focus();
-        } else if (tbody.children.length >= 2) {
-            tbody.children[1].focus();
-        }
-    } else if (event.key === "k" || event.key === "ArrowUp") {
-        event.preventDefault();
-        const current = currentRow();
-        if (current && current != tbody.children[1]) {
-            current.previousElementSibling.focus();
-        } else if (tbody.children.length >= 2) {
-            tbody.children[tbody.children.length - 1].focus();
-        }
+    if (event.key === "j") {
+        next();
+    } else if (event.key === "k") {
+        prev();
     } else if (event.key === "g") {
-        tbody.children[1].focus();
+        if (tbody.children.length >= 2) {
+            selectItem(tbody.children[1]);
+        }
     } else if (event.key === "Enter" || event.key === "i") {
         edit();
     } else if (event.key === "o") {
         create();
-    }
-}
-
-function updateHash(event) {
-    const current = currentRow();
-    if (current) {
-        history.replaceState(undefined, undefined, "#" + current.dataset.id);
     }
 }
 
@@ -63,8 +107,4 @@ function create() {
         window.location.pathname + window.location.hash);
     window.location.href =
         `/transaction/${data.budget}/?back=${back}`;
-}
-
-function currentRow() {
-    return document.querySelector("tr:focus-within");
 }

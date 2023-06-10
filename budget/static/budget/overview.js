@@ -87,11 +87,6 @@ addEventListener("DOMContentLoaded", function () {
     formatCurrencies();
 });
 
-function findAncestor(element, predicate) {
-    for (; element && (!element.tagName || !(predicate(element)));
-        element = element.parentElement);
-    return element;
-}
 function findDraggable(element) {
     return findAncestor(element, element => element.getAttribute('draggable'));
 }
