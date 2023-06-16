@@ -2,4 +2,4 @@
 
 SCRIPTPATH=$(dirname "$0")
 cd "$SCRIPTPATH"
-./bin/uvicorn budge_it.asgi:application
+./bin/gunicorn budge_it.wsgi
