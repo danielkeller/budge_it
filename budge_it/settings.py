@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 from pathlib import Path
 from typing import Any
+from os import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,12 +22,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-82i9+7&b3i1%b27+kg#1#@d5az5h#k(z_+p+hyt1tf!0wcc#fk'
+SECRET_KEY = (environ['SECRET_KEY']
+              if 'PROD' in environ
+              else 'django-insecure-82i9+7&b3i1%b27+kg#1#@d5az5h#k(z_+p+hyt1tf!0wcc#fk')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = 'PROD' not in environ
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = (['vm', 'prod', 'localhost']
+                 if 'PROD' in environ
+                 else ['*'])
 
 
 # Application definition
@@ -76,12 +81,24 @@ WSGI_APPLICATION = 'budge_it.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if 'PROD' in environ:
+    dbs = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'budget',
+            'USER': 'django',
+        }
     }
-}
+else:
+    dbs = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+DATABASES = dbs
+CONN_MAX_AGE = None
 
 
 # Password validation
@@ -119,6 +136,7 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = '/var/www/budget/static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
