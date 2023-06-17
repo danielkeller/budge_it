@@ -1,6 +1,0 @@
-#!/bin/sh
-
-SCRIPTPATH=$(dirname "$0")
-cd "$SCRIPTPATH"
-. bin/activate
-./bin/gunicorn $GUNICORN_OPTIONS budge_it.wsgi
