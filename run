@@ -3,4 +3,4 @@
 SCRIPTPATH=$(dirname "$0")
 cd "$SCRIPTPATH"
 . bin/activate
-./bin/gunicorn $OPTIONS budge_it.wsgi
+./bin/gunicorn $GUNICORN_OPTIONS budge_it.wsgi
