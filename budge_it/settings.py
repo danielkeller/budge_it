@@ -29,7 +29,8 @@ SECRET_KEY = (environ['SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = 'PROD' not in environ
 
-ALLOWED_HOSTS = (['vm', 'prod', 'localhost']
+ALLOWED_HOSTS = (['vm', 'prod',
+                  'vm.tailae290.ts.net', 'prod.tailae290.ts.net', 'localhost']
                  if 'PROD' in environ
                  else ['*'])
 
