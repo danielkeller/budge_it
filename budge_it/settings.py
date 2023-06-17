@@ -34,6 +34,8 @@ ALLOWED_HOSTS = (['vm', 'prod',
                  if 'PROD' in environ
                  else ['*'])
 
+CSRF_TRUSTED_ORIGINS = ['https://vm.tailae290.ts.net',
+                        'https://prod.tailae290.ts.net']
 
 # Application definition
 
