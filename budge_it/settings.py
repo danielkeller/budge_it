@@ -86,7 +86,7 @@ if 'PROD' in environ:
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': 'budget',
-            'USER': 'django',
+            'USER': 'budget',
         }
     }
 else:
