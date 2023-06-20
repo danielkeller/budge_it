@@ -30,12 +30,14 @@ SECRET_KEY = (environ['SECRET_KEY']
 DEBUG = 'PROD' not in environ
 
 ALLOWED_HOSTS = (['vm', 'prod',
-                  'vm.tailae290.ts.net', 'prod.tailae290.ts.net', 'localhost']
+                  'vm.tailae290.ts.net', 'prod.tailae290.ts.net', 'localhost',
+                  'budge-it.crabdance.com']
                  if 'PROD' in environ
                  else ['*'])
 
 CSRF_TRUSTED_ORIGINS = ['https://vm.tailae290.ts.net',
-                        'https://prod.tailae290.ts.net']
+                        'https://prod.tailae290.ts.net',
+                        'https://budge-it.crabdance.com']
 
 # Application definition
 
