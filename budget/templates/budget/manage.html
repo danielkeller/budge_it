@@ -1,8 +1,11 @@
 {% load budget static %}
 
 <!DOCTYPE html>
-<link rel="stylesheet" href="{% static 'budget/style.css' %}">
 
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+</head>
 <div><a href="{% url 'overview' budget.id %}">Overview</a></div>
 
 <form id="form" method="post">
