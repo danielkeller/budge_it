@@ -32,12 +32,15 @@ addEventListener("DOMContentLoaded", function () {
         }
     });
     table.addEventListener('dragleave', (event) => {
-        const element = findTarget(event.target);
-        if (element && element !== findTarget(event.relatedTarget)) {
-            element.classList.remove('droppable');
+        const current = document.querySelector('.droppable');
+        const entered = findTarget(event.relatedTarget);
+        // Don't flicker when we go between rows
+        if (current && (entered && entered !== current
+            || !withinTable(event.relatedTarget))) {
+            current.classList.remove('droppable');
             if (isCategory(dragging)
-                && findGroup(event.target) !== findGroup(event.relatedTarget)) {
-                findGroup(event.target).lastElementChild.remove();
+                && findGroup(current) !== findGroup(event.relatedTarget)) {
+                findGroup(current).lastElementChild.remove();
             }
         }
     });
@@ -90,10 +93,11 @@ addEventListener("DOMContentLoaded", function () {
 function findDraggable(element) {
     return findAncestor(element, element => element.getAttribute('draggable'));
 }
-function isCategory(element) { return element.tagName === "TR"; }
-function isGroup(element) { return element.tagName === "TBODY"; }
+function isCategory(element) { return element.dataset.category; }
+function isGroup(element) { return element.dataset.group; }
 function findGroup(element) { return findAncestor(element, isGroup); }
 function findCategory(element) { return findAncestor(element, isCategory); }
+function withinTable(element) { return findAncestor(element, a => a === table); }
 
 function reorder(source, target) {
     form.elements[`form-${source.dataset.form}-group`].value =

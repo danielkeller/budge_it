@@ -19,20 +19,22 @@
     {{formset}}{% csrf_token %}
 </form>
 <table id="categories">
-    <tbody data-group="">
-        <th>Category</th>
-        <th class="t5">Balance</th>
+    <tbody data-group="1">
+        <tr data-category="1">
+            <th>Category</th>
+            <th class="t5">Balance</th>
+        </tr>
         {% for category in categories %}
         {% ifchanged category.group %}
     </tbody>
     <tbody draggable="true" data-group="{{category.group}}">
-        <tr class="{% cycle 'a' 'b' as rowcolor %}">
+        <tr class="{% cycle 'a' 'b' as rowcolor %}" data-category="1">
             <td colspan="2" class="groupname">
                 <button>{{category.group}}</button>
             </td>
         </tr>
         {% endifchanged %}
-        <tr class="{% cycle rowcolor %}" draggable="true" data-form="{{forloop.counter0}}">
+        <tr class="{% cycle rowcolor %}" draggable="true" data-form="{{forloop.counter0}}" data-category="1">
             <td>{% account_in_budget category budget %}</td>
             <td class="number" data-currency="{{ category.currency }}">{{ category.balance | default:0 }}</td>
         </tr>
@@ -46,7 +48,7 @@
     {% endfor %}
 </table>
 <template id="new-group-t">
-    <tr id="new-group">
+    <tr id="new-group" data-category="1">
         <th colspan="2">New Group</th>
     </tr>
 </template>
