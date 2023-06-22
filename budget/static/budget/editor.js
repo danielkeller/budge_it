@@ -330,12 +330,14 @@ function suggestSums() {
 
     for (const currency of currencies) {
         var to_category = [];
+        var from_categories = 0;
         var category_total = 0;
         var to_account = [];
         var account_total = 0;
         for (var { account, category, moved, transferred } of rows) {
             if (category.value && moved.currency === currency) {
                 if (moved.value) {
+                    from_categories++;
                     category_total += +moved.value;
                 } else {
                     to_category.push(moved);
@@ -349,7 +351,7 @@ function suggestSums() {
                 }
             }
         }
-        if (isFinite(category_total) && to_category.length) {
+        if (isFinite(category_total) && to_category.length && from_categories) {
             const div = Math.floor(category_total / to_category.length);
             const rem = category_total - div * to_category.length;
             for (let i = 0; i < to_category.length; ++i)
