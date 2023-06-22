@@ -63,11 +63,13 @@ td input {
     margin: 0;
 }
 
-td button {
+td button,
+td [type="submit"] {
     min-width: max-content;
 }
 
-button {
+button,
+[type="submit"] {
     line-height: 0;
 }
 

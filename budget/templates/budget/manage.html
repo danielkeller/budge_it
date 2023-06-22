@@ -35,7 +35,7 @@
         </tr>
         {% endfor %}
         <tr>
-            <td><button form="newcategory">New Category</button></td>
+            <td><input type="submit" name="new_category" value="New Category"></td>
             <td colspan="2"></td>
         </tr>
         <tr>
@@ -54,7 +54,7 @@
         </tr>
         {% endfor %}
         <tr>
-            <td><button form="newaccount">New Account</button></td>
+            <td><input type="submit" name="new_account" value="New Account"></td>
             <td colspan="2"></td>
         </tr>
     </table>
@@ -69,12 +69,6 @@
     {{ account_formset.errors|default:"" }}
     {{ account_formset.non_form_errors }}
 </div>
-<form method="post" action="{% url 'new_category' budget.id %}" id="newcategory">
-    {% csrf_token %}
-</form>
-<form method="post" action="{% url 'new_account' budget.id %}" id="newaccount">
-    {% csrf_token %}
-</form>
 <datalist id="currencies">
     <option value="USD">
     <option value="EUR">
