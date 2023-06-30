@@ -114,7 +114,7 @@ class BaseAccount(Id):
     balance: int
     source_entries: 'models.Manager[TransactionPart[Self]]'
     entries: 'models.Manager[TransactionPart[Self]]'
-    currency = models.CharField(max_length=5, blank=True)
+    currency = models.CharField(max_length=5)
 
     group = models.CharField(max_length=100, blank=True)
     order = models.IntegerField(default=0)

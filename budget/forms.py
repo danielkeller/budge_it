@@ -74,9 +74,13 @@ class TransactionPartForm(forms.Form):
         data = self.cleaned_data
         if isinstance(data.get('account'), Budget):
             currency = data.get('transferred_currency', '')
+            if not currency:
+                raise ValidationError("Currency is required")
             data['account'] = data['account'].get_inbox(Account, currency)
         if isinstance(data.get('category'), Budget):
             currency = data.get('moved_currency', '')
+            if not currency:
+                raise ValidationError("Currency is required")
             data['category'] = data['category'].get_inbox(Category, currency)
         return data
 
