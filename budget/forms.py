@@ -171,7 +171,8 @@ class TransactionForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date',)
-    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}),
+    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
+                                                  format='%Y-%m-%d'),
                            initial=date.today)
 
 
