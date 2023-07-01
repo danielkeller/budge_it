@@ -94,8 +94,7 @@ function key(event) {
 function edit() {
     const current = currentRow();
     if (current) {
-        const back = encodeURIComponent(
-            window.location.pathname + window.location.hash);
+        const back = window.location.pathname;
         const id = current.dataset.id;
         window.location.href = `/transaction/${data.budget}/${id}/?back=${back}`;
     }
@@ -103,8 +102,7 @@ function edit() {
 
 function create() {
     // TODO: This should auto fill the account
-    const back = encodeURIComponent(
-        window.location.pathname + window.location.hash);
+    const back = window.location.pathname;
     window.location.href =
         `/transaction/${data.budget}/?back=${back}`;
 }

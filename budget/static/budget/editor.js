@@ -39,11 +39,16 @@ function key(event) {
 }
 
 function cancel() {
-    const back = new URLSearchParams(window.location.search).get('back');
-    if (back)
+    let back = new URLSearchParams(window.location.search).get('back');
+    if (back) {
+        if (window.data.transaction) {
+            back = `${back}?t=${window.data.transaction}`;
+        }
         window.location.href = back;
-    else
+    }
+    else {
         history.back();
+    }
 }
 
 function findRow(input) {

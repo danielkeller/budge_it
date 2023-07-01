@@ -210,7 +210,11 @@ def edit(request: HttpRequest, budget_id: int,
             with atomic():
                 instance = form.save()
                 formset.save(instance=instance)
-            return HttpResponseRedirect(request.GET.get('back', '/'))
+            if 'back' in request.GET:
+                back = f"{request.GET['back']}?t={instance.id}"
+            else:
+                back = '/'
+            return HttpResponseRedirect(back)
     else:
         form = TransactionForm(instance=transaction)
         formset = TransactionPartFormSet(
@@ -221,6 +225,7 @@ def edit(request: HttpRequest, budget_id: int,
     categories = budget.category_set.exclude(name='')
     data = {
         'budget': budget.id,
+        'transaction': transaction_id,
         'accounts': dict(accounts.values_list('id', 'currency')),
         'categories': dict(categories.values_list('id', 'currency')),
         'budgets': {budget.id: budget.name, **budgets},
