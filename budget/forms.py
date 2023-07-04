@@ -130,7 +130,9 @@ TransactionPartFormSet = forms.formset_factory(
 class BudgetingForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = Transaction
-        fields = ()
+        fields = ('date',)
+
+    date = forms.DateField(widget=forms.HiddenInput)
 
     def __init__(self, *args: Any,
                  budget: Budget, instance: Optional[Transaction] = None, **kwargs: Any):

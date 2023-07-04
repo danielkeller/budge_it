@@ -278,16 +278,18 @@ def budget(request: HttpRequest, budget_id: int, year: int, month: int):
     before, during = category_balance(budget, budget_date)
     spent = dict(during.values_list('id', 'balance'))
     transaction = budgeting_transaction(budget, budget_date)
+    initial = {'date': budget_date}
     if request.method == 'POST':
-        form = BudgetingForm(
-            budget=budget, instance=transaction, data=request.POST)
+        form = BudgetingForm(budget=budget, instance=transaction,
+                             data=request.POST)
         if form.is_valid():
             with atomic():
                 form.save()
             return HttpResponseRedirect(
                 request.GET.get('back', request.get_full_path()))
     else:
-        form = BudgetingForm(budget=budget, instance=transaction)
+        form = BudgetingForm(budget=budget, instance=transaction,
+                             initial=initial)
     rows = [BudgetRow(category, form[str(category.id)],
                       spent.get(category.id, 0))
             for category in before]
