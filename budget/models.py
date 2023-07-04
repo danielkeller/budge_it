@@ -616,7 +616,7 @@ def entries_for_balance(account: Balance) -> Iterable[Transaction]:
     for transaction in qs:
         total += getattr(transaction, 'change')
         setattr(transaction, 'running_sum', total)
-    return reversed(qs)
+    return list(reversed(qs))
 
 
 def accounts_overview(budget: Budget):
