@@ -1,4 +1,3 @@
-from collections import defaultdict
 from typing import Optional, Iterable, TypeVar, Type, Union, Self, Generic
 import functools
 from itertools import chain
@@ -7,7 +6,7 @@ from dataclasses import dataclass
 import heapq
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import models,  transaction
+from django.db import models, transaction
 from django.db.models import (Q, F, Prefetch, Subquery, OuterRef, Value,
                               Min, Max, Sum,
                               prefetch_related_objects)
@@ -623,12 +622,14 @@ def accounts_overview(budget: Budget):
     accounts = (Account.objects
                 .filter(budget=budget)
                 .exclude(closed=True)
+                .exclude(Q(name='') & Q(entries__isnull=True))
                 .annotate(balance=Sum('entries__amount', default=0))
                 .order_by('order', 'group', 'name')
                 .select_related('budget'))
     categories = (Category.objects
                   .filter(budget=budget)
                   .exclude(closed=True)
+                  .exclude(Q(name='') & Q(entries__isnull=True))
                   .annotate(balance=Sum('entries__amount', default=0))
                   .order_by('order', 'group', 'name')
                   .select_related('budget'))
