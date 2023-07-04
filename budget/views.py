@@ -91,8 +91,9 @@ def onthego(request: HttpRequest, budget_id: int):
         form = OnTheGoForm(budget=budget, data=request.POST)
         if form.is_valid():
             with atomic():
-                form.save()
-            return HttpResponseRedirect(request.get_full_path())
+                transaction = form.save()
+            return HttpResponseRedirect(reverse(
+                'edit', args=(budget_id, transaction.id)))
         else:
             raise ValueError(form.errors)
     else:

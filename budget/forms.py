@@ -274,3 +274,4 @@ class OnTheGoForm(forms.Form):
             notes = {self.budget.get_inbox(Category, currency):
                      self.cleaned_data['note']}
             transaction.categorynotes.set_notes(self.budget, notes)
+        return transaction
