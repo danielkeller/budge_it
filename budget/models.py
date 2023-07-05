@@ -14,7 +14,7 @@ from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
-from .algorithms import sum_by,  reroot, double_entrify_by, Debts
+from .algorithms import sum_by, reroot, double_entrify_by, Debts
 
 
 class Id(models.Model):

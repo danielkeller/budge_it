@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, Any
-from datetime import date
+from datetime import date, timedelta
 
 from django.shortcuts import render
 from django.http import (HttpRequest, HttpResponseRedirect,
@@ -272,6 +272,9 @@ def budget(request: HttpRequest, budget_id: int, year: int, month: int):
     years = range(min_date.year, max_date.year + 2)
     months = months_between(date(year, 1, 1), date(year, 12, 31))
 
+    end_date = (budget_date + timedelta(days=31)
+                ).replace(day=1) - timedelta(days=1)
+
     currencies = budget.category_set.values_list('currency').distinct()
     # Make sure these are created before creating the form
     inboxes = [budget.get_inbox(Category, currency).id
@@ -297,6 +300,7 @@ def budget(request: HttpRequest, budget_id: int, year: int, month: int):
     data = {'inboxes': inboxes}
     context = {'rows': rows, 'form': form, 'budget': budget,
                'current_year': year, 'current_month': month,
+               'budget_date': budget_date, 'end_date': end_date,
                'years': years, 'months': months,
                'data': data}
     return render(request, 'budget/budget.html', context)

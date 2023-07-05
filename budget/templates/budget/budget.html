@@ -34,10 +34,10 @@
     <table id="table">
         <tr>
             <th>Category</th>
-            <th>Saved</th>
+            <th>{{ budget_date|date:"M d" }}</th>
             <th class="t4">Budgeted</th>
             <th>Spent</th>
-            <th>Available</th>
+            <th>{{ end_date|date:"M d" }}</th>
         </tr>
         {% for row in rows %}
         {% ifchanged row.category.group %}
