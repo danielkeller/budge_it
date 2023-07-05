@@ -581,7 +581,7 @@ def entries_for(account: BaseAccount) -> list[Transaction]:
           .filter_for(account.budget)
           .filter(Q(**{field: account}) | Q(**{field: inbox}))
           .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
-          .order_by('date', '-kind'))
+          .order_by('date', '-kind', 'id'))
     total = 0
     for transaction in qs:
         if getattr(transaction, 'account') == inbox:
@@ -610,7 +610,7 @@ def entries_for_balance(account: Balance) -> Iterable[Transaction]:
           .annotate(change=Coalesce(Subquery(gets), 0)
                     - Coalesce(Subquery(has), 0))
           .exclude(change=0)
-          .order_by('date', '-kind'))
+          .order_by('date', '-kind', 'id'))
     total = 0
     for transaction in qs:
         total += getattr(transaction, 'change')
