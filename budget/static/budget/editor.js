@@ -12,11 +12,9 @@ addEventListener("DOMContentLoaded", function () {
     window.account_sum = document.getElementById("account-sum");
     window.debt = document.getElementById("debt");
     window.account_options = Array.from(
-        document.getElementById("account-list").options)
-        .map(option => [option.value, option.dataset.id]);
+        document.getElementById("account-list").options).map(optData);
     window.category_options = Array.from(
-        document.getElementById("category-list").options)
-        .map(option => [option.value, option.dataset.id]);
+        document.getElementById("category-list").options).map(optData);
 
     document.getElementById('addrow').addEventListener('click', addRow);
     document.getElementById('cancel').addEventListener('click', cancel);
@@ -25,6 +23,14 @@ addEventListener("DOMContentLoaded", function () {
     setUpRows();
     checkValid();
 });
+
+function optData(option) {
+    return {
+        value: option.value,
+        id: option.dataset.id,
+        name: option.dataset.name
+    };
+}
 
 function key(event) {
     if (event.key === "Escape") {
@@ -62,6 +68,12 @@ function ownAccount(value) {
         || value in data.accounts || value in data.categories;
 }
 
+function sigil(account) {
+    return ownAccount(account) ? '👤'
+        : account in data.friends ? '👥'
+            : null;
+}
+
 class Selector {
     #visible; #hidden; #sigil; #options; #oninput;
     constructor([hidden, sigil, visible], options, oninput) {
@@ -76,8 +88,8 @@ class Selector {
     set value(value) {
         value = String(value);
         this.#hidden.value = value;
-        const option = this.#options.find(([_, optvalue]) => optvalue === value);
-        this.#visible.value = option ? option[0] : value;
+        const option = this.#options.find(opt => opt.id === value);
+        this.#visible.value = option ? option.name : value;
     }
     get value() { return this.#hidden.value; }
     set name(name) { this.#hidden.name = name; }
@@ -101,7 +113,7 @@ class Selector {
     set sigil(value) {
         if (value) {
             this.#sigil.classList.add('sigil');
-            this.#sigil.textContent = '👤';
+            this.#sigil.textContent = value;
         } else {
             this.#sigil.classList.remove('sigil');
             this.#sigil.textContent = '';
@@ -110,8 +122,13 @@ class Selector {
     get classList() { return this.#visible.classList; }
     focus(args) { this.#visible.focus(args); }
     #selectInput() {
-        const option = this.#options.find(([name, _]) => name === this.#visible.value);
-        this.#hidden.value = option ? option[1] : this.#visible.value;
+        const option = this.#options.find(
+            opt => [opt.name, opt.value].includes(this.#visible.value));
+        this.#hidden.value = option ? option.id : this.#visible.value;
+        if (option && this.#visible.value === option.value
+            && option.name !== option.value) {
+            this.#visible.value = option.name;
+        }
         this.#oninput({ target: this })
     }
 }
@@ -221,8 +238,8 @@ function setUpRow(tr) {
     category = new Selector(category, category_options, categoryChanged);
     if (category.value === account.value)
         category.classList.add('suggested');
-    account.sigil = ownAccount(account.value);
-    category.sigil = ownAccount(category.value);
+    account.sigil = sigil(account.value);
+    category.sigil = sigil(category.value);
     transferred = new CurrencyInput(transferred, account.value in data.accounts);
     moved = new CurrencyInput(moved, category.value in data.categories);
     transferred.disabled = !account.value;
@@ -266,12 +283,13 @@ function addRow(event) {
 function accountChanged({ target }) {
     var { category, transferred, moved, note } = rows[findRow(target)];
     category.unsuggest();
-    if (!ownAccount(target.value)) {
+    if (!ownAccount(target.value) && !(target.value in data.friends)) {
         if (target.value in data.budgets) category.suggest(target.value);
-        else if (target.value) category.suggest(`[${target.value}]`);
+        else if (target.value) category.suggest(target.value);
+        category.sigil = sigil(category.value);
     }
 
-    target.sigil = ownAccount(target.value);
+    target.sigil = sigil(target.value);
 
     transferred.disabled = !target.value;
     if (transferred.disabled) transferred.clear();
@@ -290,7 +308,7 @@ function accountChanged({ target }) {
 function categoryChanged({ target }) {
     target.accept();
 
-    target.sigil = ownAccount(target.value);
+    target.sigil = sigil(target.value);
 
     var { account, moved, note } = rows[findRow(target)];
     moved.disabled = !target.value;
@@ -428,12 +446,6 @@ function combineDebts(owed) {
     return result;
 }
 
-function stripBrackets(value) {
-    if (value.startsWith('[') && value.endsWith(']'))
-        return value.slice(1, -1);
-    return value;
-}
-
 function checkValid() {
     const currencies = new Set(
         rows.flatMap(({ transferred, moved }) =>
@@ -459,7 +471,7 @@ function checkValid() {
             if (moved.currency === currency) {
                 category_total = category_total + +moved.value;
                 let budget = ownAccount(category.value)
-                    ? data.budget : stripBrackets(category.value);
+                    ? data.budget : category.value;
                 owed[budget] = (owed[budget] || 0) - +moved.value;
             }
         }

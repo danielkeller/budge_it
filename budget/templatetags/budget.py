@@ -16,7 +16,7 @@ def account_in_budget(account: models.BaseAccount, budget: models.Budget):
                            mark_safe(account.get_absolute_url()),
                            account.name or "Inbox")
     elif account.kind() == 'category':
-        return format_html('<i>[{}]</i>', account.budget.name)
+        return format_html('<i>{}</i>', account.budget.name)
     else:
         return format_html('<a href="{}"><i>{}</i></a>',
                            mark_safe(account.get_absolute_url()),

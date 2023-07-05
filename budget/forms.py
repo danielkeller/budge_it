@@ -36,9 +36,6 @@ class AccountChoiceField(forms.Field):
             return Budget.objects.get(id=value)
         except (TypeError, ValueError, Id.DoesNotExist):
             pass
-        if (self.type == Category
-                and value.startswith('[') and value.endswith(']')):
-            value = value[1:-1]
         return Budget.objects.get_or_create(
             name=value, payee_of_id=self.user_id)[0]
 

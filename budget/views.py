@@ -221,7 +221,9 @@ def edit(request: HttpRequest, budget_id: int,
         formset = TransactionPartFormSet(
             budget, prefix="tx", instance=transaction)
 
-    budgets = dict(budget.visible_budgets().values_list('id', 'name'))
+    friends = dict(budget.friends.values_list('id', 'name'))
+    payees = dict(Budget.objects.filter(payee_of=budget.owner())
+                                .values_list('id', 'name'))
     accounts = budget.account_set.exclude(name='')
     categories = budget.category_set.exclude(name='')
     data = {
@@ -229,10 +231,11 @@ def edit(request: HttpRequest, budget_id: int,
         'transaction': transaction_id,
         'accounts': dict(accounts.values_list('id', 'currency')),
         'categories': dict(categories.values_list('id', 'currency')),
-        'budgets': {budget.id: budget.name, **budgets},
+        'budgets': {budget.id: budget.name, **friends, **payees},
+        'friends': friends,
     }
     context = {'formset': formset, 'form': form,
-               'budget': budget, 'budgets': budgets,
+               'budget': budget, 'friends': friends, 'payees': payees,
                'accounts': accounts, 'categories': categories,
                'transaction_id': transaction_id,
                'data': data}
