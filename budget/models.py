@@ -579,7 +579,8 @@ def entries_for(account: BaseAccount) -> list[Transaction]:
         inbox = None
     qs = (Transaction.objects
           .filter_for(account.budget)
-          .filter(Q(**{field: account}) | Q(**{field: inbox}))
+          .filter(Q(**{field: account}) |
+                  (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
           .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
           .order_by('date', '-kind', 'id'))
     total = 0
