@@ -248,8 +248,8 @@ def delete(request: HttpRequest, budget_id: int, transaction_id: int):
         return HttpResponseBadRequest('Wrong method')
     budget = _get_allowed_budget_or_404(request, budget_id)
     transaction = get_object_or_404(Transaction, id=transaction_id)
-    transaction.set_parts(budget, {}, {})
-    return HttpResponseRedirect(request.GET.get('back', '/'))
+    transaction.set_entries(budget, {}, {})
+    return HttpResponseRedirect(request.GET.get('back') or '/')
 
 
 @dataclass

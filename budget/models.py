@@ -259,7 +259,7 @@ class TransactionManager(models.Manager['Transaction']):
     # This could possibly be done with a proxy model, which would allow eg
     # related managers to tell which budget we're looking through.
     def filter_for(self, budget: Budget):
-        """Adjust and prefetch the parts of this transaction to ones visible to
+        """Adjust and prefetch the entries of this transaction to ones visible to
         'budget'."""
         accountentry_set = AccountEntry.objects.filter_for(budget)
         categoryentry_set = CategoryEntry.objects.filter_for(budget)
@@ -320,27 +320,29 @@ class Transaction(models.Model):
     def month(self, value: 'Optional[date]'):
         self.date = value and value.replace(day=1)
 
-    def set_parts(self, in_budget: Budget,
-                  accounts: dict[Account, int], categories: dict[Category, int]):
+    def set_entries(self, in_budget: Budget,
+                    accounts: dict[Account, int], categories: dict[Category, int]):
         """Set the contents of this transaction from the perspective of one budget. 'accounts' and 'categories' both must to sum to zero."""
         # 'self' is already filtered for a user, we just can't see which one
-        self.set_parts_raw(double_entrify(in_budget, Account, accounts),
-                           double_entrify(in_budget, Category, categories))
+        self.set_flows(double_entrify(in_budget, Account, accounts),
+                       double_entrify(in_budget, Category, categories))
 
-    def parts(self):
-        return (self.accountentry_set.parts(), self.categoryentry_set.parts())
+    def flows(self):
+        return (self.accountentry_set.flows(), self.categoryentry_set.flows())
 
     def entries(self):
         return (self.accountentry_set.entries(), self.categoryentry_set.entries())
 
     @transaction.atomic
-    def set_parts_raw(self,
-                      accounts: dict[tuple[Account, Account], int],
-                      categories: dict[tuple[Category, Category], int]):
-        self.accountentry_set.set_parts(accounts)
-        self.categoryentry_set.set_parts(categories)
+    def set_flows(self,
+                  accounts: dict[tuple[Account, Account], int],
+                  categories: dict[tuple[Category, Category], int]):
+        self.accountentry_set.set_flows(accounts)
+        self.categoryentry_set.set_flows(categories)
         if (not AccountEntry.objects.filter(transaction=self).exists() and
                 not CategoryEntry.objects.filter(transaction=self).exists()):
+            self.accountnotes.all().delete()
+            self.categorynotes.all().delete()
             self.delete()
 
     def change_inbox_to(self, account: Account | Category):
@@ -354,7 +356,7 @@ class Transaction(models.Model):
             account_value = (categories.pop(inbox, 0)
                              + categories.pop(account, 0))
             categories[account] = account_value
-        self.set_parts(account.budget, accounts, categories)
+        self.set_entries(account.budget, accounts, categories)
 
     @dataclass
     class Row:
@@ -364,12 +366,12 @@ class Transaction(models.Model):
         note: str
 
     def tabular(self):
-        def pop_by_(parts: 'dict[AccountT, int]',
+        def pop_by_(entries: 'dict[AccountT, int]',
                     currency: str, amount: int):
             try:
-                result = next(part for (part, value) in parts.items()
-                              if value == amount and part.currency == currency)
-                del parts[result]
+                result = next(to for (to, value) in entries.items()
+                              if value == amount and to.currency == currency)
+                del entries[result]
                 return result
             except StopIteration:
                 return None
@@ -429,7 +431,7 @@ class EntryManager(Generic[AccountT], models.Manager['Entry[AccountT]']):
     instance: Transaction  # When used as a relatedmanager
 
     def filter_for(self, budget: Budget):
-        """Filter parts to ones visible to 'budget'."""
+        """Filter entries to ones visible to 'budget'."""
         source_visible = (Q(source__budget__budget_of_id=budget.owner())
                           | Q(source__budget__payee_of_id=budget.owner())
                           | (Q(source__name="")
@@ -442,20 +444,20 @@ class EntryManager(Generic[AccountT], models.Manager['Entry[AccountT]']):
                 .select_related('sink__budget'))
 
     def entries(self) -> dict[AccountT, int]:
-        return sum_by((part.sink, part.amount) for part in self.all())
+        return sum_by((entry.sink, entry.amount) for entry in self.all())
 
-    def parts(self):
-        return {(part.source, part.sink): part.amount
-                for part in self.all() if part.amount > 0}
+    def flows(self) -> dict[tuple[AccountT, AccountT], int]:
+        return {(entry.source, entry.sink): entry.amount
+                for entry in self.all() if entry.amount > 0}
 
-    def set_parts(self, parts: dict[tuple[AccountT, AccountT], int]):
+    def set_flows(self, flows: dict[tuple[AccountT, AccountT], int]):
         self.all().delete()
         updates = chain.from_iterable(
             (self.model(source=source, sink=sink, amount=amount,
                         transaction=self.instance),
              self.model(source=sink, sink=source, amount=-amount,
                         transaction=self.instance))
-            for (source, sink), amount in parts.items() if amount)
+            for (source, sink), amount in flows.items() if amount)
         if updates:
             self.bulk_create(updates)
 
@@ -554,15 +556,6 @@ class CategoryNote(TransactionNote[Category]):
     AccountType = Category
     account = models.ForeignKey(Category, on_delete=models.PROTECT,
                                 related_name="notes")
-
-
-@ dataclass
-class TransactionDebtPart:
-    """Fake transaction part representing money owed"""
-    transaction: Transaction
-    # to: Balance ??
-    amount: int
-    running_sum: int
 
 
 def months_between(start: date, end: date):

@@ -115,7 +115,7 @@ class BaseEntryFormSet(forms.BaseFormSet):
                 category_notes[category] = data['note']
             elif account and data.get('note'):
                 account_notes[account] = data['note']
-        instance.set_parts(self.budget, accounts, categories)
+        instance.set_entries(self.budget, accounts, categories)
         instance.accountnotes.set_notes(self.budget, account_notes)
         instance.categorynotes.set_notes(self.budget, category_notes)
 
@@ -128,6 +128,8 @@ class BudgetingForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date',)
+
+    instance: Transaction
 
     date = forms.DateField(widget=forms.HiddenInput)
 
@@ -163,7 +165,7 @@ class BudgetingForm(forms.ModelForm):
         categories = {}
         for category in self.budget.category_set.all():
             categories[category] = self.cleaned_data[str(category.id)] or 0
-        self.instance.set_parts(self.budget, {}, categories)
+        self.instance.set_entries(self.budget, {}, categories)
 
 
 class TransactionForm(forms.ModelForm):
@@ -266,7 +268,7 @@ class OnTheGoForm(forms.Form):
                     payee.get_inbox(Account, currency): amount}
         categories = {self.budget.get_inbox(Category, currency): -amount,
                       payee.get_inbox(Category, currency): amount}
-        transaction.set_parts(self.budget, accounts, categories)
+        transaction.set_entries(self.budget, accounts, categories)
         if self.cleaned_data['note']:
             notes = {self.budget.get_inbox(Category, currency):
                      self.cleaned_data['note']}

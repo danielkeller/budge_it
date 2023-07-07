@@ -4,7 +4,7 @@ addEventListener("DOMContentLoaded", function () {
     window.data = JSON.parse(document.getElementById('data').textContent);
     window.valid = true;
     window.rows = [];
-    window.tbody = document.getElementById("parts").children[0];
+    window.tbody = document.getElementById("entries").children[0];
     window.adder_row = document.getElementById("adder-row");
     window.new_row_template = document.getElementById("new-row-t")
         .content.firstElementChild

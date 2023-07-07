@@ -3,7 +3,7 @@ from django.db.models import F, Min, Max, Sum
 from django.db.models.functions import Trunc
 from django.core.management.base import BaseCommand
 from budget.models import (User, Budget, Account, Category, Transaction,
-                           TransactionCategoryPart, months_between)
+                           CategoryEntry, months_between)
 
 from typing import Any, Iterable, TypeVar, Callable
 from collections import defaultdict
@@ -15,6 +15,7 @@ import functools
 
 ynab_transfer_prefix = "Transfer : "
 import_off_budget_prefix = "Off-budget: "
+
 
 @dataclass
 class RawTransactionPartRecord:
@@ -38,6 +39,7 @@ class RawTransactionPartRecord:
     def from_row(row: 'list[str]') -> 'RawTransactionPartRecord':
         return RawTransactionPartRecord(*row)
 
+
 @dataclass
 class RawBudgetEventRecord:
     Month: str
@@ -55,6 +57,7 @@ class RawBudgetEventRecord:
     def from_row(row: 'list[str]') -> 'RawBudgetEventRecord':
         return RawBudgetEventRecord(*row)
 
+
 @dataclass(eq=True, frozen=True)
 class TargetBudget:
     budget: Budget
@@ -64,33 +67,37 @@ class TargetBudget:
         assert name
         return Budget.objects.get_or_create(
             name=name, payee_of=self.budget.budget_of)[0]
-    
+
     @functools.cache
     def account(self, name: str, currency: str):
         assert name
         return Account.objects.get_or_create(
-                budget=self.budget, name=name, currency=currency)[0]
-    
+            budget=self.budget, name=name, currency=currency)[0]
+
     @functools.cache
     def category(self, name: str, group: str, currency: str):
         assert name
         return Category.objects.get_or_create(
-                budget=self.budget, name=name, group=group, currency=currency)[0]
+            budget=self.budget, name=name, group=group, currency=currency)[0]
+
 
 ynab_currency = "CHF"
 
 T = TypeVar('T')
 TransferKey = tuple[str, str, int]
 
+
 class Command(BaseCommand):
     help = "Import a YNAB budget"
 
     def handle(self, *args: Any, **options: Any):
         register_filename = "../Swiss Budget as of 2023-05-01 20-59 - Register.csv"
-        self.process_csv(register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
+        self.process_csv(
+            register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
 
         budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
-        self.process_csv(budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
+        self.process_csv(
+            budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
 
     def process_csv(self, filename: str,
                     from_row: Callable[[list[str]], T],
@@ -141,11 +148,12 @@ class Command(BaseCommand):
                     self.save_transaction(target_budget, [part, other_part])
                 else:
                     unmatched_transfers[expected_transfer_key(part)].append(ix)
-            else: #is_singleton(part):
+            else:  # is_singleton(part):
                 self.save_transaction(target_budget, [part])
 
         current_split: list[RawTransactionPartRecord] = []
-        current_split_transfers: dict[tuple[str, str], int] = defaultdict(int) # (to, from) => amount
+        current_split_transfers: dict[tuple[str, str], int] = defaultdict(
+            int)  # (to, from) => amount
         for ix, part in enumerate(day_transaction_parts):
             if not is_split(part):
                 assert not current_split
@@ -159,7 +167,7 @@ class Command(BaseCommand):
                     other_part = day_transaction_parts[other_part_ix]
                     current_split.append(other_part)
                 else:
-                    from_acc, to_acc, amount  = transfer_key
+                    from_acc, to_acc, amount = transfer_key
                     current_split_transfers[(from_acc, to_acc)] += amount
                 pass
             if is_last_part_in_split(part):
@@ -169,7 +177,7 @@ class Command(BaseCommand):
                     other_part = day_transaction_parts[other_part_ix]
                     current_split.append(other_part)
                 current_split_transfers.clear()
-                self.save_transaction(target_budget, current_split)# DOING
+                self.save_transaction(target_budget, current_split)  # DOING
                 current_split = []
         assert not current_split
         assert not current_split_transfers
@@ -189,39 +197,44 @@ class Command(BaseCommand):
             date=date, kind=kind, description=description)
         transaction.save()
 
-        transaction_account_parts: 'dict[Account, int]' = defaultdict(int)
-        transaction_category_parts: 'dict[Category, int]' = defaultdict(int)
+        account_entries: 'dict[Account, int]' = defaultdict(int)
+        category_entries: 'dict[Category, int]' = defaultdict(int)
         for raw_transaction_part in raw_transaction_parts:
             raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
             raw_transaction_part_outflow = -raw_transaction_part_inflow
 
-            raw_account = raw_transaction_part.Account.removesuffix(" (Original)")
+            raw_account = raw_transaction_part.Account.removesuffix(
+                " (Original)")
             account = target_budget.account(raw_account, ynab_currency)
-            transaction_account_parts[account] += raw_transaction_part_inflow
+            account_entries[account] += raw_transaction_part_inflow
 
             raw_payee = raw_transaction_part.Payee
 
             if not is_transfer(raw_transaction_part):  # Payment to external payee
-                if not raw_payee: # payment to an off-budget debt account")
+                if not raw_payee:  # payment to an off-budget debt account")
                     raw_payee = f"Interest: {raw_transaction_part.Account}"
                 raw_category_group_category = raw_transaction_part.CategoryGroupCategory
-                if not raw_category_group_category: # off-budget account")
+                if not raw_category_group_category:  # off-budget account")
                     raw_category_group_category = f"Off-budget: {raw_account}"
 
                 payee = target_budget.payee(raw_payee)
-                payee_account = payee.get_hidden(Account, currency=ynab_currency)
-                transaction_account_parts[payee_account] += raw_transaction_part_outflow
+                payee_account = payee.get_hidden(
+                    Account, currency=ynab_currency)
+                account_entries[payee_account] += raw_transaction_part_outflow
 
-                raw_category, raw_group = split_category_group_category(raw_category_group_category)
-                category = target_budget.category(raw_category, raw_group, ynab_currency)
-                transaction_category_parts[category] += raw_transaction_part_inflow
-                payee_category = payee.get_hidden(Category, currency=ynab_currency)
-                transaction_category_parts[payee_category] += raw_transaction_part_outflow
-            assert sum(transaction_category_parts.values()) == 0
-        assert sum(transaction_account_parts.values()) == 0
-        assert len(transaction_account_parts) > 0
-        transaction.set_parts_raw(accounts=transaction_account_parts,
-                                  categories=transaction_category_parts)
+                raw_category, raw_group = split_category_group_category(
+                    raw_category_group_category)
+                category = target_budget.category(
+                    raw_category, raw_group, ynab_currency)
+                category_entries[category] += raw_transaction_part_inflow
+                payee_category = payee.get_hidden(
+                    Category, currency=ynab_currency)
+                category_entries[payee_category] += raw_transaction_part_outflow
+            assert sum(category_entries.values()) == 0
+        assert sum(account_entries.values()) == 0
+        assert len(account_entries) > 0
+        transaction.set_flows(accounts=account_entries,
+                              categories=category_entries)
         return None
 
     @transaction.atomic
@@ -230,37 +243,42 @@ class Command(BaseCommand):
         target_budget = TargetBudget(Budget.objects.get_or_create(
             name="ynabimport", budget_of=user)[0])
         raw_category_group_category = "Inflow: Ready to Assign"
-        raw_category, raw_group = split_category_group_category(raw_category_group_category)
+        raw_category, raw_group = split_category_group_category(
+            raw_category_group_category)
         inflow_budget_category = target_budget.category(
             raw_category, raw_group, ynab_currency)
         kind = Transaction.Kind.BUDGETING
 
         month_budgets: dict[date, dict[Category, int]] = defaultdict(
-            lambda: defaultdict(int)) #month -> cat -> budgeted_amount
+            lambda: defaultdict(int))  # month -> cat -> budgeted_amount
 
-        #parse csv
+        # parse csv
         for raw_budget_event in reader:
-            if raw_budget_event.CategoryGroup == "Credit Card Payments": continue #TODO this works for me as I have no credit card debt
+            if raw_budget_event.CategoryGroup == "Credit Card Payments":
+                continue  # TODO this works for me as I have no credit card debt
             amount = raw_budget_event.TotalBudgeted()
-            if not amount: continue
+            if not amount:
+                continue
             month = datetime.strptime(raw_budget_event.Month, "%b %Y").date()
             raw_category_group_category = raw_budget_event.CategoryGroupCategory
-            raw_category, raw_group = split_category_group_category(raw_category_group_category)
-            category = target_budget.category(raw_category, raw_group, ynab_currency)
+            raw_category, raw_group = split_category_group_category(
+                raw_category_group_category)
+            category = target_budget.category(
+                raw_category, raw_group, ynab_currency)
             month_budgets[month][category] = amount
 
-        #form budgeting transactions
-        category_month_activities = { #cat -> month -> activity
-                category: defaultdict(
-                    int, 
-                    {
-                        month: 
-                        activity 
-                        for month, activity in get_category_activity_iterable(category)}
-                    ) 
-                for category in target_budget.budget.category_set.all()
-                }
-        running_sums: dict[Category, int] = defaultdict(int) #cat -> sum
+        # form budgeting transactions
+        category_month_activities = {  # cat -> month -> activity
+            category: defaultdict(
+                int,
+                {
+                    month:
+                    activity
+                    for month, activity in get_category_activity_iterable(category)}
+            )
+            for category in target_budget.budget.category_set.all()
+        }
+        running_sums: dict[Category, int] = defaultdict(int)  # cat -> sum
 
         range = (Transaction.objects
                  .filter(categories__budget=target_budget.budget)
@@ -268,25 +286,30 @@ class Command(BaseCommand):
         months = list(months_between(range['date__min'] or date.today(),
                                      range['date__max'] or date.today()))
         for month in months:
-            transaction_category_parts: dict[Category, int] = {}
+            category_entries: dict[Category, int] = {}
             for category in target_budget.budget.category_set.all():
-                if category.name.startswith(import_off_budget_prefix): continue # this is a new category built by us
+                if category.name.startswith(import_off_budget_prefix):
+                    continue  # this is a new category built by us
                 budgeted = month_budgets[month][category]
 
                 running_sums[category] += budgeted
                 running_sums[category] += category_month_activities[category][month]
 
-                if running_sums[category] < 0: #ynab doesn't let you roll negative categories over
+                # ynab doesn't let you roll negative categories over
+                if running_sums[category] < 0:
                     budgeted += -running_sums[category]
                     running_sums[category] = 0
-                transaction_category_parts[category] = budgeted
+                category_entries[category] = budgeted
 
-            total_budgeted = sum(transaction_category_parts.values())
-            transaction_category_parts[inflow_budget_category] = -total_budgeted
+            total_budgeted = sum(category_entries.values())
+            category_entries[inflow_budget_category] = - \
+                total_budgeted
 
             transaction = Transaction(date=month, kind=kind)
             transaction.save()
-            transaction.set_parts_raw(accounts = {}, categories = transaction_category_parts)
+            transaction.set_flows(
+                accounts={}, categories=category_entries)
+
 
 def YNAB_string_to_date(ynab_string: str):
     return date(*[int(i) for i in ynab_string.split('.')][::-1])
@@ -301,14 +324,18 @@ def join_memos(raw_transaction_parts: 'list[RawTransactionPartRecord]'):
              for x in raw_transaction_parts)
     return ", ".join({part for part in parts if part})
 
+
 def is_transfer(raw_transaction_part: RawTransactionPartRecord):
     return raw_transaction_part.Payee.startswith(ynab_transfer_prefix)
+
 
 def is_split(raw_transaction_part: RawTransactionPartRecord):
     return raw_transaction_part.Memo.startswith("Split")
 
+
 def is_last_part_in_split(raw_transaction_part: RawTransactionPartRecord):
     return re.match(r"Split \((\d+)/\1\)", raw_transaction_part.Memo)
+
 
 def get_transfer_key(raw_transaction_part: RawTransactionPartRecord):
     acc = raw_transaction_part.Account
@@ -318,22 +345,26 @@ def get_transfer_key(raw_transaction_part: RawTransactionPartRecord):
     transfer_key = (acc, other_acc, total_inflow)
     return transfer_key
 
+
 def expected_transfer_key(raw_transaction_part: RawTransactionPartRecord):
     other_acc, acc, raw_amount = get_transfer_key(raw_transaction_part)
     amount = -raw_amount
     transfer_key = (acc, other_acc, amount)
     return transfer_key
 
+
 def get_last_day_of_month(month: date):
-    return ((month + timedelta(days = 31)).replace(day = 1)
+    return ((month + timedelta(days=31)).replace(day=1)
             - timedelta(days=1))
 
+
 def get_category_activity_iterable(category: Category):
-    return (TransactionCategoryPart.objects
+    return (CategoryEntry.objects
             .filter(to=category)
             .values_list(Trunc(F('transaction__date'), 'month'))
             .annotate(total=Sum('amount'))
             .order_by('trunc1'))
+
 
 def split_category_group_category(raw_category_group_category):
     return raw_category_group_category.split(": ")[::-1]
