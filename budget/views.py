@@ -16,7 +16,7 @@ from .models import (sum_by, date_range, months_between,
                      BaseAccount, Account, Category, Budget, Transaction,
                      accounts_overview, entries_for, category_balance,
                      Balance, entries_for_balance, budgeting_transaction)
-from .forms import (TransactionForm, TransactionPartFormSet,
+from .forms import (TransactionForm, EntryFormSet,
                     BudgetingForm, rename_form, BudgetForm,
                     OnTheGoForm,
                     ReorderingFormSet, AccountManagementFormSet,
@@ -205,7 +205,7 @@ def edit(request: HttpRequest, budget_id: int,
 
     if request.method == 'POST':
         form = TransactionForm(instance=transaction, data=request.POST)
-        formset = TransactionPartFormSet(
+        formset = EntryFormSet(
             budget, prefix="tx", instance=transaction, data=request.POST)
         if form.is_valid() and formset.is_valid():
             with atomic():
@@ -218,7 +218,7 @@ def edit(request: HttpRequest, budget_id: int,
             return HttpResponseRedirect(back)
     else:
         form = TransactionForm(instance=transaction)
-        formset = TransactionPartFormSet(
+        formset = EntryFormSet(
             budget, prefix="tx", instance=transaction)
 
     friends = dict(budget.friends.values_list('id', 'name'))

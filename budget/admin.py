@@ -34,13 +34,13 @@ admin.site.register(Account)
 admin.site.register(Category)
 
 
-class AccountPartInline(admin.TabularInline):  # type: ignore
-    model = AccountPart
+class AccountEntryInline(admin.TabularInline):  # type: ignore
+    model = AccountEntry
     raw_id_fields = ['source', 'sink']
 
 
-class CategoryPartInline(admin.TabularInline):  # type: ignore
-    model = CategoryPart
+class CategoryEntryInline(admin.TabularInline):  # type: ignore
+    model = CategoryEntry
     raw_id_fields = ['source', 'sink']
 
 
@@ -56,8 +56,8 @@ class CategoryNoteInline(admin.TabularInline):  # type: ignore
 
 class TransactionAdmin(admin.ModelAdmin):  # type: ignore
     inlines = [
-        AccountPartInline,
-        CategoryPartInline,
+        AccountEntryInline,
+        CategoryEntryInline,
         AccountNoteInline,
         CategoryNoteInline,
     ]

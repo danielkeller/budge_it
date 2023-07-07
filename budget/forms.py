@@ -40,7 +40,7 @@ class AccountChoiceField(forms.Field):
             name=value, payee_of_id=self.user_id)[0]
 
 
-class TransactionPartForm(forms.Form):
+class EntryForm(forms.Form):
     account = AccountChoiceField(type=Account, required=False)
     category = AccountChoiceField(type=Category, required=False)
     transferred = forms.IntegerField(
@@ -82,7 +82,7 @@ class TransactionPartForm(forms.Form):
         return data
 
 
-class BaseTransactionPartFormSet(forms.BaseFormSet):
+class BaseEntryFormSet(forms.BaseFormSet):
     budget: Budget
 
     def __init__(self, budget: Budget, *args: Any,
@@ -91,7 +91,7 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
         initial = instance and instance.tabular()
         super().__init__(*args, initial=initial, **kwargs)
 
-    def add_fields(self, form: TransactionPartForm, index: int):
+    def add_fields(self, form: EntryForm, index: int):
         super().add_fields(form, index)
         form.fields['account'].user_id = self.budget.owner()
         form.fields['category'].user_id = self.budget.owner()
@@ -120,8 +120,8 @@ class BaseTransactionPartFormSet(forms.BaseFormSet):
         instance.categorynotes.set_notes(self.budget, category_notes)
 
 
-TransactionPartFormSet = forms.formset_factory(
-    TransactionPartForm, formset=BaseTransactionPartFormSet, extra=2)
+EntryFormSet = forms.formset_factory(
+    EntryForm, formset=BaseEntryFormSet, extra=2)
 
 
 class BudgetingForm(forms.ModelForm):
@@ -140,7 +140,7 @@ class BudgetingForm(forms.ModelForm):
                 required=False, widget=forms.HiddenInput(
                     attrs={'form': 'form'}))
         if instance:
-            for category, amount in instance.categoryparts.entries().items():
+            for category, amount in instance.categoryentry_set.entries().items():
                 self.initial[str(category.id)] = amount
 
     def rows(self):
