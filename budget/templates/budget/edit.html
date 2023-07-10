@@ -12,6 +12,8 @@
 </head>
 
 <form id="form" class="edit" action="{{ request.get_full_path }}" method="post">
+    {% for part in form.formset %}
+    {{ part.id }}
     <table>
         <tr>
             <th>Date</th>
@@ -28,28 +30,28 @@
             <th class="t5">Categorized</th>
             <th class="t8">Note</th>
         </tr>
-        {% for form in formset %}
+        {% for row in part.formset %}
         <tr>
             <td class="tdinput">
-                {{ form.account }}<span></span><input list="account-list">
+                {{ row.account }}<span></span><input list="account-list">
             </td>
             <td class="tdinput">
-                {{ form.category }}<span></span><input list="category-list">
+                {{ row.category }}<span></span><input list="category-list">
             </td>
             <td class="tdinput">
-                {{ form.transferred_currency }}
-                {{ form.transferred }}
+                {{ row.transferred_currency }}
+                {{ row.transferred }}
                 <span></span>
                 <input class="number">
             </td>
             <td class="tdinput">
-                {{ form.moved_currency }}
-                {{ form.moved }}
+                {{ row.moved_currency }}
+                {{ row.moved }}
                 <span></span>
                 <input class="number">
             </td>
             <td class="tdinput">
-                {{ form.note }}
+                {{ row.note }}
             </td>
         </tr>
         {% endfor %}
@@ -57,7 +59,9 @@
             <td colspan="6"><button id="addrow" type="button">+</button></td>
         </tr>
     </table>
-    {{ formset.management_form }}
+    {{ part.formset.management_form }}
+    {% endfor %}
+    {{ form.formset.management_form }}
     {% csrf_token %}
 </form>
 <template id="new-row-t">
@@ -120,5 +124,5 @@
 
 {{ data|json_script:"data" }}
 {{ form.errors|default:"" }}
-{{ formset.errors|default:"" }}
-{{ formset.non_form_errors }}
+{{ form.formset.errors|default:"" }}
+{{ form.formset.non_form_errors }}

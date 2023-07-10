@@ -68,12 +68,13 @@
             {% for transaction in entries %}
             <div class="{% if request.GET.t == transaction.id|slugify %}checked{% endif %}" data-id="{{transaction.id}}">
                 {% if transaction.kind != 'B' %}
+                {% for part in transaction.parts.all %}
                 <table>
                     <th class="t6">Account</th>
                     <th class="t6">Category</th>
                     <th class="t4">Amount</th>
                     <th class="t4">Note</th>
-                    {% for entry in transaction.tabular %}
+                    {% for entry in part.tabular %}
                     <tr class="{% cycle 'a' 'b' %}">
                         <td>{% account_in_budget entry.account account.budget %}</td>
                         <td>{% account_in_budget entry.category account.budget %}</td>
@@ -84,6 +85,7 @@
                     {% endfor %}
                     {% resetcycle %}
                 </table>
+                {% endfor %}
                 {% endif %}
                 <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">Edit...</a></div>
             </div>

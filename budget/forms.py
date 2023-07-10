@@ -1,13 +1,17 @@
 from collections import defaultdict
-from typing import Any, Union, Mapping, Optional, Type
+from typing import Any, Dict, Union, Mapping, Optional, Type, TypeVar, Generic
 from datetime import date
 
 from django import forms
+from django.core.files.base import File
+from django.db.models.base import Model
+from django.forms.utils import ErrorList
 from django.utils.translation import gettext_lazy as _
 from django.forms import ValidationError
+from django.db import transaction
 
 from .models import (Id, Budget, BaseAccount, Account, Category,
-                     Transaction)
+                     TransactionPart, Transaction)
 
 
 class AccountChoiceField(forms.Field):
@@ -53,7 +57,7 @@ class EntryForm(forms.Form):
         required=False, widget=forms.HiddenInput)
     note = forms.CharField(required=False)
 
-    def __init__(self, *args: Any, initial: Optional[Transaction.Row] = None,
+    def __init__(self, *args: Any, initial: Optional[TransactionPart.Row] = None,
                  **kwargs: Any):
         values: dict[str, Any] = {}
         if initial:
@@ -84,19 +88,22 @@ class EntryForm(forms.Form):
 
 class BaseEntryFormSet(forms.BaseFormSet):
     budget: Budget
+    instance: Optional[TransactionPart]
 
-    def __init__(self, budget: Budget, *args: Any,
-                 instance: Transaction, **kwargs: Any):
+    def __init__(self, budget: Budget,
+                 instance: Optional[TransactionPart] = None,
+                 **kwargs: Any):
         self.budget = budget
+        self.instance = instance
         initial = instance and instance.tabular()
-        super().__init__(*args, initial=initial, **kwargs)
+        super().__init__(initial=initial, **kwargs)
 
     def add_fields(self, form: EntryForm, index: int):
         super().add_fields(form, index)
         form.fields['account'].user_id = self.budget.owner()
         form.fields['category'].user_id = self.budget.owner()
 
-    def save(self, *, instance: Transaction):
+    def save(self):
         # Make these one dict?
         accounts: dict[Account, int] = defaultdict(int)
         categories: dict[Category, int] = defaultdict(int)
@@ -115,13 +122,89 @@ class BaseEntryFormSet(forms.BaseFormSet):
                 category_notes[category] = data['note']
             elif account and data.get('note'):
                 account_notes[account] = data['note']
-        instance.set_entries(self.budget, accounts, categories)
-        instance.accountnotes.set_notes(self.budget, account_notes)
-        instance.categorynotes.set_notes(self.budget, category_notes)
+        if not self.instance:
+            raise ValueError("No instance set")
+        instance = self.instance.set_entries(self.budget, accounts, categories)
+        if instance:
+            self.instance.accountnotes.set_notes(self.budget, account_notes)
+            self.instance.categorynotes.set_notes(self.budget, category_notes)
+        return instance
 
 
 EntryFormSet = forms.formset_factory(
-    EntryForm, formset=BaseEntryFormSet, extra=2)
+    EntryForm, formset=BaseEntryFormSet, extra=2, max_num=15)
+
+
+FormSetT = TypeVar('FormSetT', bound=forms.BaseInlineFormSet)
+
+
+def FormSetInline(formset: Type[FormSetT]):
+    """Form lifecycle boilerplate to hold a formset as a property."""
+    class FormSetInlineImpl(forms.ModelForm):
+        formset: FormSetT
+
+        def __init__(self,
+                     budget: Budget,
+                     renderer: Any = None,
+                     use_required_attribute: Optional[bool] = None,
+                     **kwargs: Any):
+            super().__init__(**kwargs, renderer=renderer,
+                             use_required_attribute=use_required_attribute)
+            self.formset = formset(budget, **kwargs)
+
+        def is_valid(self):
+            return super().is_valid() and self.formset.is_valid()
+
+        def has_changed(self):
+            return super().has_changed() or self.formset.has_changed()
+
+        def save(self, commit: bool = True) -> tuple[Any, list[Any]]:
+            instance = super().save(commit)
+            self.formset.instance = instance
+            children = self.formset.save()
+            return (instance, children)
+    return FormSetInlineImpl
+
+
+class BasePartFormSet(forms.BaseInlineFormSet):
+    budget: Budget
+
+    def __init__(self, budget: Budget,
+                 instance: Optional[Transaction] = None,
+                 **kwargs: Any):
+        self.budget = budget
+        super().__init__(instance=instance, **kwargs)
+        # BaseInlineFormSet breaks the prefetches so unbreak it here
+        if instance:
+            self.queryset = instance.parts.all()
+        else:
+            self.queryset = self.model.objects.none()
+
+    def get_form_kwargs(self, index: Any) -> Any:
+        return {'budget': self.budget}
+
+
+PartFormSet = forms.inlineformset_factory(
+    Transaction, TransactionPart,
+    form=FormSetInline(EntryFormSet), formset=BasePartFormSet,
+    fields=(),
+    min_num=1, extra=0, max_num=5)
+
+
+class TransactionForm(FormSetInline(PartFormSet)):
+    class Meta:  # type: ignore
+        model = Transaction
+        fields = ('date',)
+    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
+                                                  format='%Y-%m-%d'),
+                           initial=date.today)
+
+    @transaction.atomic
+    def save(self, commit: bool = True):
+        (instance, children) = super().save(commit)
+        if all(not part.pk for part, _ in children):
+            instance.delete()
+        return instance
 
 
 class BudgetingForm(forms.ModelForm):
@@ -142,7 +225,8 @@ class BudgetingForm(forms.ModelForm):
                 required=False, widget=forms.HiddenInput(
                     attrs={'form': 'form'}))
         if instance:
-            for category, amount in instance.categoryentry_set.entries().items():
+            for category, amount in (instance.parts.first()
+                                     .categoryentry_set.entries().items()):
                 self.initial[str(category.id)] = amount
 
     def rows(self):
@@ -165,16 +249,9 @@ class BudgetingForm(forms.ModelForm):
         categories = {}
         for category in self.budget.category_set.all():
             categories[category] = self.cleaned_data[str(category.id)] or 0
-        self.instance.set_entries(self.budget, {}, categories)
-
-
-class TransactionForm(forms.ModelForm):
-    class Meta:  # type: ignore
-        model = Transaction
-        fields = ('date',)
-    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
-                                                  format='%Y-%m-%d'),
-                           initial=date.today)
+        part, _ = (TransactionPart.objects
+                   .get_or_create(transaction=self.instance))
+        part.set_entries(self.budget, {}, categories)
 
 
 class BudgetForm(forms.ModelForm):
@@ -255,9 +332,12 @@ class OnTheGoForm(forms.Form):
         initial = {'currency': currency}
         super().__init__(*args, initial=initial, **kwargs)
 
+    @transaction.atomic
     def save(self):
         transaction = Transaction(date=date.today())
         transaction.save()
+        part = TransactionPart(transaction=transaction)
+        part.save()
         currency = self.cleaned_data['currency']
         self.budget.initial_currency = currency
         self.budget.save()
@@ -268,9 +348,9 @@ class OnTheGoForm(forms.Form):
                     payee.get_inbox(Account, currency): amount}
         categories = {self.budget.get_inbox(Category, currency): -amount,
                       payee.get_inbox(Category, currency): amount}
-        transaction.set_entries(self.budget, accounts, categories)
+        part.set_entries(self.budget, accounts, categories)
         if self.cleaned_data['note']:
             notes = {self.budget.get_inbox(Category, currency):
                      self.cleaned_data['note']}
-            transaction.categorynotes.set_notes(self.budget, notes)
+            part.categorynotes.set_notes(self.budget, notes)
         return transaction

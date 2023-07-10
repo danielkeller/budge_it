@@ -54,12 +54,27 @@ class CategoryNoteInline(admin.TabularInline):  # type: ignore
     raw_id_fields = ['account']
 
 
-class TransactionAdmin(admin.ModelAdmin):  # type: ignore
+class TransactionPartAdmin(admin.ModelAdmin):  # type: ignore
     inlines = [
         AccountEntryInline,
         CategoryEntryInline,
         AccountNoteInline,
         CategoryNoteInline,
+    ]
+
+
+admin.site.register(TransactionPart, TransactionPartAdmin)
+
+
+class TransactionPartInline(admin.TabularInline):  # type: ignore
+    model = TransactionPart
+    fields = []
+    show_change_link = True
+
+
+class TransactionAdmin(admin.ModelAdmin):  # type: ignore
+    inlines = [
+        TransactionPartInline
     ]
 
 
