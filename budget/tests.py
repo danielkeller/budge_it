@@ -171,8 +171,8 @@ class ModelTests(TestCase):
         t.set_entries(self.foo, {out_account: -10, in_account: 10},
                       {self.category: -10, payee: 10})
         self.assertEqual(t.tabular(), [
-            TransactionPart.Row(out_account, self.category, -10, ''),
-            TransactionPart.Row(in_account, payee, 10, '')])
+            TransactionPart.Row(out_account, self.category, -10),
+            TransactionPart.Row(in_account, payee, 10)])
 
     def test_tabluar2(self):
         _, t = new_transaction()
@@ -182,10 +182,10 @@ class ModelTests(TestCase):
         t.set_entries(self.foo, {out_account: -10, in_account: 10},
                       {self.category: -20, payee: 20})
         self.assertEqual(t.tabular(), [
-            TransactionPart.Row(None, self.category, -20, ''),
-            TransactionPart.Row(out_account, None, -10, ''),
-            TransactionPart.Row(in_account, None, 10, ''),
-            TransactionPart.Row(None, payee, 20, '')])
+            TransactionPart.Row(None, self.category, -20),
+            TransactionPart.Row(out_account, None, -10),
+            TransactionPart.Row(in_account, None, 10),
+            TransactionPart.Row(None, payee, 20)])
 
     def test_auto_description1(self):
         t, tp = new_transaction()
