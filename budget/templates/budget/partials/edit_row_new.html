@@ -1,0 +1,10 @@
+{% include "budget/partials/edit_row.html" %}
+<tr class="new_row" style="text-align:right;">
+    <td colspan="4">
+        {{ part.formset.management_form.TOTAL_FORMS }}
+        <button
+            hx-get="{% url 'row_form' part_index part.formset.management_form.TOTAL_FORMS.value %}"
+            hx-target="closest .new_row"
+            hx-swap="outerHTML settle:0">+</button>
+    </td>
+</tr>

@@ -3,26 +3,19 @@
 addEventListener("DOMContentLoaded", function () {
     window.data = JSON.parse(document.getElementById('data').textContent);
     window.valid = true;
-    window.rows = [];
-    window.tbody = document.getElementById("entries").children[0];
-    window.adder_row = document.getElementById("adder-row");
-    window.new_row_template = document.getElementById("new-row-t")
-        .content.firstElementChild
-    window.category_sum = document.getElementById("category-sum");
-    window.account_sum = document.getElementById("account-sum");
-    window.debt = document.getElementById("debt");
+    window.parts = {};
     window.account_options = Array.from(
         document.getElementById("account-list").options).map(optData);
     window.category_options = Array.from(
         document.getElementById("category-list").options).map(optData);
 
-    document.getElementById('addrow').addEventListener('click', addRow);
     document.getElementById('cancel').addEventListener('click', cancel);
     document.forms[0].addEventListener('submit', onSubmit);
     document.addEventListener("keydown", key);
-    setUpRows();
     checkValid();
 });
+
+htmx.onLoad(setUp);
 
 function optData(option) {
     return {
@@ -59,9 +52,13 @@ function cancel() {
 }
 
 function findRow(input) {
-    return rows.findIndex(
-        ({ account, category, moved, transferred }) =>
-            [account, category, moved, transferred].includes(input));
+    for (const part of Object.values(window.parts)) {
+        for (const row of part) {
+            const { account, category, moved, transferred } = row;
+            if ([account, category, moved, transferred].includes(input))
+                return row;
+        }
+    }
 }
 
 function ownAccount(value) {
@@ -75,6 +72,9 @@ function sigil(account) {
             : null;
 }
 
+// TODO: This could potentially do its thing in a more htmx-y way by setting
+// values on elements and triggering events and it might avoid the windows.parts
+// stuff.
 class Selector {
     #visible; #hidden; #sigil; #options; #oninput;
     constructor([hidden, sigil, visible], options, oninput) {
@@ -233,8 +233,8 @@ class CurrencyInput {
 }
 
 function setUpRow(tr) {
-    var [account, category, transferred, moved] =
-        Array.prototype.map.call(tr.children, n => n.children);
+    const part = tr.closest('table').dataset.part;
+    var [account, category, transferred, moved] = Array.prototype.map.call(tr.children, n => n.children);
     account = new Selector(account, account_options, accountChanged);
     category = new Selector(category, category_options, categoryChanged);
     if (category.value === account.value)
@@ -250,37 +250,22 @@ function setUpRow(tr) {
     moved.addEventListener('input', amountChanged);
     moved.addEventListener('blur', suggestAmounts);
     const row = { account, category, moved, transferred };
-    rows.push(row);
-    return row;
+    if (!(part in window.parts)) window.parts[part] = [];
+    window.parts[part].push(row);
 }
 
-function setUpRows() {
-    const real_rows = Array.prototype.slice.call(tbody.children, 1, -1);
-    for (var tr of real_rows) {
-        setUpRow(tr);
-    }
-}
-
-function addRow(event) {
-    var tr = new_row_template.cloneNode(true);
-    var [account, category, transferred, moved] = tr.children;
-    const n = rows.length;
-    account.children[0].name = `tx-${n}-account`;
-    category.children[0].name = `tx-${n}-category`;
-    transferred.children[0].name = `tx-${n}-transferred_currency`;
-    transferred.children[1].name = `tx-${n}-transferred`;
-    moved.children[0].name = `tx-${n}-moved_currency`;
-    moved.children[1].name = `tx-${n}-moved`;
-    tbody.insertBefore(tr, adder_row);
-    setUpRow(tr);
-    document.forms[0].elements["tx-TOTAL_FORMS"].value = rows.length;
-    if (event) {
-        rows[n].account.focus({ focusVisible: true });
+function setUp(element) {
+    if (element.classList.contains('edit-row')) {
+        setUpRow(element);
+    } else {
+        for (var tr of element.querySelectorAll('.edit-row')) {
+            setUpRow(tr);
+        }
     }
 }
 
 function accountChanged({ target }) {
-    var { category, transferred, moved } = rows[findRow(target)];
+    const { category, transferred, moved } = findRow(target);
     category.unsuggest();
     if (!ownAccount(target.value) && !(target.value in data.friends)) {
         if (target.value in data.budgets) category.suggest(target.value);
@@ -307,7 +292,7 @@ function categoryChanged({ target }) {
 
     target.sigil = sigil(target.value);
 
-    var { account, moved } = rows[findRow(target)];
+    const { moved } = findRow(target);
     moved.disabled = !target.value;
     if (moved.disabled) moved.clear();
 
@@ -324,17 +309,19 @@ function amountChanged({ target }) {
 }
 
 function suggestCurrenciesColumn() {
-    const currencies = new Set(rows
-        .filter(({ account }) => account.value)
-        .map(({ transferred }) => transferred.currency)
-        .concat(rows
-            .filter(({ category }) => category.value)
-            .map(({ moved }) => moved.currency)));
-    if (currencies.delete("") && currencies.size === 1) {
-        const currency = currencies.values().next().value;
-        for (var { account, category, moved, transferred } of rows) {
-            if (category.value) moved.suggestCurrency(currency);
-            if (account.value) transferred.suggestCurrency(currency);
+    for (const rows of Object.values(window.parts)) {
+        const currencies = new Set(rows
+            .filter(({ account }) => account.value)
+            .map(({ transferred }) => transferred.currency)
+            .concat(rows
+                .filter(({ category }) => category.value)
+                .map(({ moved }) => moved.currency)));
+        if (currencies.delete("") && currencies.size === 1) {
+            const currency = currencies.values().next().value;
+            for (var { account, category, moved, transferred } of rows) {
+                if (category.value) moved.suggestCurrency(currency);
+                if (account.value) transferred.suggestCurrency(currency);
+            }
         }
     }
 }
@@ -342,41 +329,43 @@ function suggestCurrenciesColumn() {
 function suggestSums() {
     suggestCurrenciesColumn();
     var result = false;
-    const currencies = new Set(
-        rows.flatMap(({ transferred, moved }) =>
-            [transferred.currency, moved.currency]));
+    for (const rows of Object.values(window.parts)) {
+        const currencies = new Set(
+            rows.flatMap(({ transferred, moved }) =>
+                [transferred.currency, moved.currency]));
 
-    for (const currency of currencies) {
-        var to_category = [];
-        var from_categories = 0;
-        var category_total = 0;
-        var to_account = [];
-        var account_total = 0;
-        for (var { account, category, moved, transferred } of rows) {
-            if (category.value && moved.currency === currency) {
-                if (moved.value) {
-                    from_categories++;
-                    category_total += +moved.value;
-                } else {
-                    to_category.push(moved);
+        for (const currency of currencies) {
+            var to_category = [];
+            var from_categories = 0;
+            var category_total = 0;
+            var to_account = [];
+            var account_total = 0;
+            for (var { account, category, moved, transferred } of rows) {
+                if (category.value && moved.currency === currency) {
+                    if (moved.value) {
+                        from_categories++;
+                        category_total += +moved.value;
+                    } else {
+                        to_category.push(moved);
+                    }
+                }
+                if (account.value && transferred.currency === currency) {
+                    if (transferred.value) {
+                        account_total += +transferred.value;
+                    } else {
+                        to_account.push(transferred);
+                    }
                 }
             }
-            if (account.value && transferred.currency === currency) {
-                if (transferred.value) {
-                    account_total += +transferred.value;
-                } else {
-                    to_account.push(transferred);
-                }
+            if (isFinite(category_total) && to_category.length && from_categories) {
+                const div = Math.floor(category_total / to_category.length);
+                const rem = category_total - div * to_category.length;
+                for (let i = 0; i < to_category.length; ++i)
+                    result |= to_category[i].suggest(-div - (i < rem));
             }
-        }
-        if (isFinite(category_total) && to_category.length && from_categories) {
-            const div = Math.floor(category_total / to_category.length);
-            const rem = category_total - div * to_category.length;
-            for (let i = 0; i < to_category.length; ++i)
-                result |= to_category[i].suggest(-div - (i < rem));
-        }
-        if (isFinite(account_total) && to_account.length === 1) {
-            result |= to_account[0].suggest(account_total ? -account_total : "");
+            if (isFinite(account_total) && to_account.length === 1) {
+                result |= to_account[0].suggest(account_total ? -account_total : "");
+            }
         }
     }
     return result;
@@ -384,36 +373,41 @@ function suggestSums() {
 
 function suggestRowConsistency(options) {
     var result = false;
-    for (var { account, category, moved, transferred } of rows) {
-        if (!account.value || !category.value)
-            continue;
-        if (options?.onlyExternal && category.value !== account.value &&
-            category.value !== `[${account.value}]`)
-            continue;
-        if (transferred.currency && !moved.currency)
-            moved.suggestCurrency(transferred.currency);
-        if (moved.currency && !transferred.currency)
-            transferred.suggestCurrency(moved.currency);
-        if (moved.currency !== transferred.currency)
-            continue;
-        if (transferred.value && isFinite(+transferred.value))
-            result |= moved.suggest(transferred.value);
-        if (moved.value && isFinite(+moved.value))
-            result |= transferred.suggest(moved.value);
+    for (const rows of Object.values(window.parts)) {
+        for (var { account, category, moved, transferred } of rows) {
+            if (!account.value || !category.value)
+                continue;
+            if (options?.onlyExternal && category.value !== account.value &&
+                category.value !== `[${account.value}]`)
+                continue;
+            if (transferred.currency && !moved.currency)
+                moved.suggestCurrency(transferred.currency);
+            if (moved.currency && !transferred.currency)
+                transferred.suggestCurrency(moved.currency);
+            if (moved.currency !== transferred.currency)
+                continue;
+            if (transferred.value && isFinite(+transferred.value))
+                result |= moved.suggest(transferred.value);
+            if (moved.value && isFinite(+moved.value))
+                result |= transferred.suggest(moved.value);
+        }
     }
     return result;
 }
 
 function suggestAmounts() {
-    for (var { moved, transferred } of rows) {
-        moved.unsuggest();
-        transferred.unsuggest();
+    for (const rows of Object.values(window.parts)) {
+        for (var { moved, transferred } of rows) {
+            moved.unsuggest();
+            transferred.unsuggest();
+        }
     }
     // Try to make progress with each one, with this priority
     do {
         do {
             suggestSums();
         } while (suggestRowConsistency({ onlyExternal: true }));
+        // TODO: Splitting should be here
     } while (suggestRowConsistency());
 
     checkValid();
@@ -442,57 +436,63 @@ function combineDebts(owed) {
 }
 
 function checkValid() {
-    const currencies = new Set(
-        rows.flatMap(({ transferred, moved }) =>
-            [transferred.currency, moved.currency]));
+    window.valid = true;
+    for (const part of Object.keys(window.parts)) {
+        const rows = window.parts[part];
+        const currencies = new Set(
+            rows.flatMap(({ transferred, moved }) =>
+                [transferred.currency, moved.currency]));
 
-    var category_totals = [];
-    var account_totals = [];
-    var debts = []
-    valid = true;
+        var category_totals = [];
+        var account_totals = [];
+        var debts = []
 
-    for (const currency of currencies) {
-        var category_total = 0;
-        var account_total = 0;
-        var owed = {};
-        for (var { account, category, moved, transferred } of rows) {
-            if (transferred.currency === currency) {
-                account_total = account_total + +transferred.value;
-                let budget = ownAccount(account.value)
-                    ? data.budget : account.value;
-                owed[budget] = (owed[budget] || 0) + +transferred.value;
+        for (const currency of currencies) {
+            var category_total = 0;
+            var account_total = 0;
+            var owed = {};
+            for (var { account, category, moved, transferred } of rows) {
+                if (transferred.currency === currency) {
+                    account_total = account_total + +transferred.value;
+                    let budget = ownAccount(account.value)
+                        ? data.budget : account.value;
+                    owed[budget] = (owed[budget] || 0) + +transferred.value;
 
+                }
+                if (moved.currency === currency) {
+                    category_total = category_total + +moved.value;
+                    let budget = ownAccount(category.value)
+                        ? data.budget : category.value;
+                    owed[budget] = (owed[budget] || 0) - +moved.value;
+                }
             }
-            if (moved.currency === currency) {
-                category_total = category_total + +moved.value;
-                let budget = ownAccount(category.value)
-                    ? data.budget : category.value;
-                owed[budget] = (owed[budget] || 0) - +moved.value;
+            if (category_total && isFinite(category_total)) {
+                category_totals.push(formatCurrency(category_total, currency));
+                valid = false;
             }
+            if (account_total && isFinite(account_total)) {
+                account_totals.push(formatCurrency(account_total, currency));
+                valid = false;
+            }
+            debts = debts.concat(
+                combineDebts(owed)
+                    .map(([from, to, amount]) =>
+                        `${data.budgets[to] || to} owes `
+                        + `${data.budgets[from] || from} `
+                        + `${formatCurrency(amount, currency)}`));
         }
-        if (category_total && isFinite(category_total)) {
-            category_totals.push(formatCurrency(category_total, currency));
-            valid = false;
-        }
-        if (account_total && isFinite(account_total)) {
-            account_totals.push(formatCurrency(account_total, currency));
-            valid = false;
-        }
-        debts = debts.concat(
-            combineDebts(owed)
-                .map(([from, to, amount]) =>
-                    `${data.budgets[to] || to} owes `
-                    + `${data.budgets[from] || from} `
-                    + `${formatCurrency(amount, currency)}`));
+        const category_sum = document.getElementById(`category-sum${part}`);
+        const account_sum = document.getElementById(`account-sum${part}`);
+        const debt = document.getElementById(`debt${part}`);
+        category_sum.innerText = category_totals.length === 0 ? '' :
+            category_totals.join(', ') + ' left to categorize';
+        account_sum.innerText = account_totals.length === 0 ? '' :
+            account_totals.join(', ') + ' left to account for';
+        debt.innerText = debts.join(', ');
     }
-    category_sum.innerText = category_totals.length === 0 ? '' :
-        category_totals.join(', ') + ' left to categorize';
-    account_sum.innerText = account_totals.length === 0 ? '' :
-        account_totals.join(', ') + ' left to account for';
-    debt.innerText = debts.join(', ');
     document.getElementById("submit-button").disabled = !valid;
 }
 
 function onSubmit(event) {
-    if (!valid) event.preventDefault();
+    if (!window.valid) event.preventDefault();
 }

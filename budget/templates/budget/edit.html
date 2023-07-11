@@ -6,6 +6,7 @@
     <title>{{ form.date.value }} - Transaction</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+    <script src="{% static 'budget/htmx.min.js' %}"></script>
     <script src="{% static 'budget/jdecimal.js' %}"></script>
     <script src="{% static 'budget/util.js' %}"></script>
     <script src="{% static 'budget/editor.js' %}"></script>
@@ -13,49 +14,13 @@
 
 <form id="form" class="edit" action="{{ request.get_full_path }}" method="post">
     {% for part in form.formset %}
-    {{ part.id }}
-    <table id="entries">
-        <tr>
-            <th class="t6">Account</th>
-            <th class="t6">Category</th>
-            <th class="t5">Transferred</th>
-            <th class="t5">Categorized</th>
-        </tr>
-        {% for row in part.formset %}
-        <tr>
-            <td class="tdinput">
-                {{ row.account }}<span></span><input list="account-list">
-            </td>
-            <td class="tdinput">
-                {{ row.category }}<span></span><input list="category-list">
-            </td>
-            <td class="tdinput">
-                {{ row.transferred_currency }}
-                {{ row.transferred }}
-                <span></span>
-                <input class="number">
-            </td>
-            <td class="tdinput">
-                {{ row.moved_currency }}
-                {{ row.moved }}
-                <span></span>
-                <input class="number">
-            </td>
-        </tr>
-        {% endfor %}
-        <tr id="adder-row" style="text-align:right;">
-            <td colspan="5"><button id="addrow" type="button">+</button></td>
-        </tr>
-    </table>
-    <table>
-        <tr>
-            <th>Note</th>
-        </tr>
-        <tr>
-            <td class="tdinput">{{ part.note }}</td>
-        </tr>
-    </table>
-    {{ part.formset.management_form }}
+    {% with part_index=forloop.counter0 %}
+    {% if not forloop.last %}
+    {% include "budget/partials/edit_part.html" %}
+    {% else %}
+    {% include "budget/partials/edit_part_new.html" %}
+    {% endif %}
+    {% endwith %}
     {% endfor %}
     <table>
         <tr>
@@ -65,28 +30,11 @@
             <td class="tdinput t6">{{ form.date }}</td>
         </tr>
     </table>
-    {{ form.formset.management_form }}
+    {{ form.formset.management_form.INITIAL_FORMS }}
+    {{ form.formset.management_form.MIN_NUM_FORMS }}
+    {{ form.formset.management_form.MAX_NUM_FORMS }}
     {% csrf_token %}
 </form>
-<template id="new-row-t">
-    <tr>
-        <td class="tdinput">
-            <input type="hidden"><span></span><input list="account-list">
-        </td>
-        <td class="tdinput">
-            <input type="hidden"><span></span><input list="category-list">
-        </td>
-        <td class="tdinput">
-            <input type="hidden"><input type="hidden"><span></span><input class="number">
-        </td>
-        <td class="tdinput">
-            <input type="hidden"><input type="hidden"><span></span><input class="number">
-        </td>
-    </tr>
-</template>
-<div id="category-sum"></div>
-<div id="account-sum"></div>
-<div id="debt"></div>
 <div>
     <button id="submit-button" form="form">Save</button>
     <button id="cancel" type="button">Cancel</button>

@@ -24,6 +24,6 @@ def account_in_budget(account: models.BaseAccount, budget: models.Budget):
 
 
 @register.filter
-def transaction_description(value: models.TransactionPart,
+def transaction_description(value: models.Transaction,
                             account: models.BaseAccount):
     return value.auto_description(account)

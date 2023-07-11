@@ -1,0 +1,31 @@
+{{ part.id }}
+{{ part.formset.management_form.INITIAL_FORMS }}
+{{ part.formset.management_form.MIN_NUM_FORMS }}
+{{ part.formset.management_form.MAX_NUM_FORMS }}
+<table class="edit-table" data-part="{{ part_index }}">
+    <tr>
+        <th class="t6">Account</th>
+        <th class="t6">Category</th>
+        <th class="t5">Transferred</th>
+        <th class="t5">Categorized</th>
+    </tr>
+    {% for row in part.formset %}
+    {% if not forloop.last %}
+    {% include "budget/partials/edit_row.html" %}
+    {% else %}
+    {% include "budget/partials/edit_row_new.html" %}
+    {% endif %}
+
+    {% endfor %}
+</table>
+<table>
+    <tr>
+        <th>Note</th>
+    </tr>
+    <tr>
+        <td class="tdinput">{{ part.note }}</td>
+    </tr>
+</table>
+<div id="category-sum{{ part_index }}"></div>
+<div id="account-sum{{ part_index }}"></div>
+<div id="debt{{ part_index }}"></div>

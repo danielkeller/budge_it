@@ -1,0 +1,9 @@
+{% include "budget/partials/edit_part.html" %}
+
+<div id="new_part">
+    {{ form.formset.management_form.TOTAL_FORMS }}
+    <button
+        hx-get="{% url 'part_form' form.formset.management_form.TOTAL_FORMS.value %}"
+        hx-target="#new_part"
+        hx-swap="outerHTML settle:0">Add Part</button>
+</div>

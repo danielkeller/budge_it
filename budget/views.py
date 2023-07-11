@@ -187,6 +187,27 @@ def manage_accounts(request: HttpRequest, budget_id: int):
     return render(request, 'budget/manage.html', context)
 
 
+def part_form(request: HttpRequest, number: int):
+    form = TransactionForm(None, prefix="tx")
+    form.formset.min_num = number + 1  # type: ignore
+    context = {'part': form.formset.forms[number],
+               'part_index': number,
+               'form': form}
+    return render(request, 'budget/partials/edit_part_new.html', context)
+
+
+def row_form(request: HttpRequest, part_index: int, number: int):
+    form = TransactionForm(None, prefix="tx")
+    form.formset.min_num = part_index + 1  # type: ignore
+    part = form.formset.forms[part_index]
+    # Extra is 1
+    part.formset.min_num = number + 1 - 1  # type: ignore
+    context = {'row': part.formset.forms[number],
+               'part': part,
+               'part_index': part_index}
+    return render(request, 'budget/partials/edit_row_new.html', context)
+
+
 @login_required
 def edit(request: HttpRequest, budget_id: int,
          transaction_id: Optional[int] = None):

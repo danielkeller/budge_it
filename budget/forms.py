@@ -12,7 +12,7 @@ from .models import (Id, Budget, BaseAccount, Account, Category,
 
 
 class AccountChoiceField(forms.Field):
-    user_id: int
+    user_id: Optional[int]
     type: Type[Id]
 
     def __init__(self, *, type: Type[Id], **kwargs: Any):
@@ -82,21 +82,23 @@ class EntryForm(forms.Form):
 
 
 class BaseEntryFormSet(forms.BaseFormSet):
-    budget: Budget
+    budget: Optional[Budget]
     instance: Optional[TransactionPart]
 
-    def __init__(self, budget: Budget,
+    def __init__(self, budget: Optional[Budget],
                  instance: Optional[TransactionPart] = None,
                  **kwargs: Any):
         self.budget = budget
         self.instance = instance
-        initial = instance and instance.tabular()
-        super().__init__(initial=initial, **kwargs)
+        if instance:
+            kwargs['initial'] = instance.tabular()
+        super().__init__(**kwargs)
 
     def add_fields(self, form: EntryForm, index: int):
         super().add_fields(form, index)
-        form.fields['account'].user_id = self.budget.owner()
-        form.fields['category'].user_id = self.budget.owner()
+        if self.budget:
+            form.fields['account'].user_id = self.budget.owner()
+            form.fields['category'].user_id = self.budget.owner()
 
     def save(self):
         # Make these one dict?
@@ -111,8 +113,8 @@ class BaseEntryFormSet(forms.BaseFormSet):
             category = data.get('category')
             if category and data.get('moved'):
                 categories[category] += data['moved']
-        if not self.instance:
-            raise ValueError("No instance set")
+        if not self.instance or not self.budget:
+            raise ValueError("No instance or budget set")
         instance = self.instance.set_entries(self.budget, accounts, categories)
         return instance
 
@@ -130,11 +132,13 @@ def FormSetInline(formset: Type[FormSetT]):
         formset: FormSetT
 
         def __init__(self,
-                     budget: Budget,
+                     budget: Optional[Budget],
                      renderer: Any = None,
                      use_required_attribute: Optional[bool] = None,
+                     empty_permitted: bool = False,
                      **kwargs: Any):
             super().__init__(**kwargs, renderer=renderer,
+                             empty_permitted=empty_permitted,
                              use_required_attribute=use_required_attribute)
             self.formset = formset(budget, **kwargs)
 
@@ -153,9 +157,9 @@ def FormSetInline(formset: Type[FormSetT]):
 
 
 class BasePartFormSet(forms.BaseInlineFormSet):
-    budget: Budget
+    budget: Optional[Budget]
 
-    def __init__(self, budget: Budget,
+    def __init__(self, budget: Optional[Budget],
                  instance: Optional[Transaction] = None,
                  **kwargs: Any):
         self.budget = budget
@@ -174,7 +178,7 @@ PartFormSet = forms.inlineformset_factory(
     Transaction, TransactionPart,
     form=FormSetInline(EntryFormSet), formset=BasePartFormSet,
     fields=('note',),
-    widgets={'note': forms.Textarea(attrs={'rows': 2})},
+    widgets={'note': forms.Textarea(attrs={'rows': 0})},
     min_num=1, extra=0, max_num=5)
 
 
