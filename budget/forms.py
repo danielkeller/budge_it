@@ -1,11 +1,8 @@
 from collections import defaultdict
-from typing import Any, Dict, Union, Mapping, Optional, Type, TypeVar, Generic
+from typing import Any, Union, Mapping, Optional, Type, TypeVar
 from datetime import date
 
 from django import forms
-from django.core.files.base import File
-from django.db.models.base import Model
-from django.forms.utils import ErrorList
 from django.utils.translation import gettext_lazy as _
 from django.forms import ValidationError
 from django.db import transaction
@@ -55,14 +52,12 @@ class EntryForm(forms.Form):
         required=False, widget=forms.HiddenInput)
     moved_currency = forms.CharField(
         required=False, widget=forms.HiddenInput)
-    note = forms.CharField(required=False)
 
     def __init__(self, *args: Any, initial: Optional[TransactionPart.Row] = None,
                  **kwargs: Any):
         values: dict[str, Any] = {}
         if initial:
-            values = {'note': initial.note,
-                      'account': initial.account, 'category': initial.category}
+            values = {'account': initial.account, 'category': initial.category}
             if initial.account:
                 values['transferred'] = initial.amount
                 values['transferred_currency'] = initial.account.currency
@@ -107,8 +102,6 @@ class BaseEntryFormSet(forms.BaseFormSet):
         # Make these one dict?
         accounts: dict[Account, int] = defaultdict(int)
         categories: dict[Category, int] = defaultdict(int)
-        account_notes: dict[Account, str] = {}
-        category_notes: dict[Category, str] = {}
         for form in self.forms:
             data: dict[str, Any] = form.cleaned_data
             account = data.get('account')
@@ -118,21 +111,14 @@ class BaseEntryFormSet(forms.BaseFormSet):
             category = data.get('category')
             if category and data.get('moved'):
                 categories[category] += data['moved']
-            if category and data.get('note'):
-                category_notes[category] = data['note']
-            elif account and data.get('note'):
-                account_notes[account] = data['note']
         if not self.instance:
             raise ValueError("No instance set")
         instance = self.instance.set_entries(self.budget, accounts, categories)
-        if instance:
-            self.instance.accountnotes.set_notes(self.budget, account_notes)
-            self.instance.categorynotes.set_notes(self.budget, category_notes)
         return instance
 
 
 EntryFormSet = forms.formset_factory(
-    EntryForm, formset=BaseEntryFormSet, extra=2, max_num=15)
+    EntryForm, formset=BaseEntryFormSet, extra=1, min_num=1, max_num=15)
 
 
 FormSetT = TypeVar('FormSetT', bound=forms.BaseInlineFormSet)
@@ -187,7 +173,8 @@ class BasePartFormSet(forms.BaseInlineFormSet):
 PartFormSet = forms.inlineformset_factory(
     Transaction, TransactionPart,
     form=FormSetInline(EntryFormSet), formset=BasePartFormSet,
-    fields=(),
+    fields=('note',),
+    widgets={'note': forms.Textarea(attrs={'rows': 2})},
     min_num=1, extra=0, max_num=5)
 
 
@@ -336,11 +323,16 @@ class OnTheGoForm(forms.Form):
     def save(self):
         transaction = Transaction(date=date.today())
         transaction.save()
+
         part = TransactionPart(transaction=transaction)
+        if self.cleaned_data['note']:
+            part.note = self.cleaned_data['note']
         part.save()
+
         currency = self.cleaned_data['currency']
         self.budget.initial_currency = currency
         self.budget.save()
+
         amount = self.cleaned_data['amount']
         payee = Budget.objects.get_or_create(
             name="Payee", payee_of_id=self.budget.owner())[0]
@@ -349,8 +341,4 @@ class OnTheGoForm(forms.Form):
         categories = {self.budget.get_inbox(Category, currency): -amount,
                       payee.get_inbox(Category, currency): amount}
         part.set_entries(self.budget, accounts, categories)
-        if self.cleaned_data['note']:
-            notes = {self.budget.get_inbox(Category, currency):
-                     self.cleaned_data['note']}
-            part.categorynotes.set_notes(self.budget, notes)
         return transaction

@@ -267,14 +267,10 @@ class TransactionManager(models.Manager['Transaction']):
         parts = TransactionPart.objects.order_by('id')
         accountentry_set = AccountEntry.objects.filter_for(budget)
         categoryentry_set = CategoryEntry.objects.filter_for(budget)
-        accountnotes = AccountNote.objects.filter(user=budget.owner())
-        categorynotes = CategoryNote.objects.filter(user=budget.owner())
         return self.prefetch_related(
             Prefetch('parts', queryset=parts),
             Prefetch('parts__accountentry_set', queryset=accountentry_set),
             Prefetch('parts__categoryentry_set', queryset=categoryentry_set),
-            Prefetch('parts__accountnotes', queryset=accountnotes),
-            Prefetch('parts__categorynotes', queryset=categorynotes),
         )
 
     def get_for(self, budget: Budget, id: int):
@@ -319,6 +315,10 @@ class Transaction(models.Model):
         if self.kind == self.Kind.BUDGETING:
             return "Budget"
 
+        note = ', '.join(part.note for part in self.parts.all() if part.note)
+        if note:
+            return note
+
         accounts = {entry
                     for part in self.parts.all()
                     for entry in part.accountentry_set.entries()}
@@ -351,6 +351,7 @@ class TransactionPart(models.Model):
     id: models.BigAutoField
     transaction = models.ForeignKey(
         Transaction, on_delete=models.CASCADE, related_name="parts")
+    note = models.TextField(max_length=1000, blank=True)
 
     # Note that these are not filtered by `filter_for()`.
     accounts: 'models.ManyToManyField[Account, AccountEntry]'
@@ -361,8 +362,6 @@ class TransactionPart(models.Model):
                                         through_fields=('part', 'sink'))
     accountentry_set: 'EntryManager[Account]'
     categoryentry_set: 'EntryManager[Category]'
-    accountnotes: 'NoteManager[Account]'
-    categorynotes: 'NoteManager[Category]'
 
     def empty(self) -> bool:
         return (not self.accountentry_set.all() and
@@ -390,8 +389,6 @@ class TransactionPart(models.Model):
         if (AccountEntry.objects.filter(part=self).exists() or
                 CategoryEntry.objects.filter(part=self).exists()):
             return self
-        self.accountnotes.all().delete()
-        self.categorynotes.all().delete()
         self.delete()
         return None
 
@@ -413,7 +410,6 @@ class TransactionPart(models.Model):
         account: Optional[Account]
         category: Optional[Category]
         amount: int
-        note: str
 
     def tabular(self):
         def pop_by_(entries: 'dict[AccountT, int]',
@@ -426,13 +422,6 @@ class TransactionPart(models.Model):
             except StopIteration:
                 return None
 
-        account_notes: dict[int | None, str]
-        account_notes = {note.account_id: note.note
-                         for note in self.accountnotes.all()}
-        category_notes: dict[int | None, str]
-        category_notes = {note.account_id: note.note
-                          for note in self.categorynotes.all()}
-
         accounts = self.accountentry_set.entries()
         categories = self.categoryentry_set.entries()
         amounts = sorted((account.currency, amount)
@@ -443,12 +432,9 @@ class TransactionPart(models.Model):
         for currency, amount in amounts:
             account = pop_by_(accounts, currency, amount)
             category = pop_by_(categories, currency, amount)
-            note = category_notes.get(category and category.id,
-                                      account_notes.get(account and account.id,
-                                                        ''))
             if account or category:
                 rows.append(TransactionPart.Row(
-                    account, category, amount, note))
+                    account, category, amount))
         return rows
 
 
@@ -529,59 +515,6 @@ class CategoryEntry(Entry[Category]):
                                related_name="source_entries")
     sink = models.ForeignKey(Category, on_delete=models.PROTECT,
                              related_name="entries")
-
-
-class NoteManager(Generic[AccountT],
-                  models.Manager['TransactionNote[AccountT]']):
-    instance: TransactionPart  # When used as a relatedmanager
-
-    def set_notes(self, budget: Budget, notes: dict[AccountT, str]):
-        # 'self' is already filtered for a user, we just can't see which one
-        # Does this call the database if the prefetch is empty?
-        self.all().delete()
-        updates = [self.model(account=account, user_id=budget.owner(),  note=note,
-                              transaction=self.instance)
-                   for account, note in notes.items()]
-        for account, note in notes.items():
-            other = account.budget.owner()
-            if other and other != budget.owner():
-                corresponding = budget.get_inbox(self.model.AccountType,
-                                                 account.currency)
-                # This will be dropped by ignore_conflicts if there is a note
-                # already
-                updates.append(self.model(account=corresponding, user_id=other,
-                                          transaction=self.instance,
-                                          note=note))
-
-        if updates:
-            self.bulk_create(updates, ignore_conflicts=True)
-
-
-class TransactionNote(Generic[AccountT], models.Model):
-    class Meta:  # type: ignore
-        abstract = True
-        constraints = [models.UniqueConstraint(
-            fields=["transaction", "account", "user"], name="m2m_%(class)s")]
-    AccountType: Type[AccountT]
-    objects = NoteManager[AccountT]()
-    transaction = models.ForeignKey(TransactionPart, on_delete=models.CASCADE,
-                                    related_name="%(class)ss")
-    account: models.ForeignKey[AccountT]
-    account_id: int
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    note = models.CharField(max_length=100)
-
-
-class AccountNote(TransactionNote[Account]):
-    AccountType = Account
-    account = models.ForeignKey(Account, on_delete=models.PROTECT,
-                                related_name="notes")
-
-
-class CategoryNote(TransactionNote[Category]):
-    AccountType = Category
-    account = models.ForeignKey(Category, on_delete=models.PROTECT,
-                                related_name="notes")
 
 
 def months_between(start: date, end: date):
