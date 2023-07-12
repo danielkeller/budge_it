@@ -22,8 +22,8 @@ urlpatterns = [
          views.edit, name='edit'),
     path('transaction/<int:budget_id>/<int:transaction_id>/delete/',
          views.delete, name='delete'),
-    path('partial/edit/part/<int:number>/',
+    path('partial/edit/<int:budget_id>/part/<int:number>/',
          views.part_form, name='part_form'),
-    path('partial/edit/row/<int:part_index>/<int:number>/',
+    path('partial/edit/<int:budget_id>/row/<int:part_index>/<int:number>/',
          views.row_form, name='row_form'),
 ]

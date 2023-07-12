@@ -187,24 +187,29 @@ def manage_accounts(request: HttpRequest, budget_id: int):
     return render(request, 'budget/manage.html', context)
 
 
-def part_form(request: HttpRequest, number: int):
-    form = TransactionForm(None, prefix="tx")
+def part_form(request: HttpRequest, budget_id: int, number: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    budget = budget.main_budget()
+    form = TransactionForm(budget, prefix="tx")
     form.formset.min_num = number + 1  # type: ignore
-    context = {'part': form.formset.forms[number],
-               'part_index': number,
+    context = {'budget': budget,
+               'part': form.formset.forms[number], 'part_index': number,
                'form': form}
     return render(request, 'budget/partials/edit_part_new.html', context)
 
 
-def row_form(request: HttpRequest, part_index: int, number: int):
-    form = TransactionForm(None, prefix="tx")
+def row_form(request: HttpRequest, budget_id: int,
+             part_index: int, number: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    budget = budget.main_budget()
+    form = TransactionForm(budget, prefix="tx")
     form.formset.min_num = part_index + 1  # type: ignore
     part = form.formset.forms[part_index]
     # Extra is 1
     part.formset.min_num = number + 1 - 1  # type: ignore
-    context = {'row': part.formset.forms[number],
-               'part': part,
-               'part_index': part_index}
+    context = {'budget': budget,
+               'row': part.formset.forms[number],
+               'part': part, 'part_index': part_index}
     return render(request, 'budget/partials/edit_row_new.html', context)
 
 
@@ -229,9 +234,18 @@ def edit(request: HttpRequest, budget_id: int,
         form = TransactionForm(budget, prefix="tx", instance=transaction,
                                data=request.POST)
         if form.is_valid():
-            instance = form.save()
+            instance: Transaction = form.save()
+            if instance.id:
+                part = instance.parts.first()
+                entry = (part.accountentry_set.first()
+                         or part.categoryentry_set.first())
+                budget.initial_currency = entry.sink.currency
+                budget.save()
             if 'back' in request.GET:
-                back = f"{request.GET['back']}?t={instance.id}"
+                if instance.id:
+                    back = f"{request.GET['back']}?t={instance.id}"
+                else:
+                    back = f"{request.GET['back']}"
             else:
                 back = '/'
             return HttpResponseRedirect(back)
@@ -243,17 +257,20 @@ def edit(request: HttpRequest, budget_id: int,
                                 .values_list('id', 'name'))
     accounts = budget.account_set.exclude(name='')
     categories = budget.category_set.exclude(name='')
+    currencies = (budget.category_set
+                  .values_list('currency', flat=True).distinct())
     data = {
         'budget': budget.id,
         'transaction': transaction_id,
-        'accounts': dict(accounts.values_list('id', 'currency')),
-        'categories': dict(categories.values_list('id', 'currency')),
+        'accounts': (dict(accounts.values_list('id', 'currency'))
+                     | dict(categories.values_list('id', 'currency'))),
         'budgets': {budget.id: budget.name, **friends, **payees},
         'friends': friends,
     }
     context = {'form': form,
                'budget': budget, 'friends': friends, 'payees': payees,
                'accounts': accounts, 'categories': categories,
+               'currencies': currencies,
                'transaction_id': transaction_id,
                'data': data}
     return render(request, 'budget/edit.html', context)

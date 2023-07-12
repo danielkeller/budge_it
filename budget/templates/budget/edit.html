@@ -13,6 +13,14 @@
 </head>
 
 <form id="form" class="edit" action="{{ request.get_full_path }}" method="post">
+    <table>
+        <tr>
+            <th>Date</th>
+        </tr>
+        <tr>
+            <td class="tdinput t6">{{ form.date }}</td>
+        </tr>
+    </table>
     {% for part in form.formset %}
     {% with part_index=forloop.counter0 %}
     {% if not forloop.last %}
@@ -22,14 +30,6 @@
     {% endif %}
     {% endwith %}
     {% endfor %}
-    <table>
-        <tr>
-            <th>Date</th>
-        </tr>
-        <tr>
-            <td class="tdinput t6">{{ form.date }}</td>
-        </tr>
-    </table>
     {{ form.formset.management_form.INITIAL_FORMS }}
     {{ form.formset.management_form.MIN_NUM_FORMS }}
     {{ form.formset.management_form.MAX_NUM_FORMS }}
@@ -68,6 +68,11 @@
     {% endfor %}
     {% for id, name in payees.items %}
     <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
+    {% endfor %}
+</datalist>
+<datalist id="currencies">
+    {% for currency in currencies %}
+    <option value="{{ currency }}"></option>
     {% endfor %}
 </datalist>
 

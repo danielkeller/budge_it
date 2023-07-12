@@ -279,9 +279,14 @@ form {
     z-index: 1;
 }
 
-.tdinput input:disabled {
+.tdinput input:disabled,
+.tdinput input[readonly] {
     background-color: var(--canvas);
     z-index: 0;
+}
+
+:invalid {
+    outline: 2px solid red;
 }
 
 .suggested {

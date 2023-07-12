@@ -88,6 +88,16 @@ class Budget(Id):
                        Q(payee_of=self.owner()))
         return Budget.objects.filter(filter).distinct()
 
+    def get_initial_currency(self):
+        if self.initial_currency:
+            return self.initial_currency
+        else:
+            category = self.category_set.first()
+            if category:
+                return category.currency
+            else:
+                return 'CHF'
+
 
 class BudgetFriends(models.Model):
     class Meta:  # type: ignore
