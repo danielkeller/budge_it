@@ -105,23 +105,6 @@ class Selector {
         this.#visible.value = option ? option.name : value;
     }
     get value() { return this.#hidden.value; }
-    unsuggest() {
-        if (this.classList.contains('suggested')) {
-            this.value = '';
-            this.classList.remove('suggested');
-        }
-    }
-    suggest(value) {
-        if (this.value === "" && document.activeElement !== this.#visible) {
-            this.value = value;
-            this.classList.add('suggested');
-            return true;
-        }
-        return false;
-    }
-    accept() {
-        this.classList.remove('suggested');
-    }
     set sigil(value) {
         if (value) {
             this.#sigil.classList.add('sigil');
@@ -164,7 +147,7 @@ class CurrencyInput {
     }
     get value() { return this.#hidden.value; }
     #parse() {
-        this.accept();
+        accept(this);
         const currency = currencyInput(getPart(this.#hidden)).value;
         this.#hidden.value = this.#visible.value
             && parseCurrency(this.#visible.value, currency);
@@ -172,26 +155,27 @@ class CurrencyInput {
     }
     get classList() { return this.#visible.classList; }
     get input() { return this.#visible; }
-    unsuggest() {
-        if (this.classList.contains('suggested')) {
-            this.value = '';
-            this.classList.remove('suggested');
-        }
-    }
-    suggest(value) {
-        if (this.value === "" && document.activeElement !== this.#visible) {
-            this.value = value;
-            this.classList.add('suggested');
-            return true;
-        }
-        return false;
-    }
-    accept() {
-        this.classList.remove('suggested');
-    }
 
     get disabled() { return this.#visible.disabled; }
     set disabled(value) { this.#visible.disabled = value; }
+}
+
+function unsuggest(element) {
+    if (element.classList.contains('suggested')) {
+        element.value = '';
+        element.classList.remove('suggested');
+    }
+}
+function suggest(element, value) {
+    if (element.value === "" && document.activeElement !== element.input) {
+        element.value = value;
+        element.classList.add('suggested');
+        return true;
+    }
+    return false;
+}
+function accept(element) {
+    element.classList.remove('suggested');
 }
 
 function setUpRow(tr) {
@@ -228,10 +212,10 @@ function setUp(element) {
 
 function accountChanged({ target }) {
     const { category, transferred, moved } = findRow(target);
-    category.unsuggest();
+    unsuggest(category);
     if (!ownAccount(target.value) && !(target.value in data.friends)) {
-        if (target.value in data.budgets) category.suggest(target.value);
-        else if (target.value) category.suggest(target.value);
+        if (target.value in data.budgets) suggest(category, target.value);
+        else if (target.value) suggest(category, target.value);
         category.sigil = sigil(category.value);
     }
 
@@ -247,7 +231,7 @@ function accountChanged({ target }) {
 }
 
 function categoryChanged({ target }) {
-    target.accept();
+    accept(target);
 
     target.sigil = sigil(target.value);
 
@@ -322,10 +306,10 @@ function suggestSums(options) {
             const div = Math.floor(category_total / to_category.length);
             const rem = category_total - div * to_category.length;
             for (let i = 0; i < to_category.length; ++i)
-                result |= to_category[i].suggest(-div - (i < rem));
+                result |= suggest(to_category[i], -div - (i < rem));
         }
         if (account_total && isFinite(account_total) && to_account.length === 1) {
-            result |= to_account[0].suggest(account_total ? -account_total : "");
+            result |= suggest(to_account[0], account_total ? -account_total : "");
         }
 
     }
@@ -342,9 +326,9 @@ function suggestRowConsistency(options) {
                 category.value !== `[${account.value}]`)
                 continue;
             if (transferred.value && isFinite(+transferred.value))
-                result |= moved.suggest(transferred.value);
+                result |= suggest(moved, transferred.value);
             if (moved.value && isFinite(+moved.value))
-                result |= transferred.suggest(moved.value);
+                result |= suggest(transferred, moved.value);
         }
     }
     return result;
@@ -353,8 +337,8 @@ function suggestRowConsistency(options) {
 function suggestAmounts() {
     for (const rows of Object.values(window.parts)) {
         for (var { moved, transferred } of rows) {
-            moved.unsuggest();
-            transferred.unsuggest();
+            unsuggest(moved);
+            unsuggest(transferred);
         }
     }
     // Try to make progress with each one, with this priority
