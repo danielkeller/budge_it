@@ -4,10 +4,6 @@ addEventListener("DOMContentLoaded", function () {
     window.data = JSON.parse(document.getElementById('data').textContent);
     window.valid = true;
     window.parts = {};
-    window.account_options = Array.from(
-        document.getElementById("account-list").options).map(optData);
-    window.category_options = Array.from(
-        document.getElementById("category-list").options).map(optData);
 
     document.getElementById('cancel').addEventListener('click', cancel);
     document.forms[0].addEventListener('submit', onSubmit);
@@ -76,39 +72,37 @@ function ownAccount(value) {
     return value == data.budget || value in data.accounts;
 }
 
-function sigil(account) {
-    return ownAccount(account) ? '👤'
-        : account in data.friends ? '👥'
-            : null;
-}
-
 // TODO: This could potentially do its thing in a more htmx-y way by setting
 // values on elements and triggering events and it might avoid the windows.parts
 // stuff.
 class Selector {
-    #visible; #hidden; #sigil; #options; #oninput;
-    constructor([hidden, sigil, visible], options, oninput) {
+    #visible; #hidden; #sigil; #oninput;
+    constructor([hidden, sigil, visible], oninput) {
         this.#visible = visible;
         this.#sigil = sigil;
         this.#hidden = hidden;
-        this.#options = options;
         this.#oninput = oninput;
         visible.addEventListener('input', this.#selectInput.bind(this));
         // This is a hack and also doesn't work very well (in FF at least).
         visible.addEventListener('blur', () => visible.reportValidity());
         this.value = this.value;
     }
+    get options() { return Array.from(this.#visible.list.options); }
     set value(value) {
         value = String(value);
         this.#hidden.value = value;
-        const option = this.#options.find(opt => opt.id === value);
-        this.#visible.value = option ? option.name : value;
+        const option = this.options.find(opt => opt.dataset.id === value);
+        this.#visible.value = option ? option.dataset.name : value;
+        this.#updateSigil();
     }
     get value() { return this.#hidden.value; }
-    set sigil(value) {
-        if (value) {
+    #updateSigil() {
+        const sigil = ownAccount(this.value) ? '👤'
+            : this.value in data.friends ? '👥'
+                : null;
+        if (sigil) {
             this.#sigil.classList.add('sigil');
-            this.#sigil.textContent = value;
+            this.#sigil.textContent = sigil;
         } else {
             this.#sigil.classList.remove('sigil');
             this.#sigil.textContent = '';
@@ -116,15 +110,16 @@ class Selector {
     }
     get input() { return this.#visible; }
     get classList() { return this.#visible.classList; }
-    focus(args) { this.#visible.focus(args); }
     #selectInput() {
-        const option = this.#options.find(
-            opt => [opt.name, opt.value].includes(this.#visible.value));
-        this.#hidden.value = option ? option.id : this.#visible.value;
+        accept(this);
+        const option = this.options.find(opt =>
+            [opt.dataset.name, opt.value].includes(this.#visible.value));
+        this.#hidden.value = option ? option.dataset.id : this.#visible.value;
         if (option && this.#visible.value === option.value
-            && option.name !== option.value) {
-            this.#visible.value = option.name;
+            && option.dataset.name !== option.value) {
+            this.#visible.value = option.dataset.name;
         }
+        this.#updateSigil();
         this.#oninput({ target: this });
     }
 }
@@ -155,9 +150,6 @@ class CurrencyInput {
     }
     get classList() { return this.#visible.classList; }
     get input() { return this.#visible; }
-
-    get disabled() { return this.#visible.disabled; }
-    set disabled(value) { this.#visible.disabled = value; }
 }
 
 function unsuggest(element) {
@@ -180,16 +172,14 @@ function accept(element) {
 
 function setUpRow(tr) {
     var [account, category, transferred, moved] = Array.prototype.map.call(tr.children, n => n.children);
-    account = new Selector(account, account_options, accountChanged);
-    category = new Selector(category, category_options, categoryChanged);
-    if (category.value === account.value)
+    account = new Selector(account, accountChanged);
+    category = new Selector(category, categoryChanged);
+    if (category.value === account.value && category.value != data.budget)
         category.classList.add('suggested');
-    account.sigil = sigil(account.value);
-    category.sigil = sigil(category.value);
     transferred = new CurrencyInput(transferred, suggestAmounts);
     moved = new CurrencyInput(moved, suggestAmounts);
-    transferred.disabled = !account.value;
-    moved.disabled = !category.value;
+    transferred.input.disabled = !account.value;
+    moved.input.disabled = !category.value;
     const row = { account, category, moved, transferred };
     const part = getPart(tr);
     if (!(part in window.parts)) window.parts[part] = [];
@@ -211,33 +201,22 @@ function setUp(element) {
 }
 
 function accountChanged({ target }) {
-    const { category, transferred, moved } = findRow(target);
+    const { category, transferred } = findRow(target);
     unsuggest(category);
     if (!ownAccount(target.value) && !(target.value in data.friends)) {
         if (target.value in data.budgets) suggest(category, target.value);
         else if (target.value) suggest(category, target.value);
-        category.sigil = sigil(category.value);
     }
 
-    target.sigil = sigil(target.value);
-
-    transferred.disabled = !target.value;
-    if (transferred.disabled) transferred.value = '';
-    moved.disabled = !category.value;
-    if (moved.disabled) moved.value = '';
-
-    updateCurrency(getPart(target));
-    suggestAmounts();
+    transferred.input.disabled = !target.value;
+    if (transferred.input.disabled) transferred.value = '';
+    categoryChanged({ target: category });
 }
 
 function categoryChanged({ target }) {
-    accept(target);
-
-    target.sigil = sigil(target.value);
-
     const { moved } = findRow(target);
-    moved.disabled = !target.value;
-    if (moved.disabled) moved.value = '';
+    moved.input.disabled = !target.value;
+    if (moved.input.disabled) moved.value = '';
 
     updateCurrency(getPart(target));
     suggestAmounts();
