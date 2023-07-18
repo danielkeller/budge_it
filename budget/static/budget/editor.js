@@ -13,14 +13,6 @@ addEventListener("DOMContentLoaded", function () {
 
 htmx.onLoad(setUp);
 
-function optData(option) {
-    return {
-        value: option.value,
-        id: option.dataset.id,
-        name: option.dataset.name
-    };
-}
-
 function key(event) {
     if (event.key === "Escape") {
         // The default behavior of "esc" is to stop page load
@@ -75,6 +67,8 @@ function ownAccount(value) {
 // TODO: This could potentially do its thing in a more htmx-y way by setting
 // values on elements and triggering events and it might avoid the windows.parts
 // stuff.
+// Specifically, one function can set up the event listeners and stuff, and
+// another object can wrap these td's when they're returned from getRows(part)
 class Selector {
     #visible; #hidden; #sigil; #oninput;
     constructor([hidden, sigil, visible], oninput) {

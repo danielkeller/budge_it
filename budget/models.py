@@ -9,7 +9,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.transaction import atomic
 from django.db.models import (Q, F, Prefetch, Subquery, OuterRef, Value,
-                              Min, Max, Sum,
+                              Min, Max, Sum, Exists,
                               prefetch_related_objects)
 from django.db.models.functions import Coalesce
 from django.urls import reverse
@@ -272,11 +272,15 @@ class TransactionManager(models.Manager['Transaction']):
     def filter_for(self, budget: Budget):
         """Adjust and prefetch the entries of this transaction to ones visible to
         'budget'."""
-        # We have to do this stupid ordering thing because otherwise django's
-        # form stuff adds an ordering later and breaks the prefetch logic.
-        parts = TransactionPart.objects.order_by('id')
         accountentry_set = AccountEntry.objects.filter_for(budget)
         categoryentry_set = CategoryEntry.objects.filter_for(budget)
+        # We have to do this stupid ordering thing because otherwise django's
+        # form stuff adds an ordering later and breaks the prefetch logic.
+        # TODO: This is ugly. Should we just do the filtering in python?
+        parts = (TransactionPart.objects
+                 .filter(Exists(accountentry_set.filter(part=OuterRef('id')))
+                         | Exists(categoryentry_set.filter(part=OuterRef('id'))))
+                 .order_by('id'))
         return self.prefetch_related(
             Prefetch('parts', queryset=parts),
             Prefetch('parts__accountentry_set', queryset=accountentry_set),
