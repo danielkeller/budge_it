@@ -107,6 +107,19 @@ class ModelTests(TestCase):
         t.set_entries(self.foo, {}, {self.category: -20, payee: 10, bar: 10})
         t_bar = Transaction.objects.get_for(self.bar, t.id)
         self.assertIsNotNone(t_bar)
+        assert t_bar
+        self.assertEqual(t_bar.parts.first().flows()[1], {(foo, bar): 10})
+
+    def test_part_hiding(self):
+        t, p1 = new_transaction()
+        p2 = TransactionPart.objects.create(transaction=t)
+        bar = self.bar.get_inbox(Category, 'CHF')
+        foo = self.foo.get_inbox(Category, 'CHF')
+        p1.set_entries(self.foo, {}, {self.category: -10, bar: 10})
+        p2.set_entries(self.foo, {}, {self.category: -10, foo: 10})
+        t_bar = Transaction.objects.get_for(self.bar, t.id)
+        assert t_bar
+        self.assertEqual(t_bar.parts.count(), 1)
         self.assertEqual(t_bar.parts.first().flows()[1], {(foo, bar): 10})
 
     def test_set_other_side(self):
