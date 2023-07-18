@@ -43,7 +43,7 @@
                 <th class="t4">{{ account.currency }}</th>
                 <th class="t4">Total</th>
                 {% for transaction in entries %}
-                <tr class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }} {% if request.GET.t == transaction.id|slugify %}checked{% endif %}"
+                <tr class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
                     data-id="{{transaction.id}}">
                     <td>{{transaction.date|date:"SHORT_DATE_FORMAT"}}</td>
                     <td>
@@ -66,7 +66,7 @@
         </div>
         <div class="transaction-details">
             {% for transaction in entries %}
-            <div class="{% if request.GET.t == transaction.id|slugify %}checked{% endif %}" data-id="{{transaction.id}}">
+            <div data-id="{{transaction.id}}">
                 {% if transaction.kind != 'B' %}
                 {% for part in transaction.parts.all %}
                 <table>

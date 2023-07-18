@@ -36,7 +36,9 @@
     {% csrf_token %}
 </form>
 <div>
-    <button id="submit-button" form="form">Save</button>
+    <button id="submit-button" form="form">
+        {% if transaction_id %}Save Changes{% else %}Create Transaction{% endif %}
+    </button>
     <button id="cancel" type="button">Cancel</button>
     {% if transaction_id %}
     <form class="edit" action="{% url 'delete' budget.id transaction_id%}?back={{ request.GET.back|urlencode }}"
