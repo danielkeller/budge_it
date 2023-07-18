@@ -6,9 +6,10 @@ from dataclasses import dataclass
 import heapq
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import models, transaction
+from django.db import models
+from django.db.transaction import atomic
 from django.db.models import (Q, F, Prefetch, Subquery, OuterRef, Value,
-                              Min, Max, Sum,
+                              Min, Max, Sum, Exists,
                               prefetch_related_objects)
 from django.db.models.functions import Coalesce
 from django.urls import reverse
@@ -87,6 +88,16 @@ class Budget(Id):
                        Q(payee_of=self.owner()))
         return Budget.objects.filter(filter).distinct()
 
+    def get_initial_currency(self):
+        if self.initial_currency:
+            return self.initial_currency
+        else:
+            category = self.category_set.first()
+            if category:
+                return category.currency
+            else:
+                return 'CHF'
+
 
 class BudgetFriends(models.Model):
     class Meta:  # type: ignore
@@ -111,8 +122,8 @@ class BaseAccount(Id):
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE)
     budget_id: int  # Sigh
     balance: int
-    source_entries: 'models.Manager[TransactionPart[Self]]'
-    entries: 'models.Manager[TransactionPart[Self]]'
+    source_entries: 'models.Manager[Entry[Self]]'
+    entries: 'models.Manager[Entry[Self]]'
     currency = models.CharField(max_length=5)
 
     group = models.CharField(max_length=100, blank=True)
@@ -259,17 +270,21 @@ class TransactionManager(models.Manager['Transaction']):
     # This could possibly be done with a proxy model, which would allow eg
     # related managers to tell which budget we're looking through.
     def filter_for(self, budget: Budget):
-        """Adjust and prefetch the parts of this transaction to ones visible to
+        """Adjust and prefetch the entries of this transaction to ones visible to
         'budget'."""
-        accountparts = AccountPart.objects.filter_for(budget)
-        categoryparts = CategoryPart.objects.filter_for(budget)
-        accountnotes = AccountNote.objects.filter(user=budget.owner())
-        categorynotes = CategoryNote.objects.filter(user=budget.owner())
+        accountentry_set = AccountEntry.objects.filter_for(budget)
+        categoryentry_set = CategoryEntry.objects.filter_for(budget)
+        # We have to do this stupid ordering thing because otherwise django's
+        # form stuff adds an ordering later and breaks the prefetch logic.
+        # TODO: This is ugly. Should we just do the filtering in python?
+        parts = (TransactionPart.objects
+                 .filter(Exists(accountentry_set.filter(part=OuterRef('id')))
+                         | Exists(categoryentry_set.filter(part=OuterRef('id'))))
+                 .order_by('id'))
         return self.prefetch_related(
-            Prefetch('accountparts', queryset=accountparts),
-            Prefetch('categoryparts', queryset=categoryparts),
-            Prefetch('accountnotes', queryset=accountnotes),
-            Prefetch('categorynotes', queryset=categorynotes),
+            Prefetch('parts', queryset=parts),
+            Prefetch('parts__accountentry_set', queryset=accountentry_set),
+            Prefetch('parts__categoryentry_set', queryset=categoryentry_set),
         )
 
     def get_for(self, budget: Budget, id: int):
@@ -277,7 +292,7 @@ class TransactionManager(models.Manager['Transaction']):
             value = self.filter_for(budget).get(id=id)
         except self.model.DoesNotExist:
             return None
-        if not value.accountparts.all() and not value.categoryparts.all():
+        if all(part.empty() for part in value.parts.all()):
             return None
         return value
 
@@ -287,25 +302,15 @@ class Transaction(models.Model):
     id: models.BigAutoField
     date = models.DateField()
 
-    # Note that these are not filtered by `filter_for()`.
-    accounts: 'models.ManyToManyField[Account, AccountPart]'
-    accounts = models.ManyToManyField(Account, through='AccountPart',
-                                      through_fields=('transaction', 'sink'))
-    categories: 'models.ManyToManyField[Category, CategoryPart]'
-    categories = models.ManyToManyField(Category, through='CategoryPart',
-                                        through_fields=('transaction', 'sink'))
-    accountparts: 'PartManager[Account]'
-    categoryparts: 'PartManager[Category]'
-    accountnotes: 'NoteManager[Account]'
-    categorynotes: 'NoteManager[Category]'
-
-    objects = TransactionManager()
-
     class Kind(models.TextChoices):
         TRANSACTION = 'T', 'Transaction'
         BUDGETING = 'B', 'Budgeting'
     kind = models.CharField(max_length=1, choices=Kind.choices,
                             default=Kind.TRANSACTION)
+
+    parts: 'models.Manager[TransactionPart]'
+
+    objects = TransactionManager()
 
     running_sum: int  # TODO this is gross, put in view logic
 
@@ -320,93 +325,20 @@ class Transaction(models.Model):
     def month(self, value: 'Optional[date]'):
         self.date = value and value.replace(day=1)
 
-    def set_parts(self, in_budget: Budget,
-                  accounts: dict[Account, int], categories: dict[Category, int]):
-        """Set the contents of this transaction from the perspective of one budget. 'accounts' and 'categories' both must to sum to zero."""
-        # 'self' is already filtered for a user, we just can't see which one
-        self.set_parts_raw(double_entrify(in_budget, Account, accounts),
-                           double_entrify(in_budget, Category, categories))
-
-    def parts(self):
-        return (self.accountparts.parts(), self.categoryparts.parts())
-
-    def entries(self):
-        return (self.accountparts.entries(), self.categoryparts.entries())
-
-    @transaction.atomic
-    def set_parts_raw(self,
-                      accounts: dict[tuple[Account, Account], int],
-                      categories: dict[tuple[Category, Category], int]):
-        self.accountparts.set_parts(accounts)
-        self.categoryparts.set_parts(categories)
-        if (not AccountPart.objects.filter(transaction=self).exists() and
-                not CategoryPart.objects.filter(transaction=self).exists()):
-            self.delete()
-
-    def change_inbox_to(self, account: Account | Category):
-        accounts, categories = self.entries()
-        if isinstance(account, Account):
-            inbox = account.budget.get_inbox(Account, account.currency)
-            account_value = accounts.pop(inbox, 0) + accounts.pop(account, 0)
-            accounts[account] = account_value
-        else:
-            inbox = account.budget.get_inbox(Category, account.currency)
-            account_value = (categories.pop(inbox, 0)
-                             + categories.pop(account, 0))
-            categories[account] = account_value
-        self.set_parts(account.budget, accounts, categories)
-
-    @dataclass
-    class Row:
-        account: Optional[Account]
-        category: Optional[Category]
-        amount: int
-        note: str
-
-    def tabular(self):
-        def pop_by_(parts: 'dict[AccountT, int]',
-                    currency: str, amount: int):
-            try:
-                result = next(part for (part, value) in parts.items()
-                              if value == amount and part.currency == currency)
-                del parts[result]
-                return result
-            except StopIteration:
-                return None
-
-        account_notes: dict[int | None, str]
-        account_notes = {note.account_id: note.note
-                         for note in self.accountnotes.all()}
-        category_notes: dict[int | None, str]
-        category_notes = {note.account_id: note.note
-                          for note in self.categorynotes.all()}
-
-        accounts = self.accountparts.entries()
-        categories = self.categoryparts.entries()
-        amounts = sorted((account.currency, amount)
-                         for account, amount
-                         in chain(accounts.items(), categories.items()))
-        rows: list[Transaction.Row]
-        rows = []
-        for currency, amount in amounts:
-            account = pop_by_(accounts, currency, amount)
-            category = pop_by_(categories, currency, amount)
-            note = category_notes.get(category and category.id,
-                                      account_notes.get(account and account.id,
-                                                        ''))
-            if account or category:
-                rows.append(Transaction.Row(account, category, amount, note))
-        return rows
-
     def auto_description(self, in_account: BaseAccount | Balance):
         if self.kind == self.Kind.BUDGETING:
             return "Budget"
-        notes = {note.note for note in chain(self.accountnotes.all(),
-                                             self.categorynotes.all())}
-        if len(notes) == 1:
-            return notes.pop()
-        accounts = self.accountparts.entries()
-        categories = self.categoryparts.entries()
+
+        note = ', '.join(part.note for part in self.parts.all() if part.note)
+        if note:
+            return note
+
+        accounts = {entry
+                    for part in self.parts.all()
+                    for entry in part.accountentry_set.entries()}
+        categories = {entry
+                      for part in self.parts.all()
+                      for entry in part.categoryentry_set.entries()}
         if isinstance(in_account, BaseAccount):
             this_budget = in_account.budget
         else:
@@ -423,14 +355,109 @@ class Transaction(models.Model):
         )
         return ", ".join(names)
 
+    @atomic
+    def change_inbox_to(self, account: Account | Category):
+        for part in self.parts.all():
+            part.change_inbox_to(account)
 
-class PartManager(Generic[AccountT],
-                  models.Manager['TransactionPart[AccountT]']):
+
+class TransactionPart(models.Model):
+    id: models.BigAutoField
+    transaction = models.ForeignKey(
+        Transaction, on_delete=models.CASCADE, related_name="parts")
+    note = models.TextField(max_length=1000, blank=True)
+
+    # Note that these are not filtered by `filter_for()`.
+    accounts: 'models.ManyToManyField[Account, AccountEntry]'
+    accounts = models.ManyToManyField(Account, through='AccountEntry',
+                                      through_fields=('part', 'sink'))
+    categories: 'models.ManyToManyField[Category, CategoryEntry]'
+    categories = models.ManyToManyField(Category, through='CategoryEntry',
+                                        through_fields=('part', 'sink'))
+    accountentry_set: 'EntryManager[Account]'
+    categoryentry_set: 'EntryManager[Category]'
+
+    def empty(self) -> bool:
+        return (not self.accountentry_set.all() and
+                not self.categoryentry_set.all())
+
+    def entries(self):
+        return (self.accountentry_set.entries(), self.categoryentry_set.entries())
+
+    def flows(self):
+        return (self.accountentry_set.flows(), self.categoryentry_set.flows())
+
+    def set_entries(self, in_budget: Budget,
+                    accounts: dict[Account, int], categories: dict[Category, int]):
+        """Set the contents of this transaction from the perspective of one budget. 'accounts' and 'categories' both must to sum to zero."""
+        # 'self' is already filtered for a user, we just can't see which one
+        return self.set_flows(double_entrify(in_budget, Account, accounts),
+                              double_entrify(in_budget, Category, categories))
+
+    @atomic
+    def set_flows(self,
+                  accounts: dict[tuple[Account, Account], int],
+                  categories: dict[tuple[Category, Category], int]):
+        self.accountentry_set.set_flows(accounts)
+        self.categoryentry_set.set_flows(categories)
+        if (AccountEntry.objects.filter(part=self).exists() or
+                CategoryEntry.objects.filter(part=self).exists()):
+            return self
+        self.delete()
+        return None
+
+    def change_inbox_to(self, account: Account | Category):
+        accounts, categories = self.entries()
+        if isinstance(account, Account):
+            inbox = account.budget.get_inbox(Account, account.currency)
+            account_value = accounts.pop(inbox, 0) + accounts.pop(account, 0)
+            accounts[account] = account_value
+        else:
+            inbox = account.budget.get_inbox(Category, account.currency)
+            account_value = (categories.pop(inbox, 0)
+                             + categories.pop(account, 0))
+            categories[account] = account_value
+        self.set_entries(account.budget, accounts, categories)
+
+    @dataclass
+    class Row:
+        account: Optional[Account]
+        category: Optional[Category]
+        amount: int
+
+    def tabular(self):
+        def pop_by_(entries: 'dict[AccountT, int]',
+                    currency: str, amount: int):
+            try:
+                result = next(to for (to, value) in entries.items()
+                              if value == amount and to.currency == currency)
+                del entries[result]
+                return result
+            except StopIteration:
+                return None
+
+        accounts = self.accountentry_set.entries()
+        categories = self.categoryentry_set.entries()
+        amounts = sorted((account.currency, amount)
+                         for account, amount
+                         in chain(accounts.items(), categories.items()))
+        rows: list[TransactionPart.Row]
+        rows = []
+        for currency, amount in amounts:
+            account = pop_by_(accounts, currency, amount)
+            category = pop_by_(categories, currency, amount)
+            if account or category:
+                rows.append(TransactionPart.Row(
+                    account, category, amount))
+        return rows
+
+
+class EntryManager(Generic[AccountT], models.Manager['Entry[AccountT]']):
     # This could be a generic arg actually...
-    instance: Transaction  # When used as a relatedmanager
+    instance: TransactionPart  # When used as a relatedmanager
 
     def filter_for(self, budget: Budget):
-        """Filter parts to ones visible to 'budget'."""
+        """Filter entries to ones visible to 'budget'."""
         source_visible = (Q(source__budget__budget_of_id=budget.owner())
                           | Q(source__budget__payee_of_id=budget.owner())
                           | (Q(source__name="")
@@ -443,32 +470,32 @@ class PartManager(Generic[AccountT],
                 .select_related('sink__budget'))
 
     def entries(self) -> dict[AccountT, int]:
-        return sum_by((part.sink, part.amount) for part in self.all())
+        return sum_by((entry.sink, entry.amount) for entry in self.all())
 
-    def parts(self):
-        return {(part.source, part.sink): part.amount
-                for part in self.all() if part.amount > 0}
+    def flows(self) -> dict[tuple[AccountT, AccountT], int]:
+        return {(entry.source, entry.sink): entry.amount
+                for entry in self.all() if entry.amount > 0}
 
-    def set_parts(self, parts: dict[tuple[AccountT, AccountT], int]):
+    def set_flows(self, flows: dict[tuple[AccountT, AccountT], int]):
         self.all().delete()
         updates = chain.from_iterable(
             (self.model(source=source, sink=sink, amount=amount,
-                        transaction=self.instance),
+                        part=self.instance),
              self.model(source=sink, sink=source, amount=-amount,
-                        transaction=self.instance))
-            for (source, sink), amount in parts.items() if amount)
+                        part=self.instance))
+            for (source, sink), amount in flows.items() if amount)
         if updates:
             self.bulk_create(updates)
 
 
-class TransactionPart(Generic[AccountT], models.Model):
+class Entry(Generic[AccountT], models.Model):
     class Meta:  # type: ignore
         abstract = True
         constraints = [models.UniqueConstraint(
-            fields=["transaction", "source", "sink"], name="m2m_%(class)s")]
-    objects: PartManager[AccountT] = PartManager()
-    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
-                                    related_name="%(class)ss")
+            fields=["part", "source", "sink"], name="m2m_%(class)s")]
+    objects: EntryManager[AccountT] = EntryManager()
+    part = models.ForeignKey(TransactionPart, on_delete=models.CASCADE,
+                             related_name="%(class)s_set")
     source: models.ForeignKey[AccountT]
     source_id: int
     sink: models.ForeignKey[AccountT]
@@ -484,80 +511,24 @@ class TransactionPart(Generic[AccountT], models.Model):
         return f"{self.source} -> {self.sink}: {self.amount}"
 
 
-class AccountPart(TransactionPart[Account]):
+class AccountEntry(Entry[Account]):
+    class Meta:  # type: ignore
+        verbose_name_plural = 'accountentries'
+
     source = models.ForeignKey(Account, on_delete=models.PROTECT,
                                related_name="source_entries")  # make nameless?
     sink = models.ForeignKey(Account, on_delete=models.PROTECT,
                              related_name="entries")
 
 
-class CategoryPart(TransactionPart[Category]):
+class CategoryEntry(Entry[Category]):
+    class Meta:  # type: ignore
+        verbose_name_plural = 'categoryentries'
+
     source = models.ForeignKey(Category, on_delete=models.PROTECT,
                                related_name="source_entries")
     sink = models.ForeignKey(Category, on_delete=models.PROTECT,
                              related_name="entries")
-
-
-class NoteManager(Generic[AccountT],
-                  models.Manager['TransactionNote[AccountT]']):
-    instance: Transaction  # When used as a relatedmanager
-
-    def set_notes(self, budget: Budget, notes: dict[AccountT, str]):
-        # 'self' is already filtered for a user, we just can't see which one
-        # Does this call the database if the prefetch is empty?
-        self.all().delete()
-        updates = [self.model(account=account, user_id=budget.owner(),  note=note,
-                              transaction=self.instance)
-                   for account, note in notes.items()]
-        for account, note in notes.items():
-            other = account.budget.owner()
-            if other and other != budget.owner():
-                corresponding = budget.get_inbox(self.model.AccountType,
-                                                 account.currency)
-                # This will be dropped by ignore_conflicts if there is a note
-                # already
-                updates.append(self.model(account=corresponding, user_id=other,
-                                          transaction=self.instance,
-                                          note=note))
-
-        if updates:
-            self.bulk_create(updates, ignore_conflicts=True)
-
-
-class TransactionNote(Generic[AccountT], models.Model):
-    class Meta:  # type: ignore
-        abstract = True
-        constraints = [models.UniqueConstraint(
-            fields=["transaction", "account", "user"], name="m2m_%(class)s")]
-    AccountType: Type[AccountT]
-    objects = NoteManager[AccountT]()
-    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
-                                    related_name="%(class)ss")
-    account: models.ForeignKey[AccountT]
-    account_id: int
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    note = models.CharField(max_length=100)
-
-
-class AccountNote(TransactionNote[Account]):
-    AccountType = Account
-    account = models.ForeignKey(Account, on_delete=models.PROTECT,
-                                related_name="notes")
-
-
-class CategoryNote(TransactionNote[Category]):
-    AccountType = Category
-    account = models.ForeignKey(Category, on_delete=models.PROTECT,
-                                related_name="notes")
-
-
-@ dataclass
-class TransactionDebtPart:
-    """Fake transaction part representing money owed"""
-    transaction: Transaction
-    # to: Balance ??
-    amount: int
-    running_sum: int
 
 
 def months_between(start: date, end: date):
@@ -569,9 +540,9 @@ def months_between(start: date, end: date):
 
 def entries_for(account: BaseAccount) -> list[Transaction]:
     if isinstance(account, Account):  # gross
-        field, amount = 'accounts', 'accountparts__amount'
+        field, amount = 'parts__accounts', 'parts__accountentry_set__amount'
     else:
-        field, amount = 'categories', 'categoryparts__amount'
+        field, amount = 'parts__categories', 'parts__categoryentry_set__amount'
 
     if not account.is_inbox():
         inbox = account.budget.get_inbox(type(account), account.currency).id
@@ -594,17 +565,17 @@ def entries_for(account: BaseAccount) -> list[Transaction]:
 
 
 def entries_for_balance(account: Balance) -> Iterable[Transaction]:
-    gets = (CategoryPart.objects
-            .filter(transaction=OuterRef('pk'),
+    gets = (CategoryEntry.objects
+            .filter(part__transaction=OuterRef('pk'),
                     source__currency=account.currency,
                     source__budget=account.other, sink__budget=account.budget)
-            .values('transaction')
+            .values('part__transaction')
             .values(sum=Sum('amount')))
-    has = (AccountPart.objects
-           .filter(transaction=OuterRef('pk'),
+    has = (AccountEntry.objects
+           .filter(part__transaction=OuterRef('pk'),
                    source__currency=account.currency,
                    source__budget=account.other, sink__budget=account.budget)
-           .values('transaction')
+           .values('part__transaction')
            .values(sum=Sum('amount')))
     qs = (Transaction.objects
           .filter_for(account.budget)
@@ -636,13 +607,13 @@ def accounts_overview(budget: Budget):
                   .select_related('budget'))
     currencies = {*budget.account_set.values_list('currency').distinct(),
                   *budget.category_set.values_list('currency').distinct()}
-    gets = (CategoryPart.objects
+    gets = (CategoryEntry.objects
             .filter(source__currency=OuterRef('currency'),
                     source__budget=OuterRef('pk'),
                     sink__budget=budget)
             .values('source__budget')
             .values(sum=Sum('amount')))
-    has = (AccountPart.objects
+    has = (AccountEntry.objects
            .filter(source__currency=OuterRef('currency'),
                    source__budget=OuterRef('pk'),
                    sink__budget=budget)
@@ -664,14 +635,14 @@ def category_balance(budget: Budget, start: date):
     before = (Category.objects
               .filter(budget=budget, closed=False)
               .annotate(balance=Sum('entries__amount',
-                                    filter=Q(entries__transaction__date__lt=start), default=0))
+                                    filter=Q(entries__part__transaction__date__lt=start), default=0))
               .order_by('order', 'group', 'name')
               .select_related('budget'))
     during = (Category.objects
               .filter(budget=budget, closed=False,
-                      entries__transaction__kind=Transaction.Kind.TRANSACTION,
-                      entries__transaction__date__gte=start,
-                      entries__transaction__date__lt=end)
+                      entries__part__transaction__kind=Transaction.Kind.TRANSACTION,
+                      entries__part__transaction__date__gte=start,
+                      entries__part__transaction__date__lt=end)
               .annotate(balance=Sum('entries__amount', default=0)))
     return (before, during)
 
@@ -679,13 +650,13 @@ def category_balance(budget: Budget, start: date):
 def budgeting_transaction(budget: Budget, date: date):
     return (Transaction.objects
             .filter(kind=Transaction.Kind.BUDGETING, date=date,
-                    categories__budget=budget)
+                    parts__categories__budget=budget)
             .first())
 
 
 def date_range(budget: Budget) -> tuple[date, date]:
     range = (Transaction.objects
-             .filter(categories__budget=budget)
+             .filter(parts__categories__budget=budget)
              .aggregate(Max('date', default=date.today()),
                         Min('date', default=date.today())))
     return (min(range['date__min'], date.today()),

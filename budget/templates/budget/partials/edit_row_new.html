@@ -1,0 +1,13 @@
+{% include "budget/partials/edit_row.html" %}
+<tr class="new_row" style="text-align:right;">
+    <td colspan="4">
+        {{ part.formset.management_form.TOTAL_FORMS }}
+        &nbsp;
+        {% if part.formset.management_form.TOTAL_FORMS.value < part.formset.management_form.MAX_NUM_FORMS.value %}
+        <button type="button"
+            hx-get="{% url 'row_form' budget.id part_index part.formset.management_form.TOTAL_FORMS.value %}"
+            hx-target="closest .new_row"
+            hx-swap="outerHTML settle:0">+</button>
+        {% endif %}
+    </td>
+</tr>

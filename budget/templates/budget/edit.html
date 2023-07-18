@@ -6,6 +6,7 @@
     <title>{{ form.date.value }} - Transaction</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+    <script src="{% static 'budget/htmx.min.js' %}"></script>
     <script src="{% static 'budget/jdecimal.js' %}"></script>
     <script src="{% static 'budget/util.js' %}"></script>
     <script src="{% static 'budget/editor.js' %}"></script>
@@ -20,70 +21,24 @@
             <td class="tdinput t6">{{ form.date }}</td>
         </tr>
     </table>
-    <table id="parts">
-        <tr>
-            <th class="t6">Account</th>
-            <th class="t6">Category</th>
-            <th class="t5">Transferred</th>
-            <th class="t5">Categorized</th>
-            <th class="t8">Note</th>
-        </tr>
-        {% for form in formset %}
-        <tr>
-            <td class="tdinput">
-                {{ form.account }}<span></span><input list="account-list">
-            </td>
-            <td class="tdinput">
-                {{ form.category }}<span></span><input list="category-list">
-            </td>
-            <td class="tdinput">
-                {{ form.transferred_currency }}
-                {{ form.transferred }}
-                <span></span>
-                <input class="number">
-            </td>
-            <td class="tdinput">
-                {{ form.moved_currency }}
-                {{ form.moved }}
-                <span></span>
-                <input class="number">
-            </td>
-            <td class="tdinput">
-                {{ form.note }}
-            </td>
-        </tr>
-        {% endfor %}
-        <tr id="adder-row" style="text-align:right;">
-            <td colspan="6"><button id="addrow" type="button">+</button></td>
-        </tr>
-    </table>
-    {{ formset.management_form }}
+    {% for part in form.formset %}
+    {% with part_index=forloop.counter0 %}
+    {% if not forloop.last %}
+    {% include "budget/partials/edit_part.html" %}
+    {% else %}
+    {% include "budget/partials/edit_part_new.html" %}
+    {% endif %}
+    {% endwith %}
+    {% endfor %}
+    {{ form.formset.management_form.INITIAL_FORMS }}
+    {{ form.formset.management_form.MIN_NUM_FORMS }}
+    {{ form.formset.management_form.MAX_NUM_FORMS }}
     {% csrf_token %}
 </form>
-<template id="new-row-t">
-    <tr>
-        <td class="tdinput">
-            <input type="hidden"><span></span><input list="account-list">
-        </td>
-        <td class="tdinput">
-            <input type="hidden"><span></span><input list="category-list">
-        </td>
-        <td class="tdinput">
-            <input type="hidden"><input type="hidden"><span></span><input class="number">
-        </td>
-        <td class="tdinput">
-            <input type="hidden"><input type="hidden"><span></span><input class="number">
-        </td>
-        <td class="tdinput">
-            <input>
-        </td>
-    </tr>
-</template>
-<div id="category-sum"></div>
-<div id="account-sum"></div>
-<div id="debt"></div>
 <div>
-    <button id="submit-button" form="form">Save</button>
+    <button id="submit-button" form="form">
+        {% if transaction_id %}Save Changes{% else %}Create Transaction{% endif %}
+    </button>
     <button id="cancel" type="button">Cancel</button>
     {% if transaction_id %}
     <form class="edit" action="{% url 'delete' budget.id transaction_id%}?back={{ request.GET.back|urlencode }}"
@@ -117,8 +72,13 @@
     <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
     {% endfor %}
 </datalist>
+<datalist id="currencies">
+    {% for currency in currencies %}
+    <option value="{{ currency }}"></option>
+    {% endfor %}
+</datalist>
 
 {{ data|json_script:"data" }}
 {{ form.errors|default:"" }}
-{{ formset.errors|default:"" }}
-{{ formset.non_form_errors }}
+{{ form.formset.errors|default:"" }}
+{{ form.formset.non_form_errors }}

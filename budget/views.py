@@ -13,10 +13,11 @@ from django.forms import BoundField
 import cProfile
 
 from .models import (sum_by, date_range, months_between,
-                     BaseAccount, Account, Category, Budget, Transaction,
+                     BaseAccount, Account, Category, Budget,
+                     Transaction,
                      accounts_overview, entries_for, category_balance,
                      Balance, entries_for_balance, budgeting_transaction)
-from .forms import (TransactionForm, TransactionPartFormSet,
+from .forms import (TransactionForm,
                     BudgetingForm, rename_form, BudgetForm,
                     OnTheGoForm,
                     ReorderingFormSet, AccountManagementFormSet,
@@ -90,8 +91,7 @@ def onthego(request: HttpRequest, budget_id: int):
     if request.method == 'POST':
         form = OnTheGoForm(budget=budget, data=request.POST)
         if form.is_valid():
-            with atomic():
-                transaction = form.save()
+            transaction = form.save()
             return HttpResponseRedirect(reverse(
                 'edit', args=(budget_id, transaction.id)))
         else:
@@ -137,11 +137,12 @@ def account(request: HttpRequest, account_id: int):
 @login_required
 def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
     account = _get_allowed_account_or_404(request, account_id)
-    transaction = Transaction.objects.get_for(account.budget, transaction_id)
+    transaction = Transaction.objects.get_for(
+        account.budget, transaction_id)
     if not transaction:
         raise Http404()
     transaction.change_inbox_to(account)
-    return HttpResponseRedirect(f"{account.get_absolute_url()}#{transaction.id}")
+    return HttpResponseRedirect(f"{account.get_absolute_url()}?t={transaction.id}")
 
 
 def manage_accounts(request: HttpRequest, budget_id: int):
@@ -186,6 +187,32 @@ def manage_accounts(request: HttpRequest, budget_id: int):
     return render(request, 'budget/manage.html', context)
 
 
+def part_form(request: HttpRequest, budget_id: int, number: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    budget = budget.main_budget()
+    form = TransactionForm(budget, prefix="tx")
+    form.formset.min_num = number + 1  # type: ignore
+    context = {'budget': budget,
+               'part': form.formset.forms[number], 'part_index': number,
+               'form': form}
+    return render(request, 'budget/partials/edit_part_new.html', context)
+
+
+def row_form(request: HttpRequest, budget_id: int,
+             part_index: int, number: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    budget = budget.main_budget()
+    form = TransactionForm(budget, prefix="tx")
+    form.formset.min_num = part_index + 1  # type: ignore
+    part = form.formset.forms[part_index]
+    # Extra is 1
+    part.formset.min_num = number + 1 - 1  # type: ignore
+    context = {'budget': budget,
+               'row': part.formset.forms[number],
+               'part': part, 'part_index': part_index}
+    return render(request, 'budget/partials/edit_row_new.html', context)
+
+
 @login_required
 def edit(request: HttpRequest, budget_id: int,
          transaction_id: Optional[int] = None):
@@ -204,39 +231,46 @@ def edit(request: HttpRequest, budget_id: int,
             args=(budget_id, transaction.date.year, transaction.date.month)))
 
     if request.method == 'POST':
-        form = TransactionForm(instance=transaction, data=request.POST)
-        formset = TransactionPartFormSet(
-            budget, prefix="tx", instance=transaction, data=request.POST)
-        if form.is_valid() and formset.is_valid():
-            with atomic():
-                instance = form.save()
-                formset.save(instance=instance)
+        form = TransactionForm(budget, prefix="tx", instance=transaction,
+                               data=request.POST)
+        if form.is_valid():
+            instance: Transaction = form.save()
+            if instance.id:
+                part = instance.parts.first()
+                entry = (part.accountentry_set.first()
+                         or part.categoryentry_set.first())
+                budget.initial_currency = entry.sink.currency
+                budget.save()
             if 'back' in request.GET:
-                back = f"{request.GET['back']}?t={instance.id}"
+                if instance.id:
+                    back = f"{request.GET['back']}?t={instance.id}"
+                else:
+                    back = f"{request.GET['back']}"
             else:
                 back = '/'
             return HttpResponseRedirect(back)
     else:
-        form = TransactionForm(instance=transaction)
-        formset = TransactionPartFormSet(
-            budget, prefix="tx", instance=transaction)
+        form = TransactionForm(budget, prefix="tx", instance=transaction)
 
     friends = dict(budget.friends.values_list('id', 'name'))
     payees = dict(Budget.objects.filter(payee_of=budget.owner())
                                 .values_list('id', 'name'))
     accounts = budget.account_set.exclude(name='')
     categories = budget.category_set.exclude(name='')
+    currencies = (budget.category_set
+                  .values_list('currency', flat=True).distinct())
     data = {
         'budget': budget.id,
         'transaction': transaction_id,
-        'accounts': dict(accounts.values_list('id', 'currency')),
-        'categories': dict(categories.values_list('id', 'currency')),
+        'accounts': (dict(accounts.values_list('id', 'currency'))
+                     | dict(categories.values_list('id', 'currency'))),
         'budgets': {budget.id: budget.name, **friends, **payees},
         'friends': friends,
     }
-    context = {'formset': formset, 'form': form,
+    context = {'form': form,
                'budget': budget, 'friends': friends, 'payees': payees,
                'accounts': accounts, 'categories': categories,
+               'currencies': currencies,
                'transaction_id': transaction_id,
                'data': data}
     return render(request, 'budget/edit.html', context)
@@ -248,8 +282,11 @@ def delete(request: HttpRequest, budget_id: int, transaction_id: int):
         return HttpResponseBadRequest('Wrong method')
     budget = _get_allowed_budget_or_404(request, budget_id)
     transaction = get_object_or_404(Transaction, id=transaction_id)
-    transaction.set_parts(budget, {}, {})
-    return HttpResponseRedirect(request.GET.get('back', '/'))
+    with atomic():
+        if not any([part.set_entries(budget, {}, {})
+                    for part in transaction.parts.all()]):
+            transaction.delete()
+    return HttpResponseRedirect(request.GET.get('back') or '/')
 
 
 @dataclass

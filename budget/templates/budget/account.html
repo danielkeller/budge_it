@@ -43,7 +43,7 @@
                 <th class="t4">{{ account.currency }}</th>
                 <th class="t4">Total</th>
                 {% for transaction in entries %}
-                <tr class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }} {% if request.GET.t == transaction.id|slugify %}checked{% endif %}"
+                <tr class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
                     data-id="{{transaction.id}}">
                     <td>{{transaction.date|date:"SHORT_DATE_FORMAT"}}</td>
                     <td>
@@ -66,24 +66,27 @@
         </div>
         <div class="transaction-details">
             {% for transaction in entries %}
-            <div class="{% if request.GET.t == transaction.id|slugify %}checked{% endif %}" data-id="{{transaction.id}}">
+            <div data-id="{{transaction.id}}">
                 {% if transaction.kind != 'B' %}
+                {% for part in transaction.parts.all %}
                 <table>
                     <th class="t6">Account</th>
                     <th class="t6">Category</th>
                     <th class="t4">Amount</th>
-                    <th class="t4">Note</th>
-                    {% for part in transaction.tabular %}
+                    {% for entry in part.tabular %}
                     <tr class="{% cycle 'a' 'b' %}">
-                        <td>{% account_in_budget part.account account.budget %}</td>
-                        <td>{% account_in_budget part.category account.budget %}</td>
-                        {% firstof part.account.currency part.category.currency as currency %}
-                        <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{part.amount}}</td>
-                        <td>{{part.note}}</td>
+                        <td>{% account_in_budget entry.account account.budget %}</td>
+                        <td>{% account_in_budget entry.category account.budget %}</td>
+                        {% firstof entry.account.currency entry.category.currency as currency %}
+                        <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{entry.amount}}</td>
                     </tr>
                     {% endfor %}
                     {% resetcycle %}
                 </table>
+                {% if part.note %}<div>
+                    <pre>{{ part.note }}</pre>
+                </div>{% endif %}
+                {% endfor %}
                 {% endif %}
                 <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">Edit...</a></div>
             </div>

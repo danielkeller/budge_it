@@ -11,8 +11,13 @@ addEventListener("DOMContentLoaded", function () {
     listview.addEventListener('mousedown', mousedown);
     listview.addEventListener('keydown', listkey);
 
-    const hash = document.location.hash;
-    if (hash) document.querySelector(`[data-id="${hash.substring(1)}"]`)?.focus();
+    const id = new URLSearchParams(window.location.search).get('t');
+    if (id) {
+        const listItem = document.querySelector(`.listview [data-id="${id}"]`);
+        if (listItem) listItem.classList.add('checked');
+        const item = document.querySelector(`.transaction-details [data-id="${id}"]`);
+        if (item) item.classList.add('checked');
+    }
 });
 
 function mousedown(event) {

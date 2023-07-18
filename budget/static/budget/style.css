@@ -40,6 +40,10 @@ body {
     padding-bottom: var(--line-height);
 }
 
+pre {
+    margin: 0;
+}
+
 /* TODO: Clean this up */
 body:not(.window)>div,
 body:not(.window)>form>div,
@@ -238,6 +242,12 @@ tbody.droppable>:last-child {
     display: none;
 }
 
+.transaction-details>div {
+    display: flex;
+    flex-direction: column;
+    gap: var(--line-height);
+}
+
 .transaction-details table {
     width: 100%;
     table-layout: fixed;
@@ -259,7 +269,8 @@ form {
     /* background-clip: content-box; */
 }
 
-.tdinput input {
+.tdinput input,
+.tdinput textarea {
     border: none;
     padding: 0 calc(2 * var(--td-hpad));
     width: 100%;
@@ -268,9 +279,14 @@ form {
     z-index: 1;
 }
 
-.tdinput input:disabled {
+.tdinput input:disabled,
+.tdinput input[readonly] {
     background-color: var(--canvas);
     z-index: 0;
+}
+
+:invalid {
+    outline: 2px solid red;
 }
 
 .suggested {
