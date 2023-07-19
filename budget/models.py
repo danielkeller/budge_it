@@ -57,6 +57,7 @@ class Budget(Id):
         'self', through='BudgetFriends', blank=True)
 
     initial_currency = models.CharField(max_length=5, blank=True)
+    initial_split = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return self.name

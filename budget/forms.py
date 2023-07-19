@@ -353,7 +353,10 @@ class OnTheGoForm(forms.Form):
         self.fields['split'].choices = (
             [(budget.id, 'Yourself')]
             + list(budget.friends.values_list('id', 'name')))
-        self.fields['split'].initial = [budget.id]
+        if budget.initial_split:
+            self.fields['split'].initial = budget.initial_split.split(',')
+        else:
+            self.fields['split'].initial = [budget.id]
 
     @transaction.atomic
     def save(self):
@@ -366,7 +369,10 @@ class OnTheGoForm(forms.Form):
         part.save()
 
         currency = self.cleaned_data['currency']
+        split = self.cleaned_data['split']
         self.budget.initial_currency = currency
+        self.budget.initial_split = ','.join(
+            str(friend.id) for friend in split)
         self.budget.save()
 
         amount = self.cleaned_data['amount']
@@ -379,7 +385,7 @@ class OnTheGoForm(forms.Form):
 
         from_categories: list[Category] = [
             budget.get_inbox(Category, currency)
-            for budget in self.cleaned_data['split']
+            for budget in split
         ] or [self.budget.get_inbox(Category, currency)]
 
         div = amount // len(from_categories)
