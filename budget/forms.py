@@ -160,7 +160,8 @@ class PartForm(FormSetInline(EntryFormSet)):
         fields = ('note',)
 
     budget: Budget
-    note = forms.CharField(widget=forms.Textarea(attrs={'rows': 0}))
+    note = forms.CharField(required=False,
+                           widget=forms.Textarea(attrs={'rows': 0}))
     currency = forms.CharField(
         required=True, widget=forms.TextInput(attrs={
             "list": "currencies", "required": "true",
