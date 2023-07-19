@@ -94,8 +94,6 @@ def onthego(request: HttpRequest, budget_id: int):
             transaction = form.save()
             return HttpResponseRedirect(reverse(
                 'edit', args=(budget_id, transaction.id)))
-        else:
-            raise ValueError(form.errors)
     else:
         form = OnTheGoForm(budget=budget)
     currencies = (budget.category_set

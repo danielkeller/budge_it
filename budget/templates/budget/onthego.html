@@ -25,10 +25,15 @@
             <th>Currency</th>
             <td class="tdinput">{{ form.currency }}</td>
         </tr>
+        <tr>
+            <th>Split between</th>
+            <td>{{ form.split }}</td>
+        </tr>
     </table>
     {% csrf_token %}
     <div><button>Add Transaction</button></div>
 </form>
+{{ form.errors }}
 <datalist id="payee-list">
     {% for id, name in payees %}
     <option data-id="{{ id }}" value="{{ name }}"></option>

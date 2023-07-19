@@ -332,17 +332,28 @@ CategoryManagementFormSet = forms.modelformset_factory(
     extra=0)
 
 
+def _get_budget(id: int):
+    return Budget.objects.get(id=id)
+
+
 class OnTheGoForm(forms.Form):
     budget: Budget
     amount = forms.IntegerField(widget=forms.HiddenInput)
     note = forms.CharField(required=False)
     currency = forms.CharField(widget=forms.TextInput(
         attrs={"list": "currencies"}))
+    split = forms.TypedMultipleChoiceField(required=False, choices=[],
+                                           coerce=_get_budget,
+                                           widget=forms.CheckboxSelectMultiple)
 
     def __init__(self, *args: Any, budget: Budget, **kwargs: Any):
         self.budget = budget
         initial = {'currency': budget.get_initial_currency()}
         super().__init__(*args, initial=initial, **kwargs)
+        self.fields['split'].choices = (
+            [(budget.id, 'Yourself')]
+            + list(budget.friends.values_list('id', 'name')))
+        self.fields['split'].initial = [budget.id]
 
     @transaction.atomic
     def save(self):
@@ -361,9 +372,20 @@ class OnTheGoForm(forms.Form):
         amount = self.cleaned_data['amount']
         payee = Budget.objects.get_or_create(
             name="Payee", payee_of_id=self.budget.owner())[0]
+
         accounts = {self.budget.get_inbox(Account, currency): -amount,
                     payee.get_inbox(Account, currency): amount}
-        categories = {self.budget.get_inbox(Category, currency): -amount,
-                      payee.get_inbox(Category, currency): amount}
+        categories = {payee.get_inbox(Category, currency): amount}
+
+        from_categories: list[Category] = [
+            budget.get_inbox(Category, currency)
+            for budget in self.cleaned_data['split']
+        ] or [self.budget.get_inbox(Category, currency)]
+
+        div = amount // len(from_categories)
+        rem = amount - div * len(from_categories)
+        for i in range(len(from_categories)):
+            categories[from_categories[i]] = -div - (i < rem)
+
         part.set_entries(self.budget, accounts, categories)
         return transaction
