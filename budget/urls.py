@@ -14,6 +14,8 @@ urlpatterns = [
          views.add_to_account, name='add_to_account'),
     path('budget/<int:budget_id>/<int:year>/<int:month>/',
          views.budget, name='budget'),
+    path('budget/copy/<int:budget_id>/<int:transaction_id>/<int:year>/<int:month>/',
+         views.copy_budget, name='copy_budget'),
     path('balance/<str:currency>/<int:budget_id_1>/to/<int:budget_id_2>/',
          views.balance, name='balance'),
     path('transaction/<int:budget_id>/',

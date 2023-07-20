@@ -16,7 +16,8 @@ from .models import (sum_by, date_range, months_between,
                      BaseAccount, Account, Category, Budget,
                      Transaction,
                      accounts_overview, entries_for, category_balance,
-                     Balance, entries_for_balance, budgeting_transaction)
+                     Balance, entries_for_balance, budgeting_transaction,
+                     prior_budgeting_transaction, copy_budgeting)
 from .forms import (TransactionForm,
                     BudgetingForm, rename_form, BudgetForm,
                     OnTheGoForm,
@@ -335,10 +336,29 @@ def budget(request: HttpRequest, budget_id: int, year: int, month: int):
     rows = [BudgetRow(category, form[str(category.id)],
                       spent.get(category.id, 0))
             for category in before]
+
+    prior = prior_budgeting_transaction(budget, budget_date)
+
     data = {'inboxes': inboxes}
     context = {'rows': rows, 'form': form, 'budget': budget,
                'current_year': year, 'current_month': month,
                'budget_date': budget_date, 'end_date': end_date,
                'years': years, 'months': months,
+               'prior': prior,
                'data': data}
     return render(request, 'budget/budget.html', context)
+
+
+@login_required
+def copy_budget(request: HttpRequest, budget_id: int, transaction_id: int,
+                year: int, month: int):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    prior = get_object_or_404(Transaction, id=transaction_id)
+    try:
+        budget_date = date(year, month, 1)
+    except ValueError:
+        raise Http404()
+    copy_budgeting(budget, prior, budget_date)
+    return HttpResponseRedirect(reverse('budget', args=(budget_id, year, month)))

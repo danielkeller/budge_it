@@ -30,6 +30,14 @@
         </div>
     </div>
 </form>
+{% if prior and not form.instance.id %}
+<form method="post" action="{% url 'copy_budget' budget.id prior.id current_year current_month  %}">
+    {% csrf_token %}
+    <div>
+        <button>Copy from {{ prior.date|date:"M Y" }}</button>
+    </div>
+</form>
+{% endif %}
 <form id="form" method="post" action="{{ request.get_full_path }}">
     <table id="table">
         <tr>

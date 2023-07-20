@@ -655,6 +655,14 @@ def budgeting_transaction(budget: Budget, date: date):
             .first())
 
 
+def prior_budgeting_transaction(budget: Budget, date: date):
+    return (Transaction.objects
+            .filter(kind=Transaction.Kind.BUDGETING, date__lt=date,
+                    parts__categories__budget=budget)
+            .order_by('-date')
+            .first())
+
+
 def date_range(budget: Budget) -> tuple[date, date]:
     range = (Transaction.objects
              .filter(parts__categories__budget=budget)
@@ -662,3 +670,12 @@ def date_range(budget: Budget) -> tuple[date, date]:
                         Min('date', default=date.today())))
     return (min(range['date__min'], date.today()),
             max(range['date__max'], date.today()))
+
+
+@atomic
+def copy_budgeting(budget: Budget, prior: Transaction, date: date):
+    transaction = Transaction(date=date, kind=Transaction.Kind.BUDGETING)
+    transaction.save()
+    part = TransactionPart(transaction=transaction)
+    part.save()
+    part.set_flows(*prior.parts.first().flows())
