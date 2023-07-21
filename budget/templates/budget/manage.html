@@ -9,6 +9,7 @@
 <div><a href="{% url 'overview' budget.id %}">Overview</a></div>
 
 <form id="form" method="post">
+    <button class="hidden-submit">Save</button>
     <div>Budget name for others: {{ budget_form.name }}</div>
     <table>
         <tr>
