@@ -162,10 +162,7 @@ class PartForm(FormSetInline(EntryFormSet)):
     budget: Budget
     note = forms.CharField(required=False,
                            widget=forms.Textarea(attrs={'rows': 0}))
-    currency = forms.CharField(
-        required=True, widget=forms.TextInput(attrs={
-            "list": "currencies", "required": "true",
-            "class": "edit-currency"}))
+    currency = forms.ChoiceField(required=False)
 
     def __init__(self, budget: Budget, *args: Any,
                  instance: Optional[TransactionPart] = None,
@@ -180,6 +177,11 @@ class PartForm(FormSetInline(EntryFormSet)):
                 initial['currency'] = entry.sink.currency
         super().__init__(budget, *args, instance=instance, initial=initial,
                          **kwargs)
+        currencies = budget.currencies
+        self.fields['currency'].choices = list(zip(currencies, currencies))
+        if initial['currency'] not in currencies:
+            self.fields['currency'].choices += [
+                (initial['currency'], initial['currency'])]
 
     def full_clean(self):
         super().full_clean()
@@ -307,28 +309,79 @@ ReorderingFormSet = forms.modelformset_factory(
 
 
 class AccountManagementForm(forms.ModelForm):
-    def __init__(self, *args: Any, instance: BaseAccount, **kwargs: Any):
-        super().__init__(*args, instance=instance, **kwargs)
-        if instance.entries.exists():  # Optimize?
-            self.fields['currency'].disabled = True
+    class Meta:  # type: ignore
+        model = BaseAccount
+        fields = ('name', 'currency', 'closed')
+        widgets = {'name': forms.TextInput(attrs={'required': True})}
+    currency = forms.ChoiceField()
 
 
-AccountManagementFormSet = forms.modelformset_factory(
-    Account,
-    form=AccountManagementForm,
-    fields=('name', 'currency', 'closed'),
-    widgets={'name': forms.TextInput(attrs={'required': True}),
-             'currency': forms.TextInput(attrs={"list": "currencies",
-                                                "size": 4})},
+class BaseAccountManagementFormSet(forms.BaseInlineFormSet):
+    def add_fields(self, form: forms.ModelForm, index: int):
+        super().add_fields(form, index)
+        currencies = self.instance.currencies
+        form.fields['currency'].choices = list(zip(currencies, currencies))
+        if form.instance.pk:
+            if form.instance.entries.exists():  # Optimize?
+                form.fields['currency'].disabled = True
+                form.fields['DELETE'].disabled = True
+            if form.instance.currency not in currencies:
+                form.fields['currency'].choices += [(
+                    form.instance.currency, form.instance.currency)]
+        else:
+            form.initial['currency'] = self.instance.get_initial_currency()
+
+
+AccountManagementFormSet = forms.inlineformset_factory(
+    Budget, Account, fk_name="budget",
+    formset=BaseAccountManagementFormSet, form=AccountManagementForm,
     extra=0)
 
-CategoryManagementFormSet = forms.modelformset_factory(
+CategoryManagementFormSet = forms.inlineformset_factory(
+    Budget, Category, fk_name='budget',
+    formset=BaseAccountManagementFormSet, form=AccountManagementForm,
+    extra=0)
+
+
+class BaseCurrencyManagementFormSet(forms.BaseInlineFormSet):
+    def add_fields(self, form: forms.ModelForm, index: int):
+        super().add_fields(form, index)
+        if form.instance.pk:
+            form.fields['currency'].disabled = True
+            budget: Budget = form.instance.budget
+            currency: str = form.instance.currency
+            if (budget.account_set
+                .filter(currency=currency).exclude(name='')
+                .exists()
+                or budget.category_set
+                .filter(currency=currency).exclude(name='')
+                    .exists()):
+                form.fields['DELETE'].disabled = True
+
+    def save_new(self, form: forms.ModelForm, commit: bool = True) -> Category:
+        try:
+            form.instance = Category.objects.get(
+                budget=self.instance, name='', currency=form.instance.currency)
+        except Category.DoesNotExist:
+            pass
+        form.instance.closed = False
+        return super().save_new(form, commit)
+
+    def delete_existing(self, obj: Category, commit: bool = True):
+        obj.closed = True
+        if commit:
+            obj.save()
+
+
+CurrencyManagementFormSet = forms.inlineformset_factory(
+    Budget,
     Category,
-    form=AccountManagementForm,
-    fields=('name', 'currency', 'closed'),
-    widgets={'name': forms.TextInput(attrs={'required': True}),
-             'currency': forms.TextInput(attrs={"list": "currencies",
-                                                "size": 4})},
+    fk_name='budget',
+    formset=BaseCurrencyManagementFormSet,
+    fields=('currency',),
+    widgets={'currency': forms.TextInput(attrs={'list': 'currencies',
+                                                'size': 4,
+                                                'required': True})},
     extra=0)
 
 
@@ -340,8 +393,7 @@ class OnTheGoForm(forms.Form):
     budget: Budget
     amount = forms.IntegerField(widget=forms.HiddenInput)
     note = forms.CharField(required=False)
-    currency = forms.CharField(widget=forms.TextInput(
-        attrs={"list": "currencies"}))
+    currency = forms.ChoiceField()
     split = forms.TypedMultipleChoiceField(required=False, choices=[],
                                            coerce=_get_budget,
                                            widget=forms.CheckboxSelectMultiple)
@@ -357,6 +409,8 @@ class OnTheGoForm(forms.Form):
             self.fields['split'].initial = budget.initial_split.split(',')
         else:
             self.fields['split'].initial = [budget.id]
+        currencies = budget.currencies
+        self.fields['currency'].choices = list(zip(currencies, currencies))
 
     @transaction.atomic
     def save(self):

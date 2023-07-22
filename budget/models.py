@@ -31,6 +31,7 @@ class Budget(Id):
         constraints = [models.CheckConstraint(
             check=Q(budget_of__isnull=True) | Q(payee_of__isnull=True),
             name="cant_be_payee_and_budget")]
+        # Payees have distinct names?
 
     id_ptr = models.OneToOneField(
         Id, related_name='of_budget',
@@ -89,6 +90,13 @@ class Budget(Id):
                        Q(payee_of=self.owner()))
         return Budget.objects.filter(filter).distinct()
 
+    @functools.cached_property
+    def currencies(self) -> Iterable[str]:
+        return (self.category_set
+                .filter(name='', closed=False)
+                .values_list('currency', flat=True)
+                .distinct())
+
     def get_initial_currency(self):
         if self.initial_currency:
             return self.initial_currency
@@ -118,6 +126,8 @@ class BaseAccount(Id):
     """BaseAccounts describe a generic place money can be"""
     class Meta:  # type: ignore
         abstract = True
+        constraints = [models.UniqueConstraint(
+            fields=["budget", "name", "currency"], name="m2m_%(class)s")]
     id_ptr: models.OneToOneField[Id]
     name = models.CharField(max_length=100, blank=True)
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE)
@@ -185,6 +195,7 @@ class Category(BaseAccount):
     """Categories describe the conceptual ownership of money."""
     class Meta:  # type: ignore
         verbose_name_plural = "categories"
+        constraints = BaseAccount.Meta.constraints
 
     id_ptr = models.OneToOneField(
         Id, related_name='of_category',
@@ -578,6 +589,8 @@ def entries_for_balance(account: Balance) -> Iterable[Transaction]:
                    source__budget=account.other, sink__budget=account.budget)
            .values('part__transaction')
            .values(sum=Sum('amount')))
+    # Does it make sense to exclude transactions that don't alter the balance?
+    # In general transactions that do and don't will be on different payees.
     qs = (Transaction.objects
           .filter_for(account.budget)
           .annotate(change=Coalesce(Subquery(gets), 0)
@@ -594,16 +607,16 @@ def entries_for_balance(account: Balance) -> Iterable[Transaction]:
 def accounts_overview(budget: Budget):
     accounts = (Account.objects
                 .filter(budget=budget)
-                .exclude(closed=True)
-                .exclude(Q(name='') & Q(entries__isnull=True))
                 .annotate(balance=Sum('entries__amount', default=0))
+                .exclude(closed=True, balance=0)
+                .exclude(name='', balance=0)
                 .order_by('order', 'group', 'name')
                 .select_related('budget'))
     categories = (Category.objects
                   .filter(budget=budget)
-                  .exclude(closed=True)
-                  .exclude(Q(name='') & Q(entries__isnull=True))
                   .annotate(balance=Sum('entries__amount', default=0))
+                  .exclude(closed=True, balance=0)
+                  .exclude(name='', balance=0)
                   .order_by('order', 'group', 'name')
                   .select_related('budget'))
     currencies = {*budget.account_set.values_list('currency').distinct(),
@@ -632,15 +645,14 @@ def accounts_overview(budget: Budget):
 
 def category_balance(budget: Budget, start: date):
     end = (start + timedelta(days=31)).replace(day=1)
-    # TODO: Show closed categories if you look before they were closed
     before = (Category.objects
-              .filter(budget=budget, closed=False)
+              .filter(budget=budget)
               .annotate(balance=Sum('entries__amount',
                                     filter=Q(entries__part__transaction__date__lt=start), default=0))
               .order_by('order', 'group', 'name')
               .select_related('budget'))
     during = (Category.objects
-              .filter(budget=budget, closed=False,
+              .filter(budget=budget,
                       entries__part__transaction__kind=Transaction.Kind.TRANSACTION,
                       entries__part__transaction__date__gte=start,
                       entries__part__transaction__date__lt=end)

@@ -5,6 +5,7 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+    <script src="{% static 'budget/htmx.min.js' %}"></script>
 </head>
 <div><a href="{% url 'overview' budget.id %}">Overview</a></div>
 
@@ -16,6 +17,7 @@
             <th>Category</th>
             <th>Currency</th>
             <th>Closed</th>
+            <th>Delete?</th>
         </tr>
         {% for form in category_formset %}
         {% ifchanged form.instance.group %}
@@ -23,44 +25,51 @@
             <th class="groupname">
                 {{form.instance.group|default:"&nbsp;"}}
             </th>
-            <th colspan="2"></th>
+            <th colspan="3"></th>
         </tr>
         {% endifchanged %}
-        <tr {% if request.GET.hl == form.instance.id|slugify %}class="hl" {% endif %}>
-            <td class="tdinput">{{ form.name }}</td>
-            <td class="tdinput">{{ form.currency }}</td>
-            <td>{{ form.closed }}{{form.id_ptr}}
-                {% if request.GET.hl == form.instance.id|slugify %}<span class="newaccount"></span>
-                {% endif %}
-            </td>
-        </tr>
+        {% if not forloop.last %}
+        {% include "budget/partials/manage.html" %}
+        {% else %}
+        {% include "budget/partials/manage_new_category.html" %}
+        {% endif %}
         {% endfor %}
-        <tr>
-            <td><input type="submit" name="new_category" value="New Category"></td>
-            <td colspan="2"></td>
-        </tr>
         <tr>
             <th>Account</th>
             <th>Currency</th>
             <th>Closed</th>
+            <th>Delete?</th>
         </tr>
         {% for form in account_formset %}
-        <tr {% if request.GET.hl == form.instance.id|slugify %}class="hl" {% endif %}>
-            <td class="tdinput">{{ form.name }}</td>
-            <td class="tdinput">{{ form.currency }}</td>
-            <td>{{ form.closed }}{{form.id_ptr}}
-                {% if request.GET.hl == form.instance.id|slugify %}<span class="newaccount"></span>
-                {% endif %}
-            </td>
-        </tr>
+        {% if not forloop.last %}
+        {% include "budget/partials/manage.html" %}
+        {% else %}
+        {% include "budget/partials/manage_new_account.html" %}
+        {% endif %}
         {% endfor %}
-        <tr>
-            <td><input type="submit" name="new_account" value="New Account"></td>
-            <td colspan="2"></td>
-        </tr>
     </table>
-    {{ category_formset.management_form }}
-    {{ account_formset.management_form }}
+    {{ category_formset.management_form.INITIAL_FORMS }}
+    {{ category_formset.management_form.MIN_NUM_FORMS }}
+    {{ category_formset.management_form.MAX_NUM_FORMS }}
+    {{ account_formset.management_form.INITIAL_FORMS }}
+    {{ account_formset.management_form.MIN_NUM_FORMS }}
+    {{ account_formset.management_form.MAX_NUM_FORMS }}
+    <table>
+        <tr>
+            <th>Currency</th>
+            <th>Delete?</th>
+        </tr>
+        {% for form in currency_formset %}
+        {% if not forloop.last %}
+        {% include "budget/partials/currency.html" %}
+        {% else %}
+        {% include "budget/partials/currency_new.html" %}
+        {% endif %}
+        {% endfor %}
+    </table>
+    {{ currency_formset.management_form.INITIAL_FORMS }}
+    {{ currency_formset.management_form.MIN_NUM_FORMS }}
+    {{ currency_formset.management_form.MAX_NUM_FORMS }}
     {% csrf_token %}
 </form>
 <div><button form="form">Save</button></div>
@@ -69,6 +78,8 @@
     {{ category_formset.non_form_errors }}
     {{ account_formset.errors|default:"" }}
     {{ account_formset.non_form_errors }}
+    {{ currency_formset.errors|default:"" }}
+    {{ currency_formset.non_form_errors }}
 </div>
 <datalist id="currencies">
     <option value="USD">

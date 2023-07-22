@@ -28,4 +28,10 @@ urlpatterns = [
          views.part_form, name='part_form'),
     path('partial/edit/<int:budget_id>/row/<int:part_index>/<int:number>/',
          views.row_form, name='row_form'),
+    path('partial/manage/<int:budget_id>/account/<int:number>/',
+         views.account_form, name='account_form'),
+    path('partial/manage/<int:budget_id>/category/<int:number>/',
+         views.category_form, name='category_form'),
+    path('partial/manage/currency/<int:number>/',
+         views.currency_form, name='currency_form'),
 ]

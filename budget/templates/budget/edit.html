@@ -72,11 +72,6 @@
     <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
     {% endfor %}
 </datalist>
-<datalist id="currencies">
-    {% for currency in currencies %}
-    <option value="{{ currency }}"></option>
-    {% endfor %}
-</datalist>
 
 {{ data|json_script:"data" }}
 {{ form.errors|default:"" }}

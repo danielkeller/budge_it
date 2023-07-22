@@ -238,12 +238,18 @@ function updateCurrency(part) {
             }
         }
     }
-    const input = currencyInput(part);
+    const select = currencyInput(part);
     if (fixed) {
-        input.value = fixed;
-        input.setAttribute('readonly', '');
+        select.value = fixed;
+        select.setAttribute('readonly', '');
+        for (const option of select.children) {
+            option.disabled = !option.selected;
+        }
     } else {
-        input.removeAttribute('readonly');
+        select.removeAttribute('readonly');
+        for (const option of select.children) {
+            option.disabled = false;
+        }
     }
 }
 

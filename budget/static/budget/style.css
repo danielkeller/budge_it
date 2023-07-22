@@ -27,7 +27,7 @@
 html {
     color-scheme: light dark;
     background-color: var(--canvas);
-    --line-height: 1.5em;
+    --line-height: 21px;
     --td-border: 1px;
     --td-hpad: calc(var(--line-height) * 0.2);
     font-size: 14px;
@@ -274,20 +274,25 @@ form {
     /* background-clip: content-box; */
 }
 
-.tdinput input,
-.tdinput textarea {
+.tdinput>* {
     border: none;
-    padding: 0 calc(2 * var(--td-hpad));
     width: 100%;
     background-color: transparent;
     position: relative;
     z-index: 1;
+    height: var(--td-line-height);
+    vertical-align: bottom;
 }
 
-.tdinput input:disabled,
-.tdinput input[readonly] {
+.tdinput>:disabled,
+.tdinput>[readonly] {
     background-color: var(--canvas);
     z-index: 0;
+}
+
+.tdinput>input,
+.tdinput>textarea {
+    padding: 0 calc(2 * var(--td-hpad));
 }
 
 :invalid {
@@ -365,15 +370,6 @@ form {
     font-weight: bold;
     text-decoration: inherit;
     color: inherit;
-}
-
-.hl {
-    background-color: var(--canvas-highlight);
-
-}
-
-.hl>.tdinput {
-    background-color: var(--field-highlight);
 }
 
 .newaccount {

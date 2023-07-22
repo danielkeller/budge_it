@@ -22,7 +22,7 @@ from .forms import (TransactionForm,
                     BudgetingForm, rename_form, BudgetForm,
                     OnTheGoForm,
                     ReorderingFormSet, AccountManagementFormSet,
-                    CategoryManagementFormSet)
+                    CategoryManagementFormSet, CurrencyManagementFormSet)
 
 
 def profileit(func: Any):
@@ -97,10 +97,7 @@ def onthego(request: HttpRequest, budget_id: int):
                 'edit', args=(budget_id, transaction.id)))
     else:
         form = OnTheGoForm(budget=budget)
-    currencies = (budget.category_set
-                  .values_list('currency', flat=True).distinct())
-    context = {'budget': budget, 'currencies': currencies,
-               'form': form}
+    context = {'budget': budget, 'form': form}
     return render(request, 'budget/onthego.html', context)
 
 
@@ -144,45 +141,73 @@ def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
     return HttpResponseRedirect(f"{account.get_absolute_url()}?t={transaction.id}")
 
 
+def account_form(request: HttpRequest, budget_id: int, number: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    queryset = Account.objects.none()
+    formset = AccountManagementFormSet(
+        instance=budget, queryset=queryset, prefix="accounts")
+    formset.min_num = number + 1  # type: ignore
+    context = {'budget': budget,
+               'account_formset': formset, 'form': formset.forms[number]}
+    return render(request, 'budget/partials/manage_new_account.html', context)
+
+
+def category_form(request: HttpRequest, budget_id: int, number: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    queryset = Category.objects.none()
+    formset = CategoryManagementFormSet(
+        instance=budget, queryset=queryset, prefix="categories")
+    formset.min_num = number + 1  # type: ignore
+    context = {'budget': budget,
+               'category_formset': formset, 'form': formset.forms[number]}
+    return render(request, 'budget/partials/manage_new_category.html', context)
+
+
+def currency_form(request: HttpRequest, number: int):
+    formset = CurrencyManagementFormSet(prefix="currencies")
+    formset.min_num = number + 1  # type: ignore
+    context = {'currency_formset': formset, 'form': formset.forms[number]}
+    return render(request, 'budget/partials/currency_new.html', context)
+
+
 def manage_accounts(request: HttpRequest, budget_id: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
     categories = (budget.category_set.exclude(name='')
                   .order_by('order', 'group', 'name'))
     accounts = (budget.account_set.exclude(name='')
                 .order_by('order', 'group', 'name'))
+    currencies = budget.category_set.filter(name='', closed=False)
     if request.method == 'POST':
         budget_form = BudgetForm(instance=budget, data=request.POST,
                                  prefix="budget")
         category_formset = CategoryManagementFormSet(
-            queryset=categories, data=request.POST, prefix="category")
+            instance=budget, queryset=categories, data=request.POST,
+            prefix="categories")
         account_formset = AccountManagementFormSet(
-            queryset=accounts, data=request.POST, prefix="accounts")
+            instance=budget, queryset=accounts, data=request.POST,
+            prefix="accounts")
+        currency_formset = CurrencyManagementFormSet(
+            instance=budget, queryset=currencies, data=request.POST,
+            prefix="currencies")
         if (category_formset.is_valid() and account_formset.is_valid()
-                and budget_form.is_valid()):
+                and budget_form.is_valid() and currency_formset.is_valid()):
             category_formset.save()
             account_formset.save()
+            currency_formset.save()
             budget_form.save()
-
-            if 'new_account' in request.POST:
-                new = Account.objects.create(budget_id=budget_id,
-                                             name="New Account")
-                next = f"{reverse('manage', args=(budget_id,))}?hl={new.id}"
-            elif 'new_category' in request.POST:
-                new = Category.objects.create(budget_id=budget_id,
-                                              name="New Category")
-                next = f"{reverse('manage', args=(budget_id,))}?hl={new.id}"
-            else:
-                next = budget.get_absolute_url()
-            return HttpResponseRedirect(next)
+            return HttpResponseRedirect(request.get_full_path())
     else:
         budget_form = BudgetForm(instance=budget, prefix="budget")
         category_formset = CategoryManagementFormSet(
-            queryset=categories, prefix="category")
+            instance=budget, queryset=categories, prefix="categories")
         account_formset = AccountManagementFormSet(
-            queryset=accounts, prefix="accounts")
+            instance=budget, queryset=accounts, prefix="accounts")
+        currency_formset = CurrencyManagementFormSet(
+            instance=budget, queryset=currencies, prefix="currencies")
     context = {'budget': budget, 'budget_form': budget_form,
                'category_formset': category_formset,
-               'account_formset': account_formset}
+               'account_formset': account_formset,
+               'currency_formset': currency_formset}
     return render(request, 'budget/manage.html', context)
 
 
@@ -254,10 +279,9 @@ def edit(request: HttpRequest, budget_id: int,
     friends = dict(budget.friends.values_list('id', 'name'))
     payees = dict(Budget.objects.filter(payee_of=budget.owner())
                                 .values_list('id', 'name'))
+    # Closed?
     accounts = budget.account_set.exclude(name='')
     categories = budget.category_set.exclude(name='')
-    currencies = (budget.category_set
-                  .values_list('currency', flat=True).distinct())
     data = {
         'budget': budget.id,
         'transaction': transaction_id,
@@ -269,7 +293,6 @@ def edit(request: HttpRequest, budget_id: int,
     context = {'form': form,
                'budget': budget, 'friends': friends, 'payees': payees,
                'accounts': accounts, 'categories': categories,
-               'currencies': currencies,
                'transaction_id': transaction_id,
                'data': data}
     return render(request, 'budget/edit.html', context)
@@ -316,6 +339,7 @@ def budget(request: HttpRequest, budget_id: int, year: int, month: int):
 
     currencies = budget.category_set.values_list('currency').distinct()
     # Make sure these are created before creating the form
+    # TODO: Show only the appropriate inboxes
     inboxes = [budget.get_inbox(Category, currency).id
                for currency, in currencies]
     before, during = category_balance(budget, budget_date)
@@ -335,7 +359,9 @@ def budget(request: HttpRequest, budget_id: int, year: int, month: int):
                              initial=initial)
     rows = [BudgetRow(category, form[str(category.id)],
                       spent.get(category.id, 0))
-            for category in before]
+            for category in before
+            if form[str(category.id)].value() or spent.get(category.id, 0)
+            or category.balance or not category.closed]
 
     prior = prior_budgeting_transaction(budget, budget_date)
 
