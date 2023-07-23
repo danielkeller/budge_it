@@ -201,6 +201,8 @@ class Category(BaseAccount):
         Id, related_name='of_category',
         on_delete=models.CASCADE, parent_link=True)
 
+    change: int
+
     def kind(self):
         return 'category'
 
@@ -645,19 +647,21 @@ def accounts_overview(budget: Budget):
 
 def category_balance(budget: Budget, start: date):
     end = (start + timedelta(days=31)).replace(day=1)
-    before = (Category.objects
-              .filter(budget=budget)
-              .annotate(balance=Sum('entries__amount',
-                                    filter=Q(entries__part__transaction__date__lt=start), default=0))
-              .order_by('order', 'group', 'name')
-              .select_related('budget'))
-    during = (Category.objects
-              .filter(budget=budget,
-                      entries__part__transaction__kind=Transaction.Kind.TRANSACTION,
-                      entries__part__transaction__date__gte=start,
-                      entries__part__transaction__date__lt=end)
-              .annotate(balance=Sum('entries__amount', default=0)))
-    return (before, during)
+    return (Category.objects
+            .filter(budget=budget)
+            .annotate(
+                balance=Sum(
+                    'entries__amount',
+                    filter=Q(entries__part__transaction__date__lt=start),
+                    default=0),
+                change=Sum(
+                    'entries__amount',
+                    filter=Q(entries__part__transaction__kind=Transaction.Kind.TRANSACTION,
+                             entries__part__transaction__date__gte=start,
+                             entries__part__transaction__date__lt=end),
+                    default=0))
+            .order_by('order', 'group', 'name')
+            )
 
 
 def budgeting_transaction(budget: Budget, date: date):

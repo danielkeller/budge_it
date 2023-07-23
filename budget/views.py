@@ -315,11 +315,10 @@ def delete(request: HttpRequest, budget_id: int, transaction_id: int):
 class BudgetRow:
     category: Category
     field: BoundField
-    spent: int
 
     @property
     def total(self):
-        return self.category.balance + self.spent
+        return self.category.balance + self.category.change
 
 
 @login_required
@@ -337,35 +336,44 @@ def budget(request: HttpRequest, budget_id: int, year: int, month: int):
     end_date = (budget_date + timedelta(days=31)
                 ).replace(day=1) - timedelta(days=1)
 
-    currencies = budget.category_set.values_list('currency').distinct()
-    # Make sure these are created before creating the form
-    # TODO: Show only the appropriate inboxes
-    inboxes = [budget.get_inbox(Category, currency).id
-               for currency, in currencies]
-    before, during = category_balance(budget, budget_date)
-    spent = dict(during.values_list('id', 'balance'))
+    # Make sure these exist first
+    for currency, in budget.category_set.values_list('currency').distinct():
+        budget.get_inbox(Category, currency)
+
+    # Factor out into models.py?
+    balances = category_balance(budget, budget_date)
     transaction = budgeting_transaction(budget, budget_date)
+    if transaction:
+        entries = transaction.parts.get().categoryentry_set.entries()
+    else:
+        entries = {}
+
+    shown = {category for category in balances
+             if category.balance or category.change or category in entries
+             or (not category.is_inbox() and not category.closed)}
+    currencies = {category.currency for category in shown}
+    inboxes = {category for category in balances
+               if category.is_inbox() and category.currency in currencies}
+    shown |= inboxes
+
     initial = {'date': budget_date}
     if request.method == 'POST':
-        form = BudgetingForm(budget=budget, instance=transaction,
+        form = BudgetingForm(categories=shown, instance=transaction,
                              data=request.POST)
         if form.is_valid():
             with atomic():
-                form.save()
+                form.save_entries(budget)
             return HttpResponseRedirect(
                 request.GET.get('back', request.get_full_path()))
     else:
-        form = BudgetingForm(budget=budget, instance=transaction,
+        form = BudgetingForm(categories=shown, instance=transaction,
                              initial=initial)
-    rows = [BudgetRow(category, form[str(category.id)],
-                      spent.get(category.id, 0))
-            for category in before
-            if form[str(category.id)].value() or spent.get(category.id, 0)
-            or category.balance or not category.closed]
+    rows = [BudgetRow(category, form[str(category.id)])
+            for category in balances if category in shown]
 
     prior = prior_budgeting_transaction(budget, budget_date)
 
-    data = {'inboxes': inboxes}
+    data = {'inboxes': [inbox.id for inbox in inboxes]}
     context = {'rows': rows, 'form': form, 'budget': budget,
                'current_year': year, 'current_month': month,
                'budget_date': budget_date, 'end_date': end_date,

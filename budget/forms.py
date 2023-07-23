@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Union, Mapping, Optional, Type, TypeVar
+from typing import Any, Union, Mapping, Optional, Type, TypeVar, Iterable
 from datetime import date
 
 from django import forms
@@ -239,41 +239,38 @@ class BudgetingForm(forms.ModelForm):
     date = forms.DateField(widget=forms.HiddenInput)
 
     def __init__(self, *args: Any,
-                 budget: Budget, instance: Optional[Transaction] = None, **kwargs: Any):
+                 categories: Iterable[Category],
+                 instance: Optional[Transaction] = None, **kwargs: Any):
         super().__init__(*args, instance=instance, **kwargs)
-        self.budget = budget
-        for category in budget.category_set.all():
+        self.categories = categories
+        for category in categories:
             self.fields[str(category.id)] = forms.IntegerField(
                 required=False, widget=forms.HiddenInput(
                     attrs={'form': 'form'}))
         if instance:
-            for category, amount in (instance.parts.first()
+            for category, amount in (instance.parts.get()
                                      .categoryentry_set.entries().items()):
                 self.initial[str(category.id)] = amount
-
-    def rows(self):
-        for category in self.budget.category_set.order_by('name'):
-            yield category.name, self[str(category.id)]
 
     def clean(self):
         if any(self.errors):
             return self.cleaned_data
         total = 0
-        for category in self.budget.category_set.all():
+        for category in self.categories:
             total += self.cleaned_data[str(category.id)] or 0
         if total:
             raise ValidationError("Amounts do not sum to zero")
         return self.cleaned_data
 
-    def save(self, commit: bool = False):
+    def save_entries(self, budget: Budget):
         self.instance.kind = Transaction.Kind.BUDGETING
         super().save(commit=True)
-        categories = {}
-        for category in self.budget.category_set.all():
-            categories[category] = self.cleaned_data[str(category.id)] or 0
+        entries = {}
+        for category in self.categories:
+            entries[category] = self.cleaned_data[str(category.id)] or 0
         part, _ = (TransactionPart.objects
                    .get_or_create(transaction=self.instance))
-        part.set_entries(self.budget, {}, categories)
+        part.set_entries(budget, {}, entries)
 
 
 class BudgetForm(forms.ModelForm):
