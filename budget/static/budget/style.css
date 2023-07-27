@@ -295,7 +295,7 @@ form {
     padding: 0 calc(2 * var(--td-hpad));
 }
 
-:invalid {
+:invalid:not(:focus) {
     outline: 2px solid red;
 }
 
