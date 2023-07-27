@@ -11,6 +11,9 @@
 </head>
 
 <div><a href="{% url 'overview' budget.main_budget.id %}">Overview</a></div>
+{% if 'confirm' in request.GET %}
+<div>Transaction added. <a href="{% url 'edit' budget.id request.GET.confirm %}?back={% url 'otg' budget.id %}">Continue editing...</a></div>
+{% endif %}
 <form action="" method="post">
     <table id="table">
         <tr>
@@ -20,6 +23,10 @@
         <tr>
             <th>Note</th>
             <td class="tdinput">{{ form.note }}</td>
+        </tr>
+        <tr>
+            <th>Date</th>
+            <td class="tdinput">{{ form.date }}</td>
         </tr>
         <tr>
             <th>Currency</th>

@@ -88,7 +88,10 @@
                 </div>{% endif %}
                 {% endfor %}
                 {% endif %}
-                <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">Edit...</a></div>
+                <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">
+                        {% if transaction.kind != 'B' %}Edit...
+                        {% else %}Edit budget...{% endif %}
+                    </a></div>
             </div>
             {% endfor %}
         </div>

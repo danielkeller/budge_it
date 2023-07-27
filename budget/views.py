@@ -93,8 +93,8 @@ def onthego(request: HttpRequest, budget_id: int):
         form = OnTheGoForm(budget=budget, data=request.POST)
         if form.is_valid():
             transaction = form.save()
-            return HttpResponseRedirect(reverse(
-                'edit', args=(budget_id, transaction.id)))
+            return HttpResponseRedirect(reverse('otg', args=(budget_id,))
+                                        + f'?confirm={transaction.id}')
     else:
         form = OnTheGoForm(budget=budget)
     context = {'budget': budget, 'form': form}

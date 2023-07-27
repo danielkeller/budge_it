@@ -394,6 +394,10 @@ class OnTheGoForm(forms.Form):
     amount = forms.IntegerField(widget=forms.HiddenInput)
     note = forms.CharField(required=False)
     currency = forms.ChoiceField()
+    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
+                                                  format='%Y-%m-%d'),
+                           required=True,
+                           initial=date.today)
     split = forms.TypedMultipleChoiceField(required=False, choices=[],
                                            coerce=_get_budget,
                                            widget=forms.CheckboxSelectMultiple)
@@ -414,7 +418,7 @@ class OnTheGoForm(forms.Form):
 
     @transaction.atomic
     def save(self):
-        transaction = Transaction(date=date.today())
+        transaction = Transaction(date=self.cleaned_data['date'])
         transaction.save()
 
         part = TransactionPart(transaction=transaction)
