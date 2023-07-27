@@ -149,7 +149,7 @@ def account_form(request: HttpRequest, budget_id: int, number: int):
     formset.min_num = number + 1  # type: ignore
     context = {'budget': budget,
                'account_formset': formset, 'form': formset.forms[number]}
-    return render(request, 'budget/partials/manage_new_account.html', context)
+    return render(request, 'budget/partials/manage_last_account.html', context)
 
 
 def category_form(request: HttpRequest, budget_id: int, number: int):
@@ -160,14 +160,14 @@ def category_form(request: HttpRequest, budget_id: int, number: int):
     formset.min_num = number + 1  # type: ignore
     context = {'budget': budget,
                'category_formset': formset, 'form': formset.forms[number]}
-    return render(request, 'budget/partials/manage_new_category.html', context)
+    return render(request, 'budget/partials/manage_last_category.html', context)
 
 
 def currency_form(request: HttpRequest, number: int):
     formset = CurrencyManagementFormSet(prefix="currencies")
     formset.min_num = number + 1  # type: ignore
     context = {'currency_formset': formset, 'form': formset.forms[number]}
-    return render(request, 'budget/partials/currency_new.html', context)
+    return render(request, 'budget/partials/currency_last.html', context)
 
 
 def manage_accounts(request: HttpRequest, budget_id: int):

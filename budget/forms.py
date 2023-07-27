@@ -354,7 +354,9 @@ class BaseCurrencyManagementFormSet(forms.BaseInlineFormSet):
                 .exists()
                 or budget.category_set
                 .filter(currency=currency).exclude(name='')
-                    .exists()):
+                    .exists()
+                or budget.get_inbox(Category, currency).entries.exists()
+                    or budget.get_inbox(Account, currency).entries.exists()):
                 form.fields['DELETE'].disabled = True
 
     def save_new(self, form: forms.ModelForm, commit: bool = True) -> Category:

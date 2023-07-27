@@ -28,12 +28,9 @@
             <th colspan="3"></th>
         </tr>
         {% endifchanged %}
-        {% if not forloop.last %}
         {% include "budget/partials/manage.html" %}
-        {% else %}
-        {% include "budget/partials/manage_new_category.html" %}
-        {% endif %}
         {% endfor %}
+        {% include "budget/partials/manage_new_category.html" %}
         <tr>
             <th>Account</th>
             <th>Currency</th>
@@ -41,12 +38,9 @@
             <th>Delete?</th>
         </tr>
         {% for form in account_formset %}
-        {% if not forloop.last %}
         {% include "budget/partials/manage.html" %}
-        {% else %}
-        {% include "budget/partials/manage_new_account.html" %}
-        {% endif %}
         {% endfor %}
+        {% include "budget/partials/manage_new_account.html" %}
     </table>
     {{ category_formset.management_form.INITIAL_FORMS }}
     {{ category_formset.management_form.MIN_NUM_FORMS }}
@@ -60,12 +54,9 @@
             <th>Delete?</th>
         </tr>
         {% for form in currency_formset %}
-        {% if not forloop.last %}
         {% include "budget/partials/currency.html" %}
-        {% else %}
-        {% include "budget/partials/currency_new.html" %}
-        {% endif %}
         {% endfor %}
+        {% include "budget/partials/currency_new.html" %}
     </table>
     {{ currency_formset.management_form.INITIAL_FORMS }}
     {{ currency_formset.management_form.MIN_NUM_FORMS }}
