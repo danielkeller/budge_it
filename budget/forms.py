@@ -215,7 +215,8 @@ class TransactionForm(FormSetInline(PartFormSet)):
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date',)
-    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
+    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date',
+                                                         'autofocus': ''},
                                                   format='%Y-%m-%d'),
                            initial=date.today)
 
@@ -309,7 +310,8 @@ class AccountManagementForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = BaseAccount
         fields = ('name', 'currency', 'closed')
-        widgets = {'name': forms.TextInput(attrs={'required': True})}
+        widgets = {'name': forms.TextInput(attrs={'required': True,
+                                                  'autofocus': ''})}
     currency = forms.ChoiceField()
 
 
@@ -378,7 +380,8 @@ CurrencyManagementFormSet = forms.inlineformset_factory(
     fields=('currency',),
     widgets={'currency': forms.TextInput(attrs={'list': 'currencies',
                                                 'size': 4,
-                                                'required': True})},
+                                                'required': True,
+                                                'autofocus': ''})},
     extra=0)
 
 

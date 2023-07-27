@@ -64,7 +64,7 @@
             <td class="number" data-currency="{{ row.category.currency }}">
                 {{ row.category.balance }}
             </td>
-            <td class="tdinput">{{ row.field }}<input class="number"></td>
+            <td class="tdinput">{{ row.field }}<input class="number" {% if row.category.name %}autofocus{% endif %}></td>
             <td class="number" data-currency="{{ row.category.currency }}">
                 {{ row.category.change }}
             </td>

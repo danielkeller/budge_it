@@ -93,8 +93,8 @@ addEventListener("DOMContentLoaded", function () {
 function findDraggable(element) {
     return findAncestor(element, element => element.getAttribute('draggable'));
 }
-function isCategory(element) { return element.dataset.category; }
-function isGroup(element) { return element.dataset.group; }
+function isCategory(element) { return 'category' in element.dataset; }
+function isGroup(element) { return 'group' in element.dataset; }
 function findGroup(element) { return findAncestor(element, isGroup); }
 function findCategory(element) { return findAncestor(element, isCategory); }
 function withinTable(element) { return findAncestor(element, a => a === table); }
