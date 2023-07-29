@@ -10,36 +10,47 @@
     <script src="{% static 'budget/onthego.js' %}"></script>
 </head>
 
-<div><a href="{% url 'overview' budget.main_budget.id %}">Overview</a></div>
-{% if 'confirm' in request.GET %}
-<div>Transaction added. <a href="{% url 'edit' budget.id request.GET.confirm %}?back={% url 'otg' budget.id %}">Continue editing...</a></div>
-{% endif %}
-<form action="" method="post">
-    <table id="table">
-        <tr>
-            <th>Amount</th>
-            <td class="tdinput">{{ form.amount }}<input pattern="\s*-?\d+(?:\.\d*)?\s*" class="number" required autofocus></td>
-        </tr>
-        <tr>
-            <th>Note</th>
-            <td class="tdinput">{{ form.note }}</td>
-        </tr>
-        <tr>
-            <th>Date</th>
-            <td class="tdinput">{{ form.date }}</td>
-        </tr>
-        <tr>
-            <th>Currency</th>
-            <td class="tdinput">{{ form.currency }}</td>
-        </tr>
-        <tr>
-            <th>Split between</th>
-            <td>{{ form.split }}</td>
-        </tr>
-    </table>
-    {% csrf_token %}
-    <div><button>Add Transaction</button></div>
-</form>
+<div class="controls">
+    <div class="navigation">
+        <a href="{% url 'overview' budget.main_budget.id %}">Overview</a>
+    </div>
+    <div class="tools">
+        <button form="form">Add Transaction</button>
+    </div>
+</div>
+
+<main class="edit otg">
+    <div class="editor">
+        <form action="" method="post" id="form">
+            <table id="table">
+                <tr>
+                    <th>Amount</th>
+                    <td class="tdinput">{{ form.amount }}<input pattern="\s*-?\d+(?:\.\d*)?\s*" class="number" required autofocus></td>
+                </tr>
+                <tr>
+                    <th>Note</th>
+                    <td class="tdinput">{{ form.note }}</td>
+                </tr>
+                <tr>
+                    <th>Date</th>
+                    <td class="tdinput">{{ form.date }}</td>
+                </tr>
+                <tr>
+                    <th>Currency</th>
+                    <td class="tdinput">{{ form.currency }}</td>
+                </tr>
+                <tr>
+                    <th>Split between</th>
+                    <td>{{ form.split }}</td>
+                </tr>
+            </table>
+            {% csrf_token %}
+        </form>
+        {% if 'confirm' in request.GET %}
+        <div>Transaction added. <a href="{% url 'edit' budget.id request.GET.confirm %}?back={% url 'otg' budget.id %}">Continue editing...</a></div>
+        {% endif %}
+    </div>
+</main>
 {{ form.errors }}
 <datalist id="payee-list">
     {% for id, name in payees %}

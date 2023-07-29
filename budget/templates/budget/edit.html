@@ -12,42 +12,55 @@
     <script src="{% static 'budget/editor.js' %}"></script>
 </head>
 
-<form id="form" class="edit" action="{{ request.get_full_path }}" method="post">
-    <table>
-        <tr>
-            <th>Date</th>
-        </tr>
-        <tr>
-            <td class="tdinput t6">{{ form.date }}</td>
-        </tr>
-    </table>
-    {% for part in form.formset %}
-    {% with part_index=forloop.counter0 %}
-    {% if not forloop.last %}
-    {% include "budget/partials/edit_part.html" %}
-    {% else %}
-    {% include "budget/partials/edit_part_new.html" %}
-    {% endif %}
-    {% endwith %}
-    {% endfor %}
-    {{ form.formset.management_form.INITIAL_FORMS }}
-    {{ form.formset.management_form.MIN_NUM_FORMS }}
-    {{ form.formset.management_form.MAX_NUM_FORMS }}
-    {% csrf_token %}
-</form>
-<div>
-    <button id="submit-button" form="form">
-        {% if transaction_id %}Save Changes{% else %}Create Transaction{% endif %}
-    </button>
-    <button id="cancel" type="button">Cancel</button>
-    {% if transaction_id %}
-    <form class="edit" action="{% url 'delete' budget.id transaction_id%}?back={{ request.GET.back|urlencode }}"
-        method="post">
-        {% csrf_token %}
-        <button>Delete</button>
-    </form>
-    {% endif %}
+
+<div class="controls">
+    <div class="navigation">
+        {% if request.GET.back %}
+        <a href="{{ request.GET.back }}">Back</a>
+        {% endif %}
+    </div>
+    <div class="tools">
+        {% if transaction_id %}
+        <form class="edit" action="{% url 'delete' budget.id transaction_id%}?back={{ request.GET.back|urlencode }}"
+            method="post">
+            {% csrf_token %}
+            <button>Delete</button>
+        </form>
+        {% endif %}
+        <button id="submit-button" form="form">
+            {% if transaction_id %}Save Changes{% else %}Create Transaction{% endif %}
+        </button>
+    </div>
 </div>
+
+<form id="form" class="edit" action="{{ request.get_full_path }}" method="post">
+    <main class="edit">
+        <div class="editor">
+            <table class="date-table">
+                <tr>
+                    <th>Date</th>
+                </tr>
+                <tr>
+                    <td class="tdinput t6">{{ form.date }}</td>
+                </tr>
+            </table>
+            {% for part in form.formset %}
+            {% with part_index=forloop.counter0 %}
+            {% if not forloop.last %}
+            {% include "budget/partials/edit_part.html" %}
+            {% else %}
+            {% include "budget/partials/edit_part_new.html" %}
+            {% endif %}
+            {% endwith %}
+            {% endfor %}
+            {{ form.formset.management_form.INITIAL_FORMS }}
+            {{ form.formset.management_form.MIN_NUM_FORMS }}
+            {{ form.formset.management_form.MAX_NUM_FORMS }}
+            {% csrf_token %}
+        </div>
+    </main>
+</form>
+
 <datalist id="account-list">
     <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
     {% for account in accounts %}

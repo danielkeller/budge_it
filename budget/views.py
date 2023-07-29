@@ -132,6 +132,8 @@ def account(request: HttpRequest, account_id: int):
 
 @login_required
 def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
     account = _get_allowed_account_or_404(request, account_id)
     transaction = Transaction.objects.get_for(
         account.budget, transaction_id)

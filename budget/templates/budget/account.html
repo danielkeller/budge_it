@@ -19,82 +19,85 @@
     <script src="{% static 'budget/account.js' %}"></script>
 </head>
 
-<body class="window">
-    <div><a href="{% url 'overview' account.budget.main_budget.id %}">Overview</a></div>
-
-    <div>
-        {% if form %}
-        <form method="post">
-            {% csrf_token %}
-            {{ form.name }}
-            <button>Rename</button>
-        </form>
-        {% else %}
-        {% account_in_budget account account.budget %}
-        {% endif %}
+<div class="controls">
+    <div class="navigation">
+        <div><a href="{% url 'overview' account.budget.main_budget.id %}">Overview</a></div>
     </div>
-    <div><button type="button" id="new">Add transaction</button></div>
-    {% spaceless %}
-    <main class="account">
-        <div class="listview" tabindex="0" autofocus>
-            <table id="table">
-                <th class="t5">Date</th>
-                <th>Transaction</th>
-                <th class="t4">{{ account.currency }}</th>
-                <th class="t4">Total</th>
-                {% for transaction in entries %}
-                <tr class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
-                    data-id="{{transaction.id}}">
-                    <td>{{transaction.date|date:"SHORT_DATE_FORMAT"}}</td>
-                    <td>{{transaction|transaction_description:account}}</td>
-                    <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</td>
-                    {% if transaction.is_inbox %}
-                    <td>
-                        <form action="{% url 'add_to_account' account.id transaction.id%}"
-                            method="post">
-                            {% csrf_token %}
-                            <button>Move here</button>
-                        </form>
-                    </td>
-                    {% else %}
-                    <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.running_sum}}</td>
-                    {% endif %}
+    <div class="tools">
+        <div>
+            {% if form %}
+            <form method="post">
+                {% csrf_token %}
+                {{ form.name }}
+                <button>Rename</button>
+            </form>
+            {% else %}
+            {% account_in_budget account account.budget %}
+            {% endif %}
+        </div>
+        <div><button type="button" id="new">Add transaction</button></div>
+    </div>
+</div>
+{% spaceless %}
+<main class="account">
+    <div class="listview" tabindex="0" autofocus>
+        <table id="table">
+            <th class="t5">Date</th>
+            <th>Transaction</th>
+            <th class="t4">{{ account.currency }}</th>
+            <th class="t4">Total</th>
+            {% for transaction in entries %}
+            <tr class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
+                data-id="{{transaction.id}}">
+                <td>{{transaction.date|date:"SHORT_DATE_FORMAT"}}</td>
+                <td>{{transaction|transaction_description:account}}</td>
+                <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</td>
+                {% if transaction.is_inbox %}
+                <td>
+                    <form action="{% url 'add_to_account' account.id transaction.id%}"
+                        method="post">
+                        {% csrf_token %}
+                        <button>Move here</button>
+                    </form>
+                </td>
+                {% else %}
+                <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.running_sum}}</td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    <div class="transaction-details">
+        {% for transaction in entries %}
+        <div data-id="{{transaction.id}}">
+            {% if transaction.kind != 'B' %}
+            {% for part in transaction.parts.all %}
+            <table>
+                <th>Account</th>
+                <th>Category</th>
+                <th>Amount</th>
+                {% for entry in part.tabular %}
+                <tr class="{% cycle 'a' 'b' %}">
+                    <td>{% account_in_budget entry.account account.budget %}</td>
+                    <td>{% account_in_budget entry.category account.budget %}</td>
+                    {% firstof entry.account.currency entry.category.currency as currency %}
+                    <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{entry.amount}}</td>
                 </tr>
                 {% endfor %}
+                {% resetcycle %}
             </table>
-        </div>
-        <div class="transaction-details">
-            {% for transaction in entries %}
-            <div data-id="{{transaction.id}}">
-                {% if transaction.kind != 'B' %}
-                {% for part in transaction.parts.all %}
-                <table>
-                    <th>Account</th>
-                    <th>Category</th>
-                    <th>Amount</th>
-                    {% for entry in part.tabular %}
-                    <tr class="{% cycle 'a' 'b' %}">
-                        <td>{% account_in_budget entry.account account.budget %}</td>
-                        <td>{% account_in_budget entry.category account.budget %}</td>
-                        {% firstof entry.account.currency entry.category.currency as currency %}
-                        <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{entry.amount}}</td>
-                    </tr>
-                    {% endfor %}
-                    {% resetcycle %}
-                </table>
-                {% if part.note %}<div>
-                    <pre>{{ part.note }}</pre>
-                </div>{% endif %}
-                {% endfor %}
-                {% endif %}
-                <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">
-                        {% if transaction.kind != 'B' %}Edit...
-                        {% else %}Edit budget...{% endif %}
-                    </a></div>
-            </div>
+            {% if part.note %}<div>
+                <pre>{{ part.note }}</pre>
+            </div>{% endif %}
             {% endfor %}
+            {% endif %}
+            <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">
+                    {% if transaction.kind != 'B' %}Edit...
+                    {% else %}Edit budget...{% endif %}
+                </a></div>
         </div>
-    </main>
-    {{ data|json_script:"data" }}
-</body>
+        {% endfor %}
+    </div>
+</main>
+{{ data|json_script:"data" }}
 {% endspaceless %}

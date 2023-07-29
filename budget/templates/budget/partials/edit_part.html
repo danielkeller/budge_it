@@ -2,6 +2,7 @@
 {{ part.formset.management_form.INITIAL_FORMS }}
 {{ part.formset.management_form.MIN_NUM_FORMS }}
 {{ part.formset.management_form.MAX_NUM_FORMS }}
+<hr>
 <table class="edit-table" data-part="{{ part_index }}">
     <tr>
         <th class="t6">Account</th>
@@ -18,22 +19,24 @@
 
     {% endfor %}
 </table>
-<table>
-    <tr>
-        <th>Note</th>
-    </tr>
-    <tr>
-        <td class="tdinput">{{ part.note }}</td>
-    </tr>
-</table>
-<table>
-    <tr>
-        <th>Currency</th>
-    </tr>
-    <tr>
-        <td class="tdinput t4">{{ part.currency }}</td>
-    </tr>
-</table>
+<div class="part-extras">
+    <table>
+        <tr>
+            <th>Note</th>
+        </tr>
+        <tr>
+            <td class="tdinput">{{ part.note }}</td>
+        </tr>
+    </table>
+    <table>
+        <tr>
+            <th>Currency</th>
+        </tr>
+        <tr>
+            <td class="tdinput t4">{{ part.currency }}</td>
+        </tr>
+    </table>
+</div>
 <div id="category-sum{{ part_index }}"></div>
 <div id="account-sum{{ part_index }}"></div>
 <div id="debt{{ part_index }}"></div>

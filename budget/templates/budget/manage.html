@@ -7,63 +7,71 @@
     <link rel="stylesheet" href="{% static 'budget/style.css' %}">
     <script src="{% static 'budget/htmx.min.js' %}"></script>
 </head>
-<div><a href="{% url 'overview' budget.id %}">Overview</a></div>
 
 <form id="form" method="post">
-    <button class="hidden-submit">Save</button>
-    <div>Budget name for others: {{ budget_form.name }}</div>
-    <table>
-        <tr>
-            <th>Category</th>
-            <th>Currency</th>
-            <th>Closed</th>
-            <th>Delete?</th>
-        </tr>
-        {% for form in category_formset %}
-        {% ifchanged form.instance.group %}
-        <tr>
-            <th class="groupname">
-                {{form.instance.group|default:"&nbsp;"}}
-            </th>
-            <th colspan="3"></th>
-        </tr>
-        {% endifchanged %}
-        {% include "budget/partials/manage.html" %}
-        {% endfor %}
-        {% include "budget/partials/manage_new_category.html" %}
-        <tr>
-            <th>Account</th>
-            <th>Currency</th>
-            <th>Closed</th>
-            <th>Delete?</th>
-        </tr>
-        {% for form in account_formset %}
-        {% include "budget/partials/manage.html" %}
-        {% endfor %}
-        {% include "budget/partials/manage_new_account.html" %}
-    </table>
-    {{ category_formset.management_form.INITIAL_FORMS }}
-    {{ category_formset.management_form.MIN_NUM_FORMS }}
-    {{ category_formset.management_form.MAX_NUM_FORMS }}
-    {{ account_formset.management_form.INITIAL_FORMS }}
-    {{ account_formset.management_form.MIN_NUM_FORMS }}
-    {{ account_formset.management_form.MAX_NUM_FORMS }}
-    <table>
-        <tr>
-            <th>Currency</th>
-            <th>Delete?</th>
-        </tr>
-        {% for form in currency_formset %}
-        {% include "budget/partials/currency.html" %}
-        {% endfor %}
-        {% include "budget/partials/currency_new.html" %}
-    </table>
-    {{ currency_formset.management_form.INITIAL_FORMS }}
-    {{ currency_formset.management_form.MIN_NUM_FORMS }}
-    {{ currency_formset.management_form.MAX_NUM_FORMS }}
-    {% csrf_token %}
+
+    <div class="controls">
+        <div class="navigation">
+            <div><a href="{% url 'overview' budget.id %}">Overview</a></div>
+        </div>
+        <div class="tools">
+            <div><button form="form">Save</button></div>
+        </div>
+    </div>
+
+    <main class="manage">
+        <div>Budget name for others: {{ budget_form.name }}</div>
+        <table>
+            <tr>
+                <th>Category</th>
+                <th>Currency</th>
+                <th>Closed</th>
+                <th>Delete?</th>
+            </tr>
+            {% for form in category_formset %}
+            {% ifchanged form.instance.group %}
+            <tr>
+                <th class="groupname">
+                    {{form.instance.group|default:"&nbsp;"}}
+                </th>
+                <th colspan="3"></th>
+            </tr>
+            {% endifchanged %}
+            {% include "budget/partials/manage.html" %}
+            {% endfor %}
+            {% include "budget/partials/manage_new_category.html" %}
+            <tr>
+                <th>Account</th>
+                <th>Currency</th>
+                <th>Closed</th>
+                <th>Delete?</th>
+            </tr>
+            {% for form in account_formset %}
+            {% include "budget/partials/manage.html" %}
+            {% endfor %}
+            {% include "budget/partials/manage_new_account.html" %}
+        </table>
+        {{ category_formset.management_form.INITIAL_FORMS }}
+        {{ category_formset.management_form.MIN_NUM_FORMS }}
+        {{ category_formset.management_form.MAX_NUM_FORMS }}
+        {{ account_formset.management_form.INITIAL_FORMS }}
+        {{ account_formset.management_form.MIN_NUM_FORMS }}
+        {{ account_formset.management_form.MAX_NUM_FORMS }}
+        <table>
+            <tr>
+                <th>Currency</th>
+                <th>Delete?</th>
+            </tr>
+            {% for form in currency_formset %}
+            {% include "budget/partials/currency.html" %}
+            {% endfor %}
+            {% include "budget/partials/currency_new.html" %}
+        </table>
+        {{ currency_formset.management_form.INITIAL_FORMS }}
+        {{ currency_formset.management_form.MIN_NUM_FORMS }}
+        {{ currency_formset.management_form.MAX_NUM_FORMS }}
+        {% csrf_token %}
 </form>
-<div><button form="form">Save</button></div>
 <div>
     {{ category_formset.errors|default:"" }}
     {{ category_formset.non_form_errors }}
@@ -72,6 +80,7 @@
     {{ currency_formset.errors|default:"" }}
     {{ currency_formset.non_form_errors }}
 </div>
+</main>
 <datalist id="currencies">
     <option value="USD">
     <option value="EUR">

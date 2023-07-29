@@ -9,74 +9,83 @@
     <script src="{% static 'budget/jdecimal.js' %}"></script>
     <script src="{% static 'budget/budget.js' %}"></script>
 </head>
+<div class="controls">
+    <div class="navigation">
+        <a href="{% url 'overview' budget.id %}">Overview</a>
+    </div>
+    <div class="tools">
+        {% if prior and not form.instance.id %}
+        <form method="post" action="{% url 'copy_budget' budget.id prior.id current_year current_month  %}">
+            {% csrf_token %}
+            <div>
+                <button>Copy from {{ prior.date|date:"M Y" }}</button>
+            </div>
+        </form>
+        {% endif %}
+        <button form="form">Save</button>
+    </div>
+</div>
 
-<div><a href="{% url 'overview' budget.id %}">Overview</a></div>
-<form id="datepicker">
-    <div class="datepicker">
-        <div class="years">
-            {% for year in years %}
-            <input type="radio" name="year" id="year{{ year }}" value="{{ year }}"
-                {% if year == current_year %}checked{% endif %}>
-            <label for="year{{ year }}">{{ year }}</label>
-            {% endfor %}
-        </div>
-        <div class="months">
-            {% for month in months %}
-            <a href="{% url 'budget' budget.id month.year month.month %}"
-                {% if month.month == current_month %}class="current" {% endif %}>
-                {{ month|date:"M" }}
-            </a>
-            {% endfor %}
-        </div>
+<main class="edit">
+    <div class="editor">
+        <form id="datepicker">
+            <div class="datepicker">
+                <div class="years">
+                    {% for year in years %}
+                    <input type="radio" name="year" id="year{{ year }}" value="{{ year }}"
+                        {% if year == current_year %}checked{% endif %}>
+                    <label for="year{{ year }}">{{ year }}</label>
+                    {% endfor %}
+                </div>
+                <div class="months">
+                    {% for month in months %}
+                    <a href="{% url 'budget' budget.id month.year month.month %}"
+                        {% if month.month == current_month %}class="current" {% endif %}>
+                        {{ month|date:"M" }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </form>
+
+        <form id="form" method="post" action="{{ request.get_full_path }}">
+            <table id="table">
+                <tr>
+                    <th>Category</th>
+                    <th>{{ budget_date|date:"M d" }}</th>
+                    <th class="t4">Budgeted</th>
+                    <th>Spent</th>
+                    <th>{{ end_date|date:"M d" }}</th>
+                </tr>
+                {% for row in rows %}
+                {% ifchanged row.category.group %}
+                <tr class=" {% cycle 'a' 'b' as rowcolor %}">
+                    <th>{{row.category.group|default:"&nbsp;"}}</th>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                {% endifchanged %}
+                <tr class="{% cycle rowcolor %}"
+                    data-category="{{ row.category.id }}"
+                    data-categorycurrency="{{ row.category.currency }}">
+                    <td>{{ row.category.name|default:"Inbox" }}</td>
+                    <td class="number" data-currency="{{ row.category.currency }}">
+                        {{ row.category.balance }}
+                    </td>
+                    <td class="tdinput">{{ row.field }}<input class="number" {% if row.category.name %}autofocus{% endif %}></td>
+                    <td class="number" data-currency="{{ row.category.currency }}">
+                        {{ row.category.change }}
+                    </td>
+                    <td class="number" data-value="{{ row.total }}"></td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% csrf_token %}
+            {{ form.date }}
+        </form>
+        {{ data|json_script:"data" }}
+        {{ form.errors|default:"" }}
     </div>
-</form>
-{% if prior and not form.instance.id %}
-<form method="post" action="{% url 'copy_budget' budget.id prior.id current_year current_month  %}">
-    {% csrf_token %}
-    <div>
-        <button>Copy from {{ prior.date|date:"M Y" }}</button>
-    </div>
-</form>
-{% endif %}
-<form id="form" method="post" action="{{ request.get_full_path }}">
-    <table id="table">
-        <tr>
-            <th>Category</th>
-            <th>{{ budget_date|date:"M d" }}</th>
-            <th class="t4">Budgeted</th>
-            <th>Spent</th>
-            <th>{{ end_date|date:"M d" }}</th>
-        </tr>
-        {% for row in rows %}
-        {% ifchanged row.category.group %}
-        <tr class=" {% cycle 'a' 'b' as rowcolor %}">
-            <th>{{row.category.group|default:"&nbsp;"}}</th>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-        </tr>
-        {% endifchanged %}
-        <tr class="{% cycle rowcolor %}"
-            data-category="{{ row.category.id }}"
-            data-categorycurrency="{{ row.category.currency }}">
-            <td>{{ row.category.name|default:"Inbox" }}</td>
-            <td class="number" data-currency="{{ row.category.currency }}">
-                {{ row.category.balance }}
-            </td>
-            <td class="tdinput">{{ row.field }}<input class="number" {% if row.category.name %}autofocus{% endif %}></td>
-            <td class="number" data-currency="{{ row.category.currency }}">
-                {{ row.category.change }}
-            </td>
-            <td class="number" data-value="{{ row.total }}"></td>
-        </tr>
-        {% endfor %}
-    </table>
-    <div>
-        {% csrf_token %}
-        {{ form.date }}
-        <button>Save</button>
-    </div>
-</form>
-{{ data|json_script:"data" }}
-{{ form.errors|default:"" }}
+</main>

@@ -44,13 +44,30 @@ pre {
     margin: 0;
 }
 
-/* TODO: Clean this up */
-body:not(.window)>div,
-body:not(.window)>form>div,
-body:not(.window)>table,
-body:not(.window)>form>table {
-    margin: var(--line-height);
-    margin-bottom: 0;
+body {
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 1024px;
+    overflow: hidden;
+    padding: var(--line-height);
+    gap: var(--line-height);
+}
+
+main {
+    min-height: 0;
+}
+
+.controls,
+.tools {
+    display: flex;
+    gap: var(--line-height);
+    flex-wrap: wrap;
+}
+
+.tools {
+    margin-left: auto;
 }
 
 button,
@@ -124,6 +141,41 @@ th {
     padding: 0 var(--td-hpad);
 }
 
+main.overview {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: var(--line-height);
+    overflow-y: auto;
+}
+
+@media (max-width: 500px) {
+    main.overview {
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+    }
+}
+
+main.manage,
+main.edit {
+    display: flex;
+    gap: var(--line-height);
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+}
+
+main.otg {
+    overflow: visible;
+}
+
+.editor {
+    display: flex;
+    gap: var(--line-height);
+    flex-direction: column;
+}
+
 [draggable=true] {
     cursor: grab;
 }
@@ -145,11 +197,6 @@ tbody.droppable>:last-child {
     box-shadow: inset 0 2px 0 AccentColor;
 }
 
-.hidden-submit {
-    position: absolute;
-    left: -100px;
-}
-
 .groupname {
     text-align: center;
 }
@@ -166,20 +213,6 @@ tbody.droppable>:last-child {
     cursor: grabbing;
 }
 
-.window {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    max-width: 1024px;
-    overflow: hidden;
-    padding: var(--line-height);
-    gap: var(--line-height);
-}
-
-.window>main {
-    min-height: 0;
-}
-
 .account {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -189,7 +222,7 @@ tbody.droppable>:last-child {
 @media (max-width: 900px) {
     .account {
         grid-template-columns: 1fr;
-        grid-template-rows: 2fr 1fr;
+        grid-template-rows: 1fr 1fr;
     }
 }
 
@@ -261,6 +294,17 @@ form {
     display: contents;
 }
 
+.editor>div:empty {
+    display: none;
+}
+
+hr {
+    width: 100%;
+    margin: 0;
+    border-style: solid solid none none;
+    align-self: stretch;
+}
+
 /* The focus ring is on the same z-index as the input, so if an adjacent input
    has a background it will cover part of it. Work around this by making enabled
    inputs transparent and ones with a background on a lower z-index. */
@@ -302,6 +346,10 @@ form {
     outline: 2px solid red;
 }
 
+.date-table {
+    align-self: flex-start;
+}
+
 .suggested {
     color: GrayText;
     font-style: italic;
@@ -311,10 +359,16 @@ form {
     text-align: right;
 }
 
+.edit-table {
+    position: relative;
+}
+
 .tdinput .currency,
 .tdinput .sigil {
     position: absolute;
     padding-left: var(--td-hpad);
+    /* ??? */
+    width: max-content;
 }
 
 .tdinput .currency+input {
@@ -325,9 +379,22 @@ form {
     padding-left: calc(var(--td-hpad) + 2ch);
 }
 
+.part-extras {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    gap: var(--line-height);
+}
+
+.part-extras> :first-child {
+    width: 50px;
+    flex: 1 1;
+}
+
 .datepicker {
     width: max-content;
     border: var(--td-border) solid var(--line);
+    align-self: center;
 }
 
 .months,
