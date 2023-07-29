@@ -607,34 +607,38 @@ def entries_for_balance(account: Balance) -> Iterable[Transaction]:
 
 
 def accounts_overview(budget: Budget):
+    past = Q(entries__part__transaction__date__lte=date.today())
+    sum_entries = Sum('entries__amount', filter=past, default=0)
     accounts = (Account.objects
                 .filter(budget=budget)
-                .annotate(balance=Sum('entries__amount', default=0))
+                .annotate(balance=sum_entries)
                 .exclude(closed=True, balance=0)
                 .exclude(name='', balance=0)
                 .order_by('order', 'group', 'name')
                 .select_related('budget'))
     categories = (Category.objects
                   .filter(budget=budget)
-                  .annotate(balance=Sum('entries__amount', default=0))
+                  .annotate(balance=sum_entries)
                   .exclude(closed=True, balance=0)
                   .exclude(name='', balance=0)
                   .order_by('order', 'group', 'name')
                   .select_related('budget'))
     currencies = {*budget.account_set.values_list('currency').distinct(),
                   *budget.category_set.values_list('currency').distinct()}
+    past = Q(part__transaction__date__lte=date.today())
+    sum_amount = Sum('amount', filter=past, default=0)
     gets = (CategoryEntry.objects
             .filter(source__currency=OuterRef('currency'),
                     source__budget=OuterRef('pk'),
                     sink__budget=budget)
             .values('source__budget')
-            .values(sum=Sum('amount')))
+            .values(sum=sum_amount))
     has = (AccountEntry.objects
            .filter(source__currency=OuterRef('currency'),
                    source__budget=OuterRef('pk'),
                    sink__budget=budget)
            .values('source__budget')
-           .values(sum=Sum('amount')))
+           .values(sum=sum_amount))
     debts = chain.from_iterable(
         Budget.objects
         .annotate(currency=Value(currency),
