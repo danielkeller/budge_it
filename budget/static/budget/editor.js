@@ -8,7 +8,6 @@ addEventListener("DOMContentLoaded", function () {
     document.getElementById('cancel').addEventListener('click', cancel);
     document.forms[0].addEventListener('submit', onSubmit);
     document.addEventListener("keydown", key);
-    checkValid();
 });
 
 htmx.onLoad(setUp);
@@ -192,6 +191,7 @@ function setUp(element) {
     for (const input of element.querySelectorAll('.edit-currency')) {
         input.addEventListener('input', checkValid);
     }
+    checkValid();
 }
 
 function accountChanged({ target }) {
