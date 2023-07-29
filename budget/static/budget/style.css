@@ -280,8 +280,12 @@ form {
     background-color: transparent;
     position: relative;
     z-index: 1;
-    height: var(--td-line-height);
     vertical-align: bottom;
+}
+
+.tdinput>input,
+.tdinput>select {
+    height: var(--td-line-height);
 }
 
 .tdinput>:disabled,
