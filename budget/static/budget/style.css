@@ -255,7 +255,6 @@ tbody.droppable>:last-child {
 
 .transaction-details table {
     width: 100%;
-    table-layout: fixed;
 }
 
 form {
@@ -296,7 +295,7 @@ form {
 
 .tdinput>input,
 .tdinput>textarea {
-    padding: 0 calc(2 * var(--td-hpad));
+    padding: 0 var(--td-hpad);
 }
 
 :invalid:not(:focus) {
