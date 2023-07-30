@@ -5,7 +5,6 @@ addEventListener("DOMContentLoaded", function () {
     window.valid = true;
     window.parts = {};
 
-    document.getElementById('cancel').addEventListener('click', cancel);
     document.forms[0].addEventListener('submit', onSubmit);
     document.addEventListener("keydown", key);
 });
@@ -21,7 +20,7 @@ function key(event) {
         if (document.activeElement.type !== "button"
             && document.activeElement.type !== "submit"
             && document.activeElement.type !== "textarea")
-            if (valid) document.forms[0].submit();
+            if (valid) document.forms['form'].submit();
     }
 }
 
