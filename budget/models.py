@@ -393,18 +393,22 @@ class Transaction(models.Model):
 
     def clean(self):
         if self.date and self.recurrence:
+            if self.recurrence._freq in (  # type: ignore
+                    rrule.HOURLY, rrule.MINUTELY, rrule.SECONDLY):
+                raise ValidationError({'recurrence':
+                                       'Transaction repeats more than once a day'})
             recurrence: Any = self.recurrence.replace(  # type: ignore
                 dtstart=to_datetime(self.date),
                 byhour=None, byminute=None, bysecond=None)
-            self.recurrence = recurrence
+            self.recurrence: rrule.rrule = recurrence
             # DOS protection
             range: Any = recurrence.xafter(  # type: ignore
-                to_datetime(self.date), count=100)
+                to_datetime(self.date), count=20)
             for time in range:
                 if time >= datetime.now():
                     return
             raise ValidationError(
-                {'recurrence': 'Transaction repeats more than 100 times'})
+                {'recurrence': 'Transaction repeats more than 20 times'})
 
     def auto_description(self, in_account: BaseAccount | Balance):
         if self.kind == self.Kind.BUDGETING:
