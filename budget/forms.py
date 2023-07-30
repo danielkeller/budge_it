@@ -2,13 +2,14 @@ from collections import defaultdict
 from typing import Any, Union, Mapping, Optional, Type, TypeVar, Iterable
 from datetime import date
 
+from dateutil import rrule
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.forms import ValidationError
 from django.db import transaction
 
 from .models import (Id, Budget, BaseAccount, Account, Category,
-                     TransactionPart, Transaction)
+                     TransactionPart, Transaction, to_datetime)
 
 
 class AccountChoiceField(forms.Field):
@@ -214,11 +215,20 @@ PartFormSet = forms.inlineformset_factory(
 class TransactionForm(FormSetInline(PartFormSet)):
     class Meta:  # type: ignore
         model = Transaction
-        fields = ('date',)
+        fields = ('date', 'recurrence',)
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date',
                                                          'autofocus': ''},
                                                   format='%Y-%m-%d'),
                            initial=date.today)
+
+    # recurrence = forms.CharField(required=False)
+
+    def __init__(self, *args: Any, instance: Optional[Transaction] = None,
+                 **kwargs: Any):
+
+        super().__init__(*args, instance=instance, **kwargs)
+        if instance and not instance.recurrence:
+            self.fields['recurrence'].disabled = True
 
     @transaction.atomic
     def save(self, commit: bool = True):

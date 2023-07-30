@@ -44,6 +44,7 @@
                     <td class="tdinput t6">{{ form.date }}</td>
                 </tr>
             </table>
+            {{ form.recurrence }}
             {% for part in form.formset %}
             {% with part_index=forloop.counter0 %}
             {% if not forloop.last %}

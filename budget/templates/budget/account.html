@@ -49,7 +49,9 @@
             {% for transaction in entries %}
             <tr class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
                 data-id="{{transaction.id}}">
-                <td>{{transaction.date|date:"SHORT_DATE_FORMAT"}}</td>
+                <td>{{transaction.date|date:"SHORT_DATE_FORMAT"}}
+                    {% if transaction.recurrence %}🔁{% endif %}
+                </td>
                 <td>{{transaction|transaction_description:account}}</td>
                 <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</td>
                 {% if transaction.is_inbox %}

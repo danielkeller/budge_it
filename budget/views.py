@@ -17,7 +17,7 @@ from .models import (sum_by, date_range, months_between,
                      Transaction,
                      accounts_overview, entries_for, category_balance,
                      Balance, entries_for_balance, budgeting_transaction,
-                     prior_budgeting_transaction, copy_budgeting)
+                     prior_budgeting_transaction)
 from .forms import (TransactionForm,
                     BudgetingForm, rename_form, BudgetForm,
                     OnTheGoForm,
@@ -391,10 +391,12 @@ def copy_budget(request: HttpRequest, budget_id: int, transaction_id: int,
     if request.method != 'POST':
         return HttpResponseBadRequest('Wrong method')
     budget = _get_allowed_budget_or_404(request, budget_id)
-    prior = get_object_or_404(Transaction, id=transaction_id)
+    prior = Transaction.objects.get_for(budget, transaction_id)
+    if not prior:
+        raise Http404()
     try:
         budget_date = date(year, month, 1)
     except ValueError:
         raise Http404()
-    copy_budgeting(budget, prior, budget_date)
+    prior.copy_to(budget_date)
     return HttpResponseRedirect(reverse('budget', args=(budget_id, year, month)))
