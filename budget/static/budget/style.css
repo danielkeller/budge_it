@@ -350,6 +350,18 @@ hr {
     align-self: flex-start;
 }
 
+.date-repeat~.repeat {
+    display: none;
+}
+
+.date-repeat[data-value=R]~.R {
+    display: table-row;
+}
+
+.date-repeat[data-value=C]~.C {
+    display: table-row;
+}
+
 .suggested {
     color: GrayText;
     font-style: italic;

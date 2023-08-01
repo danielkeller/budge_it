@@ -1,12 +1,13 @@
-from typing import Optional, Iterable, TypeVar, Type, Union, Self, Generic
+from typing import Optional, Iterable, TypeVar, Type, Union, Self, Generic, Any
 import functools
-from itertools import chain
+from itertools import chain, islice
 from datetime import date, timedelta
 from dataclasses import dataclass
 import heapq
 
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
+from django import forms
 from django.db.transaction import atomic
 from django.db.models import (Q, F, Prefetch, Subquery, OuterRef, Value,
                               Min, Max, Sum, Exists,
@@ -16,6 +17,8 @@ from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
 from .algorithms import sum_by, reroot, double_entrify_by, Debts
+from . import recurrence
+from .recurrence import RRule
 
 
 class Id(models.Model):
@@ -311,10 +314,56 @@ class TransactionManager(models.Manager['Transaction']):
         return value
 
 
+TYPE_CHECKING = False
+if TYPE_CHECKING:  # stupid thing
+    RRFBase = models.Field[RRule | str | None, RRule | None]
+else:
+    RRFBase = models.Field
+
+
+class RecurrenceRuleField(RRFBase):
+    description = "RFC 5545 recurrence rule"
+
+    def get_internal_type(self):
+        return "CharField"
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        kwargs.setdefault("max_length", 255)  # Should be enough for anyone
+        super().__init__(*args, **kwargs)
+
+    def from_db_value(self, value: Optional[str], expression: Any, connection: Any):
+        try:
+            return recurrence.parse(value) if value else None
+        except ValueError:
+            return None
+
+    def get_prep_value(self, value: Optional[RRule]) -> Optional[str]:
+        return value and str(value)
+
+    def to_python(self, value: RRule | str | None):
+        if isinstance(value, str):
+            try:
+                return recurrence.parse(value)
+            except ValueError:
+                raise ValidationError(
+                    "“%(value)s” is not a valid recurrence rule.",
+                    params={"value": value})
+        return value
+
+    def value_to_string(self, obj: models.Model):
+        value = self.value_from_object(obj)
+        return self.get_prep_value(value)
+
+    def formfield(self, **kwargs: Any):
+        return super().formfield(widget=forms.Textarea(attrs={'rows': 2}),
+                                 **kwargs)
+
+
 class Transaction(models.Model):
     """A logical event involving moving money between accounts and categories"""
     id: models.BigAutoField
     date = models.DateField()
+    recurrence = RecurrenceRuleField(null=True, blank=True)
 
     class Kind(models.TextChoices):
         TRANSACTION = 'T', 'Transaction'
@@ -338,6 +387,18 @@ class Transaction(models.Model):
     @month.setter
     def month(self, value: 'Optional[date]'):
         self.date = value and value.replace(day=1)
+
+    def clean(self):
+        if isinstance(self.date, date) and isinstance(self.recurrence, RRule):
+            if self.recurrence.freq in ("HOURLY", "MINUTELY", "SECONDLY"):
+                raise ValidationError({'recurrence':
+                                       'Transaction repeats more than once a day'})
+            # DOS protection
+            repeats = self.recurrence.iterate(self.date)
+            twentieth = next(islice(repeats, 20, None), None)
+            if twentieth and twentieth < date.today():
+                raise ValidationError(
+                    {'recurrence': 'Transaction repeats more than 20 times'})
 
     def auto_description(self, in_account: BaseAccount | Balance):
         if self.kind == self.Kind.BUDGETING:
@@ -373,6 +434,30 @@ class Transaction(models.Model):
     def change_inbox_to(self, account: Account | Category):
         for part in self.parts.all():
             part.change_inbox_to(account)
+
+    @atomic
+    def copy_to(self, to: 'date'):
+        transaction = Transaction(date=to, kind=self.kind)
+        transaction.save()
+        for from_part in self.parts.all():
+            part = TransactionPart(transaction=transaction)
+            part.save()
+            part.set_flows(*from_part.flows())
+        return transaction
+
+    @atomic
+    def do_recurrence(self):
+        today = date.today()
+        if not self.recurrence or not self.date or self.date > today:
+            return False
+        for copy in self.recurrence.iterate(self.date):
+            if copy <= today:
+                self.copy_to(copy)
+            else:
+                self.date = copy
+                self.save()
+                return True
+        raise RuntimeError("unreachable")
 
 
 class TransactionPart(models.Model):
@@ -568,6 +653,8 @@ def entries_for(account: BaseAccount) -> list[Transaction]:
                   (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
           .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
           .order_by('date', '-kind', 'id'))
+    if sum(transaction.do_recurrence() for transaction in qs):
+        return entries_for(account)  # Retry
     total = 0
     for transaction in qs:
         if getattr(transaction, 'account') == inbox:
@@ -599,6 +686,8 @@ def entries_for_balance(account: Balance) -> Iterable[Transaction]:
                     - Coalesce(Subquery(has), 0))
           .exclude(change=0)
           .order_by('date', '-kind', 'id'))
+    if sum(transaction.do_recurrence() for transaction in qs):
+        return entries_for_balance(account)  # Retry
     total = 0
     for transaction in qs:
         total += getattr(transaction, 'change')
@@ -690,12 +779,3 @@ def date_range(budget: Budget) -> tuple[date, date]:
                         Min('date', default=date.today())))
     return (min(range['date__min'], date.today()),
             max(range['date__max'], date.today()))
-
-
-@atomic
-def copy_budgeting(budget: Budget, prior: Transaction, date: date):
-    transaction = Transaction(date=date, kind=Transaction.Kind.BUDGETING)
-    transaction.save()
-    part = TransactionPart(transaction=transaction)
-    part.save()
-    part.set_flows(*prior.parts.first().flows())

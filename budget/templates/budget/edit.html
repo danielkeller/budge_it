@@ -38,10 +38,20 @@
         <div class="editor">
             <table class="date-table">
                 <tr>
-                    <th>Date</th>
+                    <th colspan="2">Date</th>
                 </tr>
                 <tr>
-                    <td class="tdinput t6">{{ form.date }}</td>
+                    <td class="tdinput t6" colspan="2">{{ form.date }}</td>
+                </tr>
+                <tr class="date-repeat" data-value="{{ form.repeat.value }}">
+                    <th class="tdinput" colspan="2">{{ form.repeat }}</th>
+                </tr>
+                <tr class="repeat R">
+                    <td class="tdinput">{{ form.interval }}</td>
+                    <td class="tdinput">{{ form.freq }}</td>
+                </tr>
+                <tr class="repeat C">
+                    <td class="tdinput" colspan="2">{{ form.recurrence }}</td>
                 </tr>
             </table>
             {% for part in form.formset %}
