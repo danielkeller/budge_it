@@ -1,11 +1,10 @@
 from typing import Optional, Iterable, TypeVar, Type, Union, Self, Generic, Any
 import functools
-from itertools import chain
-from datetime import date, datetime, timedelta
+from itertools import chain, islice
+from datetime import date, timedelta
 from dataclasses import dataclass
 import heapq
 
-from dateutil import rrule
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
 from django import forms
@@ -18,6 +17,8 @@ from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
 from .algorithms import sum_by, reroot, double_entrify_by, Debts
+from . import recurrence
+from .recurrence import RRule
 
 
 class Id(models.Model):
@@ -315,7 +316,7 @@ class TransactionManager(models.Manager['Transaction']):
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:  # stupid thing
-    RRFBase = models.Field[rrule.rrule | str | None, rrule.rrule | None]
+    RRFBase = models.Field[RRule | str | None, RRule | None]
 else:
     RRFBase = models.Field
 
@@ -332,17 +333,17 @@ class RecurrenceRuleField(RRFBase):
 
     def from_db_value(self, value: Optional[str], expression: Any, connection: Any):
         try:
-            return rrule.rrulestr(value) if value else None
+            return recurrence.parse(value) if value else None
         except ValueError:
             return None
 
-    def get_prep_value(self, value: Optional[rrule.rrule]) -> Optional[str]:
+    def get_prep_value(self, value: Optional[RRule]) -> Optional[str]:
         return value and str(value)
 
-    def to_python(self, value: rrule.rrule | str | None):
+    def to_python(self, value: RRule | str | None):
         if isinstance(value, str):
             try:
-                return rrule.rrulestr(value)
+                return recurrence.parse(value)
             except ValueError:
                 raise ValidationError(
                     "“%(value)s” is not a valid recurrence rule.",
@@ -356,10 +357,6 @@ class RecurrenceRuleField(RRFBase):
     def formfield(self, **kwargs: Any):
         return super().formfield(widget=forms.Textarea(attrs={'rows': 2}),
                                  **kwargs)
-
-
-def to_datetime(value: date):
-    return datetime(value.year, value.month, value.day)
 
 
 class Transaction(models.Model):
@@ -392,23 +389,16 @@ class Transaction(models.Model):
         self.date = value and value.replace(day=1)
 
     def clean(self):
-        if self.date and self.recurrence:
-            if self.recurrence._freq in (  # type: ignore
-                    rrule.HOURLY, rrule.MINUTELY, rrule.SECONDLY):
+        if isinstance(self.date, date) and isinstance(self.recurrence, RRule):
+            if self.recurrence.freq in ("HOURLY", "MINUTELY", "SECONDLY"):
                 raise ValidationError({'recurrence':
                                        'Transaction repeats more than once a day'})
-            recurrence: Any = self.recurrence.replace(  # type: ignore
-                dtstart=to_datetime(self.date),
-                byhour=None, byminute=None, bysecond=None)
-            self.recurrence: rrule.rrule = recurrence
             # DOS protection
-            range: Any = recurrence.xafter(  # type: ignore
-                to_datetime(self.date), count=20)
-            for time in range:
-                if time >= datetime.now():
-                    return
-            raise ValidationError(
-                {'recurrence': 'Transaction repeats more than 20 times'})
+            repeats = self.recurrence.iterate(self.date)
+            twentieth = next(islice(repeats, 20, None), None)
+            if twentieth and twentieth < date.today():
+                raise ValidationError(
+                    {'recurrence': 'Transaction repeats more than 20 times'})
 
     def auto_description(self, in_account: BaseAccount | Balance):
         if self.kind == self.Kind.BUDGETING:
@@ -458,16 +448,16 @@ class Transaction(models.Model):
     @atomic
     def do_recurrence(self):
         today = date.today()
-        if not self.recurrence or not self.date or not self.date <= today:
+        if not self.recurrence or not self.date or self.date > today:
             return False
-        copies: Any = self.recurrence.between(  # type: ignore
-            to_datetime(self.date), to_datetime(today), inc=True)
-        for copy in copies:
-            self.copy_to(copy.date())
-        dest: Any = self.recurrence.after(to_datetime(today))  # type: ignore
-        self.date = dest.date()
-        self.save()
-        return True
+        for copy in self.recurrence.iterate(self.date):
+            if copy <= today:
+                self.copy_to(copy)
+            else:
+                self.date = copy
+                self.save()
+                return True
+        raise RuntimeError("unreachable")
 
 
 class TransactionPart(models.Model):
@@ -663,7 +653,7 @@ def entries_for(account: BaseAccount) -> list[Transaction]:
                   (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
           .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
           .order_by('date', '-kind', 'id'))
-    if any(transaction.do_recurrence() for transaction in qs):
+    if sum(transaction.do_recurrence() for transaction in qs):
         return entries_for(account)  # Retry
     total = 0
     for transaction in qs:
@@ -696,7 +686,7 @@ def entries_for_balance(account: Balance) -> Iterable[Transaction]:
                     - Coalesce(Subquery(has), 0))
           .exclude(change=0)
           .order_by('date', '-kind', 'id'))
-    if any(transaction.do_recurrence() for transaction in qs):
+    if sum(transaction.do_recurrence() for transaction in qs):
         return entries_for_balance(account)  # Retry
     total = 0
     for transaction in qs:

@@ -1,15 +1,15 @@
 from collections import defaultdict
-from typing import Any, Union, Mapping, Optional, Type, TypeVar, Iterable
+from typing import Any, Dict, Union, Mapping, Optional, Type, TypeVar, Iterable
 from datetime import date
 
-from dateutil import rrule
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.forms import ValidationError
 from django.db import transaction
 
 from .models import (Id, Budget, BaseAccount, Account, Category,
-                     TransactionPart, Transaction, to_datetime)
+                     TransactionPart, Transaction)
+from .recurrence import RRule
 
 
 class AccountChoiceField(forms.Field):
@@ -221,14 +221,42 @@ class TransactionForm(FormSetInline(PartFormSet)):
                                                   format='%Y-%m-%d'),
                            initial=date.today)
 
-    # recurrence = forms.CharField(required=False)
+    repeat = forms.ChoiceField(choices=[('N', "Don't repeat"),
+                                        ('R', 'Repeat every'),
+                                        ('C', 'Custom repeat')])
+    interval = forms.IntegerField(min_value=1, initial=1,
+                                  widget=forms.NumberInput(attrs={'size': 5}))
+    freq = forms.ChoiceField(choices=[('YEARLY', 'Year'),
+                                      ('MONTHLY', 'Month'),
+                                      ('WEEKLY', 'Week')])
+    recurrence = forms.CharField(required=False)
 
     def __init__(self, *args: Any, instance: Optional[Transaction] = None,
                  **kwargs: Any):
-
+        initial = kwargs.setdefault('initial', {})
+        if instance and instance.recurrence:
+            rrule = instance.recurrence
+            if (self.base_fields['freq'].valid_value(rrule.freq)  # type: ignore
+                    and rrule == RRule(freq=rrule.freq, interval=rrule.interval)):
+                initial['freq'] = rrule.freq
+                initial['interval'] = rrule.interval or 1
+                initial['repeat'] = 'R'
+            else:
+                initial['repeat'] = 'C'
+        else:
+            initial['repeat'] = 'N'
         super().__init__(*args, instance=instance, **kwargs)
         if instance and not instance.recurrence:
-            self.fields['recurrence'].disabled = True
+            self.fields['repeat'].disabled = True
+
+    def clean(self):
+        if self.cleaned_data['repeat'] == 'N':
+            self.cleaned_data['recurrence'] = None
+        elif self.cleaned_data['repeat'] == 'R':
+            self.cleaned_data['recurrence'] = RRule(
+                freq=self.cleaned_data['freq'],
+                interval=self.cleaned_data['interval'])
+        return self.cleaned_data
 
     @transaction.atomic
     def save(self, commit: bool = True):
