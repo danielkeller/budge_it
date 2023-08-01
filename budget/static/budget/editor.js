@@ -5,7 +5,7 @@ addEventListener("DOMContentLoaded", function () {
     window.valid = true;
     window.parts = {};
 
-    document.getElementById('cancel').addEventListener('click', cancel);
+    document.forms.form.elements['tx-repeat'].addEventListener('change', changeRepeat);
     document.forms[0].addEventListener('submit', onSubmit);
     document.addEventListener("keydown", key);
 });
@@ -36,6 +36,11 @@ function cancel() {
     else {
         history.back();
     }
+}
+
+function changeRepeat() {
+    const tr = document.getElementsByClassName('date-repeat')[0];
+    tr.dataset.value = document.forms.form.elements['tx-repeat'].value;
 }
 
 function findRow(input) {

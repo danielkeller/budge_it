@@ -245,6 +245,7 @@ class TransactionForm(FormSetInline(PartFormSet)):
                 initial['repeat'] = 'C'
         else:
             initial['repeat'] = 'N'
+            initial['freq'] = 'MONTHLY'
         super().__init__(*args, instance=instance, **kwargs)
         if instance and not instance.recurrence:
             self.fields['repeat'].disabled = True
