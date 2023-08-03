@@ -24,19 +24,21 @@ function mousedown(event) {
 }
 
 function prev() {
+    const items = listview.querySelectorAll('[data-id]');
     const current = currentRow();
-    if (current && current != listview.children[1]) {
+    if (current && current != items[0]) {
         selectItem(current.previousElementSibling);
-    } else if (listview.children.length >= 2) {
-        selectItem(listview.children[listview.children.length - 1]);
+    } else if (items.length >= 1) {
+        selectItem(items[items.length - 1]);
     }
 }
 function next() {
+    const items = listview.querySelectorAll('[data-id]');
     const current = currentRow();
     if (current && current.nextElementSibling) {
         selectItem(current.nextElementSibling);
-    } else if (listview.children.length >= 2) {
-        selectItem(listview.children[1]);
+    } else if (items.length >= 1) {
+        selectItem(items[0]);
     }
 
 }
@@ -95,13 +97,14 @@ function key(event) {
     }
 }
 
-function edit() {
-    const current = currentRow();
-    if (current) {
+function edit(event) {
+    const item = findAncestor(event.target, el => el.dataset.id);
+    if (item) {
         const back = window.location.pathname;
-        const id = current.dataset.id;
+        const id = item.dataset.id;
         window.location.href = `/transaction/${data.budget}/${id}/?back=${back}`;
     }
+    event.preventDefault();
 }
 
 function create() {
