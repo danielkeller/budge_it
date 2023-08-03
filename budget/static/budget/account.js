@@ -91,7 +91,7 @@ function key(event) {
             selectItem(tbody.children[1]);
         }
     } else if (event.key === "Enter" || event.key === "i") {
-        edit();
+        edit({ target: currentRow() });
     } else if (event.key === "o") {
         create();
     }
