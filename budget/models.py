@@ -440,7 +440,8 @@ class Transaction(models.Model):
         transaction = Transaction(date=to, kind=self.kind)
         transaction.save()
         for from_part in self.parts.all():
-            part = TransactionPart(transaction=transaction)
+            part = TransactionPart(
+                transaction=transaction, note=from_part.note)
             part.save()
             part.set_flows(*from_part.flows())
         return transaction
