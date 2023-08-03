@@ -40,34 +40,36 @@
 </div>
 {% spaceless %}
 <main class="account">
-    <div class="listview" tabindex="0" autofocus>
-        <table id="table">
-            <th class="t5">Date</th>
-            <th>Transaction</th>
-            <th class="t4">{{ account.currency }}</th>
-            <th class="t4">Total</th>
+    <div class="listview" tabindex="0" autofocus id="table">
+        <div>
+            <div>
+                <span class="th">Date</span>
+                <span class="th">Transaction</span>
+                <span class="th">{{ account.currency }}</span>
+                <span class="th">Total</span>
+            </div>
             {% for transaction in entries %}
-            <tr class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
+            <div class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
                 data-id="{{transaction.id}}">
-                <td>{{transaction.date|date:"SHORT_DATE_FORMAT"}}
+                <span class="td">{{transaction.date|date:"SHORT_DATE_FORMAT"}}
                     {% if transaction.recurrence %}🔁{% endif %}
-                </td>
-                <td>{{transaction|transaction_description:account}}</td>
-                <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</td>
+                </span>
+                <span class="td">{{transaction|transaction_description:account}}</span>
+                <span class="td number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</span>
                 {% if transaction.is_inbox %}
-                <td>
+                <span class="td">
                     <form action="{% url 'add_to_account' account.id transaction.id%}"
                         method="post">
                         {% csrf_token %}
                         <button>Move here</button>
                     </form>
-                </td>
+                </span>
                 {% else %}
-                <td class="number shortcurrency" data-currency="{{ account.currency }}">{{transaction.running_sum}}</td>
+                <span class="td number shortcurrency" data-currency="{{ account.currency }}">{{transaction.running_sum}}</span>
                 {% endif %}
-            </tr>
+            </div>
             {% endfor %}
-        </table>
+        </div>
     </div>
     <div class="transaction-details">
         {% for transaction in entries %}

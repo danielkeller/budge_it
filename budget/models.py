@@ -334,7 +334,7 @@ class RecurrenceRuleField(RRFBase):
     def from_db_value(self, value: Optional[str], expression: Any, connection: Any):
         try:
             return recurrence.parse(value) if value else None
-        except ValueError:
+        except (ValueError, KeyError):
             return None
 
     def get_prep_value(self, value: Optional[RRule]) -> Optional[str]:

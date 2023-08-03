@@ -35,6 +35,13 @@ html {
     font-family: Avenir, 'Avenir Next LT Pro', Montserrat, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
 }
 
+@media (max-width: 500px) {
+    html {
+        font-size: 12px;
+        --line-height: 18px;
+    }
+}
+
 body {
     margin: 0;
     padding-bottom: var(--line-height);
@@ -49,7 +56,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    max-width: 1024px;
+    max-width: var(--page-width);
     overflow: hidden;
     padding: var(--line-height);
     gap: var(--line-height);
@@ -118,19 +125,26 @@ table {
     --cell-width: calc(9 * var(--line-height));
 }
 
+.th,
 th {
     user-select: none;
+    font-weight: 700;
+    text-align: center;
 }
 
-tr.a {
+tr.a,
+div.a>* {
     background-color: var(--alt-canvas);
 }
 
-tr.b {
+tr.b,
+div.b>* {
     /* make dragging look nicer */
     background-color: var(--canvas);
 }
 
+.td,
+.th,
 td,
 th {
     /* Make each table row take exactly one line */
@@ -232,30 +246,35 @@ tbody.droppable>:last-child {
     overflow-y: auto;
 }
 
-.listview>table {
-    width: 100%;
-    table-layout: fixed;
+.listview>* {
+    display: grid;
+    grid: auto-flow / max-content 1fr max-content max-content;
+    gap: var(--td-border);
+    padding: var(--td-border);
 }
 
-.listview tr:first-child {
+.listview>*>div {
+    display: contents;
+}
+
+.listview>*>:first-child>* {
     position: sticky;
     top: var(--td-border);
     background-color: var(--canvas);
 }
 
-.listview th,
-.listview td {
+.listview span {
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
 }
 
-.listview .checked {
+.listview .checked>* {
     background-color: var(--inactive-selected);
     color: ButtonText;
 }
 
-.listview:focus .checked {
+.listview:focus .checked>* {
     background-color: SelectedItem;
     color: SelectedItemText;
 }

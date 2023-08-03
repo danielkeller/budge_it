@@ -5,7 +5,6 @@ addEventListener("DOMContentLoaded", function () {
     window.data = JSON.parse(document.getElementById('data').textContent);
     document.addEventListener("keydown", key);
     window.listview = document.querySelector('.listview');
-    window.tbody = document.getElementById("table").children[0];
     listview.addEventListener('dblclick', edit);
     document.getElementById('new').addEventListener('click', create);
     listview.addEventListener('mousedown', mousedown);
@@ -26,18 +25,18 @@ function mousedown(event) {
 
 function prev() {
     const current = currentRow();
-    if (current && current != tbody.children[1]) {
+    if (current && current != listview.children[1]) {
         selectItem(current.previousElementSibling);
-    } else if (tbody.children.length >= 2) {
-        selectItem(tbody.children[tbody.children.length - 1]);
+    } else if (listview.children.length >= 2) {
+        selectItem(listview.children[listview.children.length - 1]);
     }
 }
 function next() {
     const current = currentRow();
     if (current && current.nextElementSibling) {
         selectItem(current.nextElementSibling);
-    } else if (tbody.children.length >= 2) {
-        selectItem(tbody.children[1]);
+    } else if (listview.children.length >= 2) {
+        selectItem(listview.children[1]);
     }
 
 }
@@ -53,7 +52,7 @@ function listkey(event) {
 }
 
 function currentRow() {
-    return tbody.querySelector(".listview .checked");
+    return listview.querySelector(".checked");
 }
 
 function selectItem(row) {
@@ -65,7 +64,7 @@ function selectItem(row) {
     history.replaceState({}, '', `?t=${id}`);
     const rowRect = row.getBoundingClientRect();
     const viewRect = listview.getBoundingClientRect();
-    const headerRect = tbody.children[0].getBoundingClientRect();
+    const headerRect = listview.children[0].getBoundingClientRect();
     const border = 1; // Not nice but w/e
     if (rowRect.top < headerRect.bottom) {
         listview.scrollTop += rowRect.top - headerRect.bottom - border;
