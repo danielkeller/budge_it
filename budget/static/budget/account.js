@@ -62,9 +62,9 @@ function selectItem(row) {
     const id = row.dataset.id;
     row.classList.add('checked');
     history.replaceState({}, '', `?t=${id}`);
-    const rowRect = row.getBoundingClientRect();
+    const rowRect = row.children[0].getBoundingClientRect();
     const viewRect = listview.getBoundingClientRect();
-    const headerRect = listview.children[0].getBoundingClientRect();
+    const headerRect = listview.querySelector('.th').getBoundingClientRect();
     const border = 1; // Not nice but w/e
     if (rowRect.top < headerRect.bottom) {
         listview.scrollTop += rowRect.top - headerRect.bottom - border;
