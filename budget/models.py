@@ -137,6 +137,7 @@ class BaseAccount(Id):
     budget_id: int  # Sigh
     balance: int
     source_entries: 'models.Manager[Entry[Self]]'
+    transactionpart_set: 'models.Manager[TransactionPart]'
     entries: 'models.Manager[Entry[Self]]'
     currency = models.CharField(max_length=5)
 
@@ -146,6 +147,8 @@ class BaseAccount(Id):
 
     def kind(self) -> str: ...  # pragma: no cover
     def kind_name(self) -> str: ...  # pragma: no cover
+    @property
+    def clearable(self) -> bool: return False
 
     class DoesNotExist(ObjectDoesNotExist):
         pass
@@ -186,6 +189,9 @@ class Account(BaseAccount):
     id_ptr = models.OneToOneField(
         Id, related_name='of_account',
         on_delete=models.CASCADE, parent_link=True)
+
+    clearable = models.BooleanField(default=False)  # type: ignore
+    cleared: 'models.manager.RelatedManager[Transaction]'
 
     def kind(self):
         return 'account'
@@ -364,6 +370,8 @@ class Transaction(models.Model):
     id: models.BigAutoField
     date = models.DateField()
     recurrence = RecurrenceRuleField(null=True, blank=True)
+    cleared: 'models.ManyToManyField[Account, models.Model]'
+    cleared = models.ManyToManyField(Account, related_name='cleared')
 
     class Kind(models.TextChoices):
         TRANSACTION = 'T', 'Transaction'
@@ -637,6 +645,8 @@ def months_between(start: date, end: date):
         yield start
         start = (start + timedelta(days=31)).replace(day=1)
 
+# Some of these could be methods
+
 
 def entries_for(account: BaseAccount) -> list[Transaction]:
     if isinstance(account, Account):  # gross
@@ -656,10 +666,15 @@ def entries_for(account: BaseAccount) -> list[Transaction]:
           .order_by('date', '-kind', 'id'))
     if sum(transaction.do_recurrence() for transaction in qs):
         return entries_for(account)  # Retry
+    cleared: set[int]
+    cleared = set(account.cleared.values_list('id', flat=True)
+                  ) if isinstance(account, Account) else set()
     total = 0
     for transaction in qs:
         if getattr(transaction, 'account') == inbox:
             setattr(transaction, 'is_inbox', True)
+        elif account.clearable and transaction.id not in cleared:
+            setattr(transaction, 'uncleared', True)
         else:
             total += getattr(transaction, 'change')
             setattr(transaction, 'running_sum', total)

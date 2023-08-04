@@ -25,6 +25,7 @@
             <tr>
                 <th>Category</th>
                 <th>Currency</th>
+                <th></th>
                 <th>Closed</th>
                 <th>Delete?</th>
             </tr>
@@ -34,7 +35,7 @@
                 <th class="groupname">
                     {{form.instance.group|default:"&nbsp;"}}
                 </th>
-                <th colspan="3"></th>
+                <th colspan="4"></th>
             </tr>
             {% endifchanged %}
             {% include "budget/partials/manage.html" %}
@@ -43,6 +44,7 @@
             <tr>
                 <th>Account</th>
                 <th>Currency</th>
+                <th>Clearable</th>
                 <th>Closed</th>
                 <th>Delete?</th>
             </tr>

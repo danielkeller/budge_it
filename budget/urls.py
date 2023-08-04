@@ -30,6 +30,8 @@ urlpatterns = [
     path('reorder/<int:budget_id>/', views.reorder, name='reorder'),
     path('account/<int:account_id>/add/<int:transaction_id>/',
          views.add_to_account, name='add_to_account'),
+    path('account/<int:account_id>/clear/<int:transaction_id>/',
+         views.clear, name='clear'),
     path('transaction/<int:budget_id>/<int:transaction_id>/delete/',
          views.delete, name='delete'),
     path('budget/copy/<int:budget_id>/<int:transaction_id>/<int:year>/<int:month>/',

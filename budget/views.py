@@ -143,6 +143,23 @@ def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
     return HttpResponseRedirect(f"{account.get_absolute_url()}?t={transaction.id}")
 
 
+@login_required
+def clear(request: HttpRequest, account_id: int, transaction_id: int):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
+    account = _get_allowed_account_or_404(request, account_id)
+    transaction = Transaction.objects.get_for(
+        account.budget, transaction_id)
+    if not transaction:
+        raise Http404()
+    if 'clear' in request.POST:
+        transaction.cleared.add(account)
+    else:
+        transaction.cleared.remove(account)
+    context = {'entries': entries_for(account), 'account': account}
+    return render(request, 'budget/partials/account_sums.html', context)
+
+
 def account_form(request: HttpRequest, budget_id: int, number: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
     queryset = Account.objects.none()

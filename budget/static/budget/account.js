@@ -1,7 +1,6 @@
 "use strict";
 
 addEventListener("DOMContentLoaded", function () {
-    formatCurrencies();
     window.data = JSON.parse(document.getElementById('data').textContent);
     document.addEventListener("keydown", key);
     window.listview = document.querySelector('.listview');
@@ -18,6 +17,8 @@ addEventListener("DOMContentLoaded", function () {
         if (item) item.classList.add('checked');
     }
 });
+
+htmx.onLoad(formatCurrencies);
 
 function mousedown(event) {
     selectItem(findAncestor(event.target, el => el.dataset.id));
@@ -98,6 +99,7 @@ function key(event) {
 }
 
 function edit(event) {
+    if (event.target.tagName === 'INPUT') return; // Yikes
     const item = findAncestor(event.target, el => el.dataset.id);
     if (item) {
         const back = window.location.pathname;

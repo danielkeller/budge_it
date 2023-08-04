@@ -1,6 +1,7 @@
 <tr>
     <td class="tdinput">{{ form.name }}</td>
     <td class="tdinput">{{ form.currency }}</td>
+    <td>{{ form.clearable }}</td>
     <td>{{ form.closed }}</td>
     <td>
         {% if form.instance.pk %}{{ form.DELETE }}{% endif %}

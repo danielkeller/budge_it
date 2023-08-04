@@ -62,6 +62,7 @@ class TransactionPartInline(admin.TabularInline):  # type: ignore
 
 
 class TransactionAdmin(admin.ModelAdmin):  # type: ignore
+    raw_id_fields = ['cleared']
     inlines = [
         TransactionPartInline
     ]

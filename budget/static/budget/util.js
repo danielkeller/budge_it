@@ -36,13 +36,17 @@ function formatCurrency(value, currency) {
     return currency + " " + format.format(+value / 10 ** decimals);
 }
 
-function formatCurrencies() {
-    for (const element of document.querySelectorAll('[data-currency]')) {
+function formatCurrencies(container) {
+    container = container || document;
+    const elements = container.dataset && container.dataset.currency
+        ? [container]
+        : container.querySelectorAll('[data-currency]');
+    for (const element of elements) {
         if (element.classList.contains('shortcurrency'))
-            element.textContent = formatCurrencyField(
+            element.textContent = element.textContent && formatCurrencyField(
                 element.textContent, element.dataset.currency);
         else
-            element.textContent = formatCurrency(
+            element.textContent = element.textContent && formatCurrency(
                 element.textContent, element.dataset.currency);
     }
 }

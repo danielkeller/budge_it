@@ -345,13 +345,21 @@ ReorderingFormSet = forms.modelformset_factory(
     extra=0)
 
 
-class AccountManagementForm(forms.ModelForm):
+class BaseAccountManagementForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = BaseAccount
         fields = ('name', 'currency', 'closed')
         widgets = {'name': forms.TextInput(attrs={'required': True,
                                                   'autofocus': ''})}
     currency = forms.ChoiceField()
+
+
+class AccountManagementForm(BaseAccountManagementForm):
+    class Meta:  # type: ignore
+        model = Account
+        fields = ('name', 'currency', 'clearable', 'closed')
+        widgets = {'name': forms.TextInput(attrs={'required': True,
+                                                  'autofocus': ''})}
 
 
 class BaseAccountManagementFormSet(forms.BaseInlineFormSet):
@@ -369,6 +377,20 @@ class BaseAccountManagementFormSet(forms.BaseInlineFormSet):
         else:
             form.initial['currency'] = self.instance.get_initial_currency()
 
+    def save_existing(self, form: BaseAccountManagementForm,
+                      instance: BaseAccount,
+                      commit: bool = False) -> BaseAccount:
+        instance = super().save_existing(form, instance, commit)
+        if isinstance(instance, Account) and 'clearable' in form.changed_data:
+            if instance.clearable:
+                entries = (Transaction.objects
+                           .filter(parts__accounts=instance)
+                           .distinct())
+                instance.cleared.set(entries)
+            else:
+                instance.cleared.clear()
+        return instance
+
 
 AccountManagementFormSet = forms.inlineformset_factory(
     Budget, Account, fk_name="budget",
@@ -377,7 +399,7 @@ AccountManagementFormSet = forms.inlineformset_factory(
 
 CategoryManagementFormSet = forms.inlineformset_factory(
     Budget, Category, fk_name='budget',
-    formset=BaseAccountManagementFormSet, form=AccountManagementForm,
+    formset=BaseAccountManagementFormSet, form=BaseAccountManagementForm,
     extra=0)
 
 
