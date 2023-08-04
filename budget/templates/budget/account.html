@@ -24,6 +24,7 @@
         <div><a href="{% url 'overview' account.budget.main_budget.id %}">Overview</a></div>
     </div>
     <div class="tools">
+        <button type="button" id="new">Add transaction</button>
         <div>
             {% if form %}
             <form method="post">
@@ -35,7 +36,6 @@
             {% account_in_budget account account.budget %}
             {% endif %}
         </div>
-        <div><button type="button" id="new">Add transaction</button></div>
     </div>
 </div>
 {% spaceless %}

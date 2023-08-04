@@ -35,13 +35,6 @@ html {
     font-family: Avenir, 'Avenir Next LT Pro', Montserrat, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
 }
 
-@media (max-width: 500px) {
-    html {
-        font-size: 12px;
-        --line-height: 18px;
-    }
-}
-
 body {
     margin: 0;
     padding-bottom: var(--line-height);
@@ -70,11 +63,12 @@ main {
 .tools {
     display: flex;
     gap: var(--line-height);
-    flex-wrap: wrap;
 }
 
 .tools {
     margin-left: auto;
+    flex-wrap: wrap;
+    flex-direction: row-reverse;
 }
 
 button,
@@ -257,7 +251,7 @@ tbody.droppable>:last-child {
     display: contents;
 }
 
-.listview>*>:first-child>* {
+.listview .th {
     position: sticky;
     top: var(--td-border);
     background-color: var(--canvas);
@@ -277,6 +271,30 @@ tbody.droppable>:last-child {
 .listview:focus .checked>* {
     background-color: SelectedItem;
     color: SelectedItemText;
+}
+
+
+@media (max-width: 500px) {
+    .listview>* {
+        grid: auto-flow dense / 1fr 1fr 1fr;
+    }
+
+    .listview span:nth-child(4n+1) {
+        grid-row: span 2;
+    }
+
+    .listview span:nth-child(4n+2) {
+        grid-column: 2 / 4;
+    }
+
+    .listview .th {
+        position: static;
+    }
+
+    .listview .th:nth-child(4n+3),
+    .listview .th:nth-child(4n+4) {
+        top: calc(var(--td-border) + var(--line-height));
+    }
 }
 
 .longtext {
