@@ -57,8 +57,11 @@
                     <span class="td">{{transaction.date|date:"SHORT_DATE_FORMAT"}}
                         {% if transaction.recurrence %}🔁{% endif %}
                     </span>
+
                     <span class="td">{{transaction|transaction_description:account}}</span>
+
                     <span class="td number shortcurrency" data-currency="{{ account.currency }}">{{transaction.change}}</span>
+
                     {% if transaction.is_inbox %}
                     <span class="td">
                         <form action="{% url 'add_to_account' account.id transaction.id%}"
@@ -67,18 +70,20 @@
                             <button>Move here</button>
                         </form>
                     </span>
-                    {% if account.clearable %}<span class="td"></span>{% endif %}
                     {% else %}
                     <span class="td number shortcurrency" data-currency="{{ account.currency }}" id="total-{{transaction.id}}">{{transaction.running_sum}}</span>
+                    {% endif %}
+
                     {% if account.clearable %}
                     <span class="td">
+                        {% if not transaction.is_inbox %}
                         <input type="checkbox"
                             name="clear"
                             hx-post="{% url 'clear' account.id transaction.id %}"
                             hx-swap="none settle:0"
                             {% if not transaction.uncleared %}checked{% endif %}>
+                        {% endif %}
                     </span>
-                    {% endif %}
                     {% endif %}
                 </div>
                 {% endfor %}
