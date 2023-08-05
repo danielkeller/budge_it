@@ -48,6 +48,7 @@ function formatCurrencies(container) {
         else
             element.textContent = element.textContent && formatCurrency(
                 element.textContent, element.dataset.currency);
+        delete element.dataset['currency'];
     }
 }
 

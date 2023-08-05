@@ -1,6 +1,5 @@
 {% load budget static %}
 
-
 <div>
     <div>
         <span class="th">Date</span>
@@ -11,7 +10,10 @@
     </div>
     {% for transaction in entries %}
     <div class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
-        data-id="{{transaction.id}}">
+        data-id="{{transaction.id}}"
+        data-url="{% url 'edit' account.budget.id transaction.id %}"
+        hx-on:mousedown="selectItem(this)"
+        hx-on:dblclick="editItem(this)">
         <span class="td">{{transaction.date|date:"SHORT_DATE_FORMAT"}}
             {% if transaction.recurrence %}🔁{% endif %}
         </span>
@@ -37,6 +39,7 @@
                 name="clear"
                 hx-post="{% url 'clear' account.id transaction.id %}"
                 hx-swap="none settle:0"
+                hx-on:dblclick="event.stopPropagation()"
                 {% if not transaction.uncleared %}checked{% endif %}>
             {% endif %}
         </span>

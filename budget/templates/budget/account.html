@@ -14,19 +14,22 @@
     </title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+    <!--Not deferred to avoid FOUC-->
     <script src="{% static 'budget/htmx.min.js' %}"></script>
     <script src="{% static 'budget/jdecimal.js' %}"></script>
     <script src="{% static 'budget/util.js' %}"></script>
     <script src="{% static 'budget/account.js' %}"></script>
 </head>
 
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+    hx-on:keydown="key(event)"
+    hx-on::after-swap="formatCurrencies(); selectFromUrl();">
     <div class="controls">
         <div class="navigation">
             <div><a href="{% url 'overview' account.budget.main_budget.id %}">Overview</a></div>
         </div>
         <div class="tools">
-            <button type="button" id="new">Add transaction</button>
+            <button type="button" hx-on:click="create()">Add transaction</button>
             <div>
                 {% if form %}
                 <form method="post">
@@ -42,7 +45,8 @@
     </div>
     {% spaceless %}
     <main class="account">
-        <div class="listview {% if account.clearable %}c5{% else %}c4{% endif %}" tabindex="0" autofocus id="table">
+        <div class="listview {% if account.clearable %}c5{% else %}c4{% endif %}" tabindex="0" autofocus
+            hx-on:keydown="listkey(event)">
             {% include "budget/partials/list_contents.html" %}
         </div>
         <div class="transaction-details">

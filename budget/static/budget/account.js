@@ -2,29 +2,20 @@
 
 addEventListener("DOMContentLoaded", function () {
     window.data = JSON.parse(document.getElementById('data').textContent);
-    document.addEventListener("keydown", key);
-    window.listview = document.querySelector('.listview');
-    listview.addEventListener('dblclick', edit);
-    document.getElementById('new').addEventListener('click', create);
-    listview.addEventListener('mousedown', mousedown);
-    listview.addEventListener('keydown', listkey);
+    formatCurrencies();
+    selectFromUrl();
 });
 
-htmx.onLoad((element) => {
-    formatCurrencies(element);
+function selectFromUrl() {
     const id = new URLSearchParams(window.location.search).get('t');
     if (id) {
         const listItem = document.querySelector(`.listview [data-id="${id}"]`);
         if (listItem) selectItem(listItem);
     }
-});
-
-function mousedown(event) {
-    selectItem(findAncestor(event.target, el => el.dataset.id));
 }
 
 function prev() {
-    const items = listview.querySelectorAll('[data-id]');
+    const items = document.querySelectorAll('.listview [data-id]');
     const current = currentRow();
     if (current && current != items[0]) {
         selectItem(current.previousElementSibling);
@@ -33,7 +24,7 @@ function prev() {
     }
 }
 function next() {
-    const items = listview.querySelectorAll('[data-id]');
+    const items = document.querySelectorAll('.listview [data-id]');
     const current = currentRow();
     if (current && current.nextElementSibling) {
         selectItem(current.nextElementSibling);
@@ -54,16 +45,23 @@ function listkey(event) {
 }
 
 function currentRow() {
-    return listview.querySelector(".checked");
+    return document.querySelector(".listview .checked");
 }
 
 function selectItem(row) {
-    if (!row) return;
     const prev = currentRow();
     if (prev) prev.classList.remove('checked');
+
+    const prev_item = document.querySelector('.transaction-details .checked');
+    if (prev_item) prev_item.classList.remove('checked');
+
+    if (!row) return;
+
     const id = row.dataset.id;
     row.classList.add('checked');
     history.replaceState({}, '', `?t=${id}`);
+
+    const listview = document.querySelector('.listview');
     const rowRect = row.children[0].getBoundingClientRect();
     const viewRect = listview.getBoundingClientRect();
     const headerRect = listview.querySelector('.th').getBoundingClientRect();
@@ -74,38 +72,29 @@ function selectItem(row) {
         listview.scrollTop += rowRect.bottom - viewRect.bottom + border;
     }
 
-    const prev_item = document.querySelector('.transaction-details .checked');
-    if (prev_item) prev_item.classList.remove('checked');
     const item = document.querySelector(`.transaction-details [data-id="${id}"]`);
     item.classList.add('checked');
 }
 
+function editItem(row) {
+    location.href = `${row.dataset.url}?back=${location.pathname}`
+}
+
 function key(event) {
-    if (document.activeElement.type === "text") return;
+    if (['INPUT', 'BUTTON'].includes(document.activeElement.tagName)) return;
     if (event.key === "j") {
         next();
     } else if (event.key === "k") {
         prev();
     } else if (event.key === "g") {
-        if (tbody.children.length >= 2) {
-            selectItem(tbody.children[1]);
-        }
+        selectItem(null);
+        next();
     } else if (event.key === "Enter" || event.key === "i") {
-        edit({ target: currentRow() });
+        const row = currentRow();
+        if (row) editItem(row);
     } else if (event.key === "o") {
         create();
     }
-}
-
-function edit(event) {
-    if (event.target.tagName === 'INPUT') return; // Yikes
-    const item = findAncestor(event.target, el => el.dataset.id);
-    if (item) {
-        const back = window.location.pathname;
-        const id = item.dataset.id;
-        window.location.href = `/transaction/${data.budget}/${id}/?back=${back}`;
-    }
-    event.preventDefault();
 }
 
 function create() {
