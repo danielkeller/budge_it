@@ -70,7 +70,7 @@
                 <tr class="{% cycle rowcolor %}"
                     data-category="{{ row.category.id }}"
                     data-categorycurrency="{{ row.category.currency }}">
-                    <td>{{ row.category.name|default:"Inbox" }}</td>
+                    <td>{% account_in_budget row.category budget %}</td>
                     <td class="number" data-currency="{{ row.category.currency }}">
                         {{ row.category.balance }}
                     </td>
