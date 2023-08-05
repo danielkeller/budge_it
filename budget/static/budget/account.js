@@ -8,17 +8,16 @@ addEventListener("DOMContentLoaded", function () {
     document.getElementById('new').addEventListener('click', create);
     listview.addEventListener('mousedown', mousedown);
     listview.addEventListener('keydown', listkey);
+});
 
+htmx.onLoad((element) => {
+    formatCurrencies(element);
     const id = new URLSearchParams(window.location.search).get('t');
     if (id) {
         const listItem = document.querySelector(`.listview [data-id="${id}"]`);
-        if (listItem) listItem.classList.add('checked');
-        const item = document.querySelector(`.transaction-details [data-id="${id}"]`);
-        if (item) item.classList.add('checked');
+        if (listItem) selectItem(listItem);
     }
 });
-
-htmx.onLoad(formatCurrencies);
 
 function mousedown(event) {
     selectItem(findAncestor(event.target, el => el.dataset.id));

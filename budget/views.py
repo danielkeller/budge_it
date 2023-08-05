@@ -140,7 +140,8 @@ def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
     if not transaction:
         raise Http404()
     transaction.change_inbox_to(account)
-    return HttpResponseRedirect(f"{account.get_absolute_url()}?t={transaction.id}")
+    context = {'entries': entries_for(account), 'account': account}
+    return render(request, 'budget/partials/list_contents.html', context)
 
 
 @login_required
