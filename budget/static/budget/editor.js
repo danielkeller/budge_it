@@ -8,9 +8,8 @@ addEventListener("DOMContentLoaded", function () {
     document.forms.form.elements['tx-repeat'].addEventListener('change', changeRepeat);
     document.forms.form.addEventListener('submit', onSubmit);
     document.addEventListener("keydown", key);
+    setUp(document.body);
 });
-
-htmx.onLoad(setUp);
 
 function key(event) {
     if (event.key === "Escape") {

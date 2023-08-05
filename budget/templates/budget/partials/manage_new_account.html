@@ -4,7 +4,7 @@
         {% if account_formset.management_form.TOTAL_FORMS.value < account_formset.management_form.MAX_NUM_FORMS.value %}
         <button type="button" hx-get="{% url 'account_form' budget.id account_formset.management_form.TOTAL_FORMS.value %}"
             hx-target="closest .new_row"
-            hx-swap="outerHTML settle:0">New Account</button>
+            hx-swap="outerHTML">New Account</button>
         {% endif %}
         &nbsp;
     </td>

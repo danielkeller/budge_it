@@ -4,7 +4,7 @@
         {% if category_formset.management_form.TOTAL_FORMS.value < category_formset.management_form.MAX_NUM_FORMS.value %}
         <button type="button" hx-get="{% url 'category_form' budget.id category_formset.management_form.TOTAL_FORMS.value %}"
             hx-target="closest .new_row"
-            hx-swap="outerHTML settle:0">New Category</button>
+            hx-swap="outerHTML">New Category</button>
         {% endif %}
         &nbsp;
     </td>

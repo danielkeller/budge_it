@@ -7,7 +7,7 @@
         <button type="button"
             hx-get="{% url 'row_form' budget.id part_index part.formset.management_form.TOTAL_FORMS.value %}"
             hx-target="closest .new_row"
-            hx-swap="outerHTML settle:0">+</button>
+            hx-swap="outerHTML">+</button>
         {% endif %}
     </td>
 </tr>
