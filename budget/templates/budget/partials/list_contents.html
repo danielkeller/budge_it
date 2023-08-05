@@ -25,8 +25,7 @@
         {% if transaction.is_inbox %}
         <span class="td">
             <button hx-post="{% url 'add_to_account' account.id transaction.id%}"
-                hx-target="closest .listview"
-                hx-swap="settle:0">Move here</button>
+                hx-target="closest .listview">Move here</button>
         </span>
         {% else %}
         <span class="td number shortcurrency" data-currency="{{ account.currency }}" id="total-{{transaction.id}}">{{transaction.running_sum}}</span>
@@ -38,7 +37,7 @@
             <input type="checkbox"
                 name="clear"
                 hx-post="{% url 'clear' account.id transaction.id %}"
-                hx-swap="none settle:0"
+                hx-swap="none"
                 hx-on:dblclick="event.stopPropagation()"
                 {% if not transaction.uncleared %}checked{% endif %}>
             {% endif %}
