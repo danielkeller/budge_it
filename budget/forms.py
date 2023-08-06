@@ -223,7 +223,9 @@ class TransactionForm(FormSetInline(PartFormSet)):
 
     repeat = forms.ChoiceField(choices=[('N', "Don't repeat"),
                                         ('R', 'Repeat every'),
-                                        ('C', 'Custom repeat')])
+                                        ('C', 'Custom repeat')],
+                               widget=forms.Select(
+                                   attrs={'hx-on:change': 'changeRepeat()'}))
     interval = forms.IntegerField(min_value=1, initial=1,
                                   widget=forms.NumberInput(attrs={'size': 5}))
     freq = forms.ChoiceField(choices=[('YEARLY', 'Year'),

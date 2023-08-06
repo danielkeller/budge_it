@@ -108,9 +108,8 @@ def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: 
     other = get_object_or_404(Budget, id=budget_id_2)
     account = Balance(budget, other, currency)
     entries = entries_for_balance(account)
-    data = {'budget': budget.id}
     context = {'entries': entries, 'account': account,
-               'form': None, 'data': data}
+               'form': None}
     return render(request, 'budget/account.html', context)
 
 
@@ -124,9 +123,8 @@ def account(request: HttpRequest, account_id: int):
             form.save()
         return HttpResponseRedirect(request.get_full_path())
     form = rename_form(instance=account)
-    data = {'budget': account.budget_id}
     context = {'entries': entries_for(account), 'account': account,
-               'form': form, 'data': data}
+               'form': form}
     return render(request, 'budget/account.html', context)
 
 

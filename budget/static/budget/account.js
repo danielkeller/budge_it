@@ -1,11 +1,5 @@
 "use strict";
 
-addEventListener("DOMContentLoaded", function () {
-    window.data = JSON.parse(document.getElementById('data').textContent);
-    formatCurrencies();
-    selectFromUrl();
-});
-
 function selectFromUrl() {
     const id = new URLSearchParams(window.location.search).get('t');
     if (id) {
@@ -99,7 +93,5 @@ function key(event) {
 
 function create() {
     // TODO: This should auto fill the account
-    const back = window.location.pathname;
-    window.location.href =
-        `/transaction/${data.budget}/?back=${back}`;
+    document.getElementById('add-transaction').click();
 }

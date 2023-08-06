@@ -29,7 +29,7 @@
             <div><a href="{% url 'overview' account.budget.main_budget.id %}">Overview</a></div>
         </div>
         <div class="tools">
-            <button type="button" hx-on:click="create()">Add transaction</button>
+            <button type="button" id="add-transaction" hx-on:click="location.href='{% url 'create' account.budget.main_budget.id %}?back=' + location.pathname">Add transaction</button>
             <div>
                 {% if form %}
                 <form method="post">
@@ -81,6 +81,6 @@
             {% endfor %}
         </div>
     </main>
-    {{ data|json_script:"data" }}
     {% endspaceless %}
+    <script>formatCurrencies(); selectFromUrl();</script>
 </body>

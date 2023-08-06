@@ -6,98 +6,101 @@
     <title>{{ form.date.value }} - Transaction</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{% static 'budget/style.css' %}">
-    <script src="{% static 'budget/htmx.min.js' %}"></script>
+    <script src="{% static 'budget/htmx.js' %}"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/debug.js"></script>
     <script src="{% static 'budget/jdecimal.js' %}"></script>
     <script src="{% static 'budget/util.js' %}"></script>
     <script src="{% static 'budget/editor.js' %}"></script>
 </head>
 
-
-<div class="controls">
-    <div class="navigation">
-        {% if request.GET.back %}
-        <a href="{{ request.GET.back }}">Back</a>
-        {% endif %}
-    </div>
-    <div class="tools">
-        {% if transaction_id %}
-        <form class="edit" action="{% url 'delete' budget.id transaction_id%}?back={{ request.GET.back|urlencode }}"
-            method="post">
-            {% csrf_token %}
-            <button>Delete</button>
-        </form>
-        {% endif %}
-        <button id="submit-button" form="form">
-            {% if transaction_id %}Save Changes{% else %}Create Transaction{% endif %}
-        </button>
-    </div>
-</div>
-
-<form id="form" class="edit" action="{{ request.get_full_path }}" method="post"
-    hx-on::after-swap="setUp(event.target)">
-    <main class="edit">
-        <div class="editor">
-            <table class="date-table">
-                <tr>
-                    <th colspan="2">Date</th>
-                </tr>
-                <tr>
-                    <td class="tdinput t6" colspan="2">{{ form.date }}</td>
-                </tr>
-                <tr class="date-repeat" data-value="{{ form.repeat.value }}">
-                    <th class="tdinput" colspan="2">{{ form.repeat }}</th>
-                </tr>
-                <tr class="repeat R">
-                    <td class="tdinput">{{ form.interval }}</td>
-                    <td class="tdinput">{{ form.freq }}</td>
-                </tr>
-                <tr class="repeat C">
-                    <td class="tdinput" colspan="2">{{ form.recurrence }}</td>
-                </tr>
-            </table>
-            {% for part in form.formset %}
-            {% with part_index=forloop.counter0 %}
-            {% if not forloop.last %}
-            {% include "budget/partials/edit_part.html" %}
-            {% else %}
-            {% include "budget/partials/edit_part_new.html" %}
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+    hx-on:keydown="key(event)">
+    <div class="controls">
+        <div class="navigation">
+            {% if request.GET.back %}
+            <a href="{{ request.GET.back }}">Back</a>
             {% endif %}
-            {% endwith %}
-            {% endfor %}
-            {{ form.formset.management_form.INITIAL_FORMS }}
-            {{ form.formset.management_form.MIN_NUM_FORMS }}
-            {{ form.formset.management_form.MAX_NUM_FORMS }}
-            {% csrf_token %}
         </div>
-    </main>
-</form>
+        <div class="tools">
+            {% if transaction_id %}
+            <form class="edit" action="{% url 'delete' budget.id transaction_id%}?back={{ request.GET.back|urlencode }}"
+                method="post">
+                {% csrf_token %}
+                <button>Delete</button>
+            </form>
+            {% endif %}
+            <button id="submit-button" form="form">
+                {% if transaction_id %}Save Changes{% else %}Create Transaction{% endif %}
+            </button>
+        </div>
+    </div>
 
-<datalist id="account-list">
-    <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
-    {% for account in accounts %}
-    <option data-id="{{ account.id }}" data-name="{{ account.name }}" value="👤 {{ account.name }}"></option>
-    {% endfor %}
-    {% for id, name in friends.items %}
-    <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
-    {% endfor %}
-    {% for id, name in payees.items %}
-    <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
-    {% endfor %}
-</datalist>
-<datalist id="category-list">
-    <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
-    {% for category in categories %}
-    <option data-id="{{ category.id }}" data-name="{{ category.name }}" value="👤 {{ category.name }}"></option>
-    {% endfor %}
-    {% for id, name in friends.items %}
-    <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
-    {% endfor %}
-    {% for id, name in payees.items %}
-    <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
-    {% endfor %}
-</datalist>
+    <form id="form" class="edit" action="{{ request.get_full_path }}" method="post"
+        hx-on::after-swap="setUp(event.target)">
+        <main class="edit">
+            <div class="editor">
+                <table class="date-table">
+                    <tr>
+                        <th colspan="2">Date</th>
+                    </tr>
+                    <tr>
+                        <td class="tdinput t6" colspan="2">{{ form.date }}</td>
+                    </tr>
+                    <tr class="date-repeat" data-value="{{ form.repeat.value }}">
+                        <th class="tdinput" colspan="2">{{ form.repeat }}</th>
+                    </tr>
+                    <tr class="repeat R">
+                        <td class="tdinput">{{ form.interval }}</td>
+                        <td class="tdinput">{{ form.freq }}</td>
+                    </tr>
+                    <tr class="repeat C">
+                        <td class="tdinput" colspan="2">{{ form.recurrence }}</td>
+                    </tr>
+                </table>
+                {% for part in form.formset %}
+                {% with part_index=forloop.counter0 %}
+                {% if not forloop.last %}
+                {% include "budget/partials/edit_part.html" %}
+                {% else %}
+                {% include "budget/partials/edit_part_new.html" %}
+                {% endif %}
+                {% endwith %}
+                {% endfor %}
+                {{ form.formset.management_form.INITIAL_FORMS }}
+                {{ form.formset.management_form.MIN_NUM_FORMS }}
+                {{ form.formset.management_form.MAX_NUM_FORMS }}
+                {% csrf_token %}
+            </div>
+        </main>
+    </form>
 
-{{ data|json_script:"data" }}
-{{ form.errors|default:"" }}
-{{ form.formset.errors|default:"" }}
-{{ form.formset.non_form_errors }}
+    <datalist id="account-list">
+        <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
+        {% for account in accounts %}
+        <option data-id="{{ account.id }}" data-name="{{ account.name }}" value="👤 {{ account.name }}"></option>
+        {% endfor %}
+        {% for id, name in friends.items %}
+        <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
+        {% endfor %}
+        {% for id, name in payees.items %}
+        <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
+        {% endfor %}
+    </datalist>
+    <datalist id="category-list">
+        <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
+        {% for category in categories %}
+        <option data-id="{{ category.id }}" data-name="{{ category.name }}" value="👤 {{ category.name }}"></option>
+        {% endfor %}
+        {% for id, name in friends.items %}
+        <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
+        {% endfor %}
+        {% for id, name in payees.items %}
+        <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
+        {% endfor %}
+    </datalist>
+    {{ data|json_script:"data" }}
+    <script>initEditor();</script>
+    {{ form.errors|default:"" }}
+    {{ form.formset.errors|default:"" }}
+    {{ form.formset.non_form_errors }}
+</body>

@@ -1,15 +1,10 @@
 "use strict";
 
-addEventListener("DOMContentLoaded", function () {
-    window.data = JSON.parse(document.getElementById('data').textContent);
-    window.valid = true;
+function initEditor() {
     window.parts = {};
-
-    document.forms.form.elements['tx-repeat'].addEventListener('change', changeRepeat);
-    document.forms.form.addEventListener('submit', onSubmit);
-    document.addEventListener("keydown", key);
+    window.data = JSON.parse(document.getElementById('data').textContent);
     setUp(document.body);
-});
+}
 
 function key(event) {
     if (event.key === "Escape") {
@@ -20,15 +15,15 @@ function key(event) {
         if (document.activeElement.type !== "button"
             && document.activeElement.type !== "submit"
             && document.activeElement.type !== "textarea")
-            if (valid) document.forms['form'].submit();
+            document.forms['form'].requestSubmit();
     }
 }
 
 function cancel() {
     let back = new URLSearchParams(window.location.search).get('back');
     if (back) {
-        if (window.data.transaction) {
-            back = `${back}?t=${window.data.transaction}`;
+        if (data.transaction) {
+            back = `${back}?t=${data.transaction}`;
         }
         window.location.href = back;
     }
@@ -359,7 +354,7 @@ function combineDebts(owed) {
 }
 
 function checkValid() {
-    window.valid = true;
+    let valid = true;
     for (const part of Object.keys(window.parts)) {
         const rows = window.parts[part];
 
@@ -404,9 +399,7 @@ function checkValid() {
                     + `${formatCurrency(amount, currency)}`)
                 .join(', ');
     }
-    document.getElementById("submit-button").disabled = !valid;
-}
-
-function onSubmit(event) {
-    if (!window.valid) event.preventDefault();
+    document.getElementById("submit-button").setCustomValidity(
+        valid ? '' : 'Transaction does not sum to zero'
+    );
 }
