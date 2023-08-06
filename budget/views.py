@@ -3,13 +3,14 @@ from typing import Optional, Any
 from datetime import date, timedelta
 
 from django.shortcuts import render
-from django.http import (HttpRequest, HttpResponseRedirect,
+from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
                          HttpResponseBadRequest, Http404)
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.forms import BoundField
+from render_block import render_block_to_string
 import cProfile
 
 from .models import (sum_by, date_range, months_between,
@@ -139,7 +140,8 @@ def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
         raise Http404()
     transaction.change_inbox_to(account)
     context = {'entries': entries_for(account), 'account': account}
-    return render(request, 'budget/partials/list_contents.html', context)
+    return HttpResponse(render_block_to_string(
+        'budget/account.html', 'list-contents', context, request))
 
 
 @login_required
@@ -167,7 +169,7 @@ def account_form(request: HttpRequest, budget_id: int, number: int):
     formset.min_num = number + 1  # type: ignore
     context = {'budget': budget,
                'account_formset': formset, 'form': formset.forms[number]}
-    return render(request, 'budget/partials/manage_last_account.html', context)
+    return HttpResponse(render_block_to_string('budget/manage.html', 'account-form', context, request))
 
 
 def category_form(request: HttpRequest, budget_id: int, number: int):
@@ -178,14 +180,14 @@ def category_form(request: HttpRequest, budget_id: int, number: int):
     formset.min_num = number + 1  # type: ignore
     context = {'budget': budget,
                'category_formset': formset, 'form': formset.forms[number]}
-    return render(request, 'budget/partials/manage_last_category.html', context)
+    return HttpResponse(render_block_to_string('budget/manage.html', 'category-form', context, request))
 
 
 def currency_form(request: HttpRequest, number: int):
     formset = CurrencyManagementFormSet(prefix="currencies")
     formset.min_num = number + 1  # type: ignore
     context = {'currency_formset': formset, 'form': formset.forms[number]}
-    return render(request, 'budget/partials/currency_last.html', context)
+    return HttpResponse(render_block_to_string('budget/manage.html', 'currency-form', context, request))
 
 
 def manage_accounts(request: HttpRequest, budget_id: int):
@@ -237,7 +239,8 @@ def part_form(request: HttpRequest, budget_id: int, number: int):
     context = {'budget': budget,
                'part': form.formset.forms[number], 'part_index': number,
                'form': form}
-    return render(request, 'budget/partials/edit_part_new.html', context)
+    return HttpResponse(render_block_to_string(
+        'budget/edit.html', 'edit-part', context, request))
 
 
 def row_form(request: HttpRequest, budget_id: int,
@@ -252,7 +255,8 @@ def row_form(request: HttpRequest, budget_id: int,
     context = {'budget': budget,
                'row': part.formset.forms[number],
                'part': part, 'part_index': part_index}
-    return render(request, 'budget/partials/edit_row_new.html', context)
+    return HttpResponse(render_block_to_string(
+        'budget/edit.html', 'edit-row', context, request))
 
 
 @login_required

@@ -38,9 +38,32 @@
                 <th colspan="4"></th>
             </tr>
             {% endifchanged %}
-            {% include "budget/partials/manage.html" %}
+            {% block category-form %}
+            <tr>
+                <td class="tdinput">{{ form.name }}</td>
+                <td class="tdinput">{{ form.currency }}</td>
+                <td>{{ form.clearable }}</td>
+                <td>{{ form.closed }}</td>
+                <td>
+                    {% if form.instance.pk %}{{ form.DELETE }}{% endif %}
+                    {{form.id_ptr}}
+                </td>
+            </tr>
+            {% if not forloop or forloop.last %}
+            <tr class="new_row">
+                <td colspan="5">
+                    {{ category_formset.management_form.TOTAL_FORMS }}
+                    {% if category_formset.management_form.TOTAL_FORMS.value < category_formset.management_form.MAX_NUM_FORMS.value %}
+                    <button type="button" hx-get="{% url 'category_form' budget.id category_formset.management_form.TOTAL_FORMS.value %}"
+                        hx-target="closest .new_row"
+                        hx-swap="outerHTML">New Category</button>
+                    {% endif %}
+                    &nbsp;
+                </td>
+            </tr>
+            {% endif %}
+            {% endblock %}
             {% endfor %}
-            {% include "budget/partials/manage_new_category.html" %}
             <tr>
                 <th>Account</th>
                 <th>Currency</th>
@@ -49,9 +72,32 @@
                 <th>Delete?</th>
             </tr>
             {% for form in account_formset %}
-            {% include "budget/partials/manage.html" %}
+            {% block account-form %}
+            <tr>
+                <td class="tdinput">{{ form.name }}</td>
+                <td class="tdinput">{{ form.currency }}</td>
+                <td>{{ form.clearable }}</td>
+                <td>{{ form.closed }}</td>
+                <td>
+                    {% if form.instance.pk %}{{ form.DELETE }}{% endif %}
+                    {{form.id_ptr}}
+                </td>
+            </tr>
+            {% if not forloop or forloop.last %}
+            <tr class="new_row">
+                <td colspan="5">
+                    {{ account_formset.management_form.TOTAL_FORMS }}
+                    {% if account_formset.management_form.TOTAL_FORMS.value < account_formset.management_form.MAX_NUM_FORMS.value %}
+                    <button type="button" hx-get="{% url 'account_form' budget.id account_formset.management_form.TOTAL_FORMS.value %}"
+                        hx-target="closest .new_row"
+                        hx-swap="outerHTML">New Account</button>
+                    {% endif %}
+                    &nbsp;
+                </td>
+            </tr>
+            {% endif %}
+            {% endblock %}
             {% endfor %}
-            {% include "budget/partials/manage_new_account.html" %}
         </table>
         {{ category_formset.management_form.INITIAL_FORMS }}
         {{ category_formset.management_form.MIN_NUM_FORMS }}
@@ -65,9 +111,27 @@
                 <th>Delete?</th>
             </tr>
             {% for form in currency_formset %}
-            {% include "budget/partials/currency.html" %}
+            {% block currency-form %}
+            <tr>
+                <td class="tdinput">{{ form.currency }}</td>
+                <td>{{ form.id_ptr }}{{ form.DELETE }}</td>
+            </tr>
+            {% if not forloop or forloop.last %}
+            <tr class="new_row">
+                <td colspan="2">
+                    {{ currency_formset.management_form.TOTAL_FORMS }}
+                    {% if currency_formset.management_form.TOTAL_FORMS.value < currency_formset.management_form.MAX_NUM_FORMS.value %}
+                    <button type="button"
+                        hx-get="{% url 'currency_form' currency_formset.management_form.TOTAL_FORMS.value %}"
+                        hx-target="closest .new_row"
+                        hx-swap="outerHTML">New Currency</button>
+                    {% endif %}
+                    &nbsp;
+                </td>
+            </tr>
+            {% endif %}
+            {% endblock %}
             {% endfor %}
-            {% include "budget/partials/currency_new.html" %}
         </table>
         {{ currency_formset.management_form.INITIAL_FORMS }}
         {{ currency_formset.management_form.MIN_NUM_FORMS }}
