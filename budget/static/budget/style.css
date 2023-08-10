@@ -235,88 +235,84 @@ tbody.droppable>:last-child {
     }
 }
 
-.listview {
+list-view .checked>* {
+    background-color: var(--inactive-selected);
+    color: ButtonText;
+}
+
+list-view:focus .checked>* {
+    background-color: SelectedItem;
+    color: SelectedItemText;
+}
+
+.grid {
     align-self: start;
     max-height: 100%;
     overflow-y: auto;
-}
-
-.listview>* {
     display: grid;
     gap: var(--td-border);
     padding: var(--td-border);
 }
 
-.listview.c5>* {
+.grid.c5 {
     grid: auto-flow / max-content 1fr max-content max-content max-content;
 }
 
-.listview.c4>* {
+.grid.c4 {
     grid: auto-flow / max-content 1fr max-content max-content;
 }
 
 
-.listview>*>div {
+.grid>div {
     display: contents;
 }
 
-.listview .th {
-    position: sticky;
-    top: var(--td-border);
-    background-color: var(--canvas);
-}
-
-.listview span {
+.grid span {
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
 }
 
-.listview .checked>* {
-    background-color: var(--inactive-selected);
-    color: ButtonText;
+.transactions.grid .th {
+    position: sticky;
+    top: 0;
+    background-color: var(--canvas);
 }
-
-.listview:focus .checked>* {
-    background-color: SelectedItem;
-    color: SelectedItemText;
-}
-
 
 @media (max-width: 500px) {
-    .listview.c4>* {
+    .grid.c4 {
         grid: auto-flow dense / max-content 1fr 1fr;
     }
 
-    .listview.c4 span:nth-child(4n+1) {
+    .grid.c4 span:nth-child(4n+1) {
         grid-row: span 2;
     }
 
-    .listview.c4 span:nth-child(5n+2) {
+    .grid.c4 span:nth-child(5n+2) {
         grid-column: 2 / 4;
     }
 
-    .listview.c5>* {
+    .grid.c5 {
         grid: auto-flow dense / max-content 1fr 1fr max-content;
     }
 
-    .listview.c5 span:nth-child(5n+1) {
+    .grid.c5 span:nth-child(5n+1) {
         grid-row: span 2;
     }
 
-    .listview.c5 span:nth-child(5n+2) {
+    .grid.c5 span:nth-child(5n+2) {
         grid-column: 2 / 5;
     }
 
-    .listview.c5 .is_inbox :nth-child(5n+4) {
+    .grid.c5 .is_inbox :nth-child(5n+4) {
         grid-column: span 2;
     }
 
-    .listview.c5 .is_inbox :nth-child(5n+5) {
+    .grid.c5 .is_inbox :nth-child(5n+5) {
         display: none;
     }
 
-    .listview .th {
+    .transactions.grid .th {
         position: static;
     }
 }

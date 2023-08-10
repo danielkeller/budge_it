@@ -1,6 +1,7 @@
 {% for transaction in entries %}
-<span class="td number shortcurrency"
-    data-currency="{{ account.currency }}"
+<short-currency class="td number"
+    currency="{{ account.currency }}"
+    value="{{ transaction.running_sum }}"
     id="total-{{transaction.id}}"
-    hx-swap-oob="true">{{transaction.running_sum}}</span>
+    hx-swap-oob="true"></short-currency>
 {% endfor %}

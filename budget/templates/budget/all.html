@@ -1,0 +1,29 @@
+{% load static %}
+
+<!DOCTYPE html>
+
+<head>
+    <title>{{ TODO }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+    <!--Not deferred to avoid FOUC-->
+    <script src="{% static 'budget/jdecimal.js' %}"></script>
+    <script src="{% static 'budget/util.js' %}"></script>
+    <script src="{% static 'budget/overview.js' %}"></script>
+    <script src="{% static 'budget/account.js' %}"></script>
+    <script src="{% static 'budget/editor.js' %}"></script>
+    <script src="{% static 'budget/htmx.min.js' %}"></script>
+</head>
+
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <main>
+        <div id="overview">
+            {% include 'budget/partials/overview.html' %}
+        </div>
+        <div id="account">
+            {% if account %}
+            {% include 'budget/partials/account.html' %}
+            {% endif %}
+        </div>
+    </main>
+</body>

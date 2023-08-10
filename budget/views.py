@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, Any, Sequence
 from datetime import date, timedelta
 
 from django.shortcuts import render
@@ -37,6 +37,12 @@ def profileit(func: Any):
     return wrapper
 
 
+def hx_current_url(request: HttpRequest):
+    """Adds to the context the URL that the user is actually looking at"""
+    return {'current_url':
+            request.headers.get('HX-Current-URL') or request.get_full_path()}
+
+
 @login_required
 def index(request: HttpRequest):
     # type: ignore
@@ -58,6 +64,44 @@ def _get_allowed_account_or_404(request: HttpRequest, id: int):
     if not account.budget.view_permission(request.user):
         raise Http404()
     return account
+
+
+@login_required
+def all(request: HttpRequest, budget_id: int,
+        account_id: Optional[int] = None,
+        transaction_id: Optional[int] = None):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    accounts, categories, debts = accounts_overview(budget)
+    totals = sum_by((category.currency, category.balance)
+                    for category in categories)
+    context = {'accounts': accounts, 'categories': categories, 'debts': debts,
+               'today': date.today(),
+               'totals': totals,
+               'budget': budget}
+    if account_id:
+        account = _get_allowed_account_or_404(request, account_id)
+        context |= {'account': account, 'entries': entries_for(account)}
+    return render(request, 'budget/all.html', context)
+
+
+def account_panel(request: HttpRequest, budget_id: int, account_id: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    account = _get_allowed_account_or_404(request, account_id)
+    context = {'budget': budget, 'account': account,
+               'entries': entries_for(account)}
+    response = render(request, 'budget/partials/account.html', context)
+    response['HX-Push-Url'] = reverse('all-a', args=(budget_id, account_id))
+    return response
+
+
+def transaction_panel(request: HttpRequest, budget_id: int, account_id: int):
+    transaction_id = request.GET.get('transaction')
+    if not transaction_id:
+        raise Http404()
+    response = HttpResponse('lel')
+    response['HX-Replace-Url'] = reverse('all-t', args=(
+        budget_id, account_id, transaction_id))
+    return response
 
 
 @login_required
