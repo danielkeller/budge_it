@@ -179,7 +179,8 @@ main.otg {
     overflow: visible;
 }
 
-.editor {
+.editor,
+edit-part {
     display: flex;
     gap: var(--line-height);
     flex-direction: column;
@@ -351,7 +352,7 @@ form {
     display: contents;
 }
 
-.editor>div:empty {
+edit-part>div:empty {
     display: none;
 }
 
@@ -407,15 +408,15 @@ hr {
     align-self: flex-start;
 }
 
-.date-repeat~.repeat {
+[is="date-repeat"]~.repeat {
     display: none;
 }
 
-.date-repeat[data-value=R]~.R {
+[is="date-repeat"][data-value=R]~.R {
     display: table-row;
 }
 
-.date-repeat[data-value=C]~.C {
+[is="date-repeat"][data-value=C]~.C {
     display: table-row;
 }
 

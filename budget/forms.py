@@ -163,7 +163,8 @@ class PartForm(FormSetInline(EntryFormSet)):
     budget: Budget
     note = forms.CharField(required=False,
                            widget=forms.Textarea(attrs={'rows': 0}))
-    currency = forms.ChoiceField(required=False)
+    currency = forms.ChoiceField(required=False, widget=forms.Select(
+        attrs={'class': 'part-currency'}))
 
     def __init__(self, budget: Budget, *args: Any,
                  instance: Optional[TransactionPart] = None,
@@ -223,9 +224,7 @@ class TransactionForm(FormSetInline(PartFormSet)):
 
     repeat = forms.ChoiceField(choices=[('N', "Don't repeat"),
                                         ('R', 'Repeat every'),
-                                        ('C', 'Custom repeat')],
-                               widget=forms.Select(
-                                   attrs={'hx-on:change': 'changeRepeat()'}))
+                                        ('C', 'Custom repeat')])
     interval = forms.IntegerField(min_value=1, initial=1,
                                   widget=forms.NumberInput(attrs={'size': 5}))
     freq = forms.ChoiceField(choices=[('YEARLY', 'Year'),
