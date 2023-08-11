@@ -235,12 +235,12 @@ tbody.droppable>:last-child {
     }
 }
 
-list-view .checked>* {
+entry-list .checked>* {
     background-color: var(--inactive-selected);
     color: ButtonText;
 }
 
-list-view:focus .checked>* {
+entry-list:focus .checked>* {
     background-color: SelectedItem;
     color: SelectedItemText;
 }

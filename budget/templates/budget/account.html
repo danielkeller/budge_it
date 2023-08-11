@@ -44,7 +44,7 @@
     </div>
     {% spaceless %}
     <main class="account">
-        <list-view class="{% if account.clearable %}c5{% else %}c4{% endif %}" autofocus name="lv" hx-on:select="console.log(event)">
+        <entry-list class="{% if account.clearable %}c5{% else %}c4{% endif %}" autofocus name="lv" hx-on:select="console.log(event)">
             {% block list-contents %}
             <div>
                 <span class="th">Date</span>
@@ -69,7 +69,7 @@
                 {% if transaction.is_inbox %}
                 <span class="td">
                     <button hx-post="{% url 'add_to_account' account.id transaction.id%}"
-                        hx-target="closest list-view">Move here</button>
+                        hx-target="closest entry-list">Move here</button>
                 </span>
                 {% else %}
                 <short-currency class="td number" value="{{transaction.running_sum}}" currency="{{ account.currency }}" id="total-{{transaction.id}}"></short-currency>
@@ -90,7 +90,7 @@
             </div>
             {% endfor %}
             {% endblock %}
-        </list-view>
+        </entry-list>
         <div class="transaction-details">
             {% for transaction in entries %}
             <div data-id="{{transaction.id}}">

@@ -95,31 +95,14 @@ class ListView extends HTMLElement {
             }
         });
     }
-    get name() {
-        return this.getAttribute('name');
-    }
-    get checked() {
-        return this.querySelector('.checked');
-    }
+    get name() { return this.getAttribute('name'); }
+    get checked() { return this.querySelector('.checked'); }
     set checked(row) {
-        const prev = this.querySelector('.checked');
+        const prev = this.checked;
         if (prev) prev.classList.remove('checked');
-
-        if (!row) return;
-        row.classList.add('checked');
-        const rowRect = row.children[0].getBoundingClientRect();
-        const viewRect = this.getBoundingClientRect();
-        const headerRect = this.querySelector('.th').getBoundingClientRect();
-        const border = 1; // Not nice but w/e
-        if (rowRect.top < headerRect.bottom) {
-            this.scrollTop += rowRect.top - headerRect.bottom - border;
-        } else if (rowRect.bottom > viewRect.bottom) {
-            this.scrollTop += rowRect.bottom - viewRect.bottom + border;
-        }
+        if (row) row.classList.add('checked');
     }
-    get value() {
-        return this.checked?.dataset.value;
-    }
+    get value() { return this.checked?.dataset.value; }
     set value(value) {
         this.checked = this.querySelector(`[data-value="${value}"]`);
     }
@@ -148,4 +131,26 @@ class ListView extends HTMLElement {
         }
     }
 }
-customElements.define("list-view", ListView);
+class EntryList extends ListView {
+    connectedCallback() {
+        super.connectedCallback();
+        const match = location.pathname.match(/\d+\/\d+\/(\d+).*/);
+        // Let the children appear
+        if (match) setTimeout(() => this.value = match[1], 0);
+    }
+    get checked() { return super.checked; }
+    set checked(row) {
+        super.checked = row;
+        if (!row) return;
+        const rowRect = row.children[0].getBoundingClientRect();
+        const viewRect = this.getBoundingClientRect();
+        const headerRect = this.querySelector('.th').getBoundingClientRect();
+        const border = 1; // Not nice but w/e
+        if (rowRect.top < headerRect.bottom) {
+            this.scrollTop += rowRect.top - headerRect.bottom - border;
+        } else if (rowRect.bottom > viewRect.bottom) {
+            this.scrollTop += rowRect.bottom - viewRect.bottom + border;
+        }
+    }
+}
+customElements.define("entry-list", EntryList);

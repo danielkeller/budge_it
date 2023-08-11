@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Any, Sequence
+from typing import Optional, Any
 from datetime import date, timedelta
 
 from django.shortcuts import render
