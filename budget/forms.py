@@ -217,8 +217,7 @@ class TransactionForm(FormSetInline(PartFormSet)):
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date', 'recurrence',)
-    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date',
-                                                         'autofocus': ''},
+    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
                                                   format='%Y-%m-%d'),
                            initial=date.today)
 

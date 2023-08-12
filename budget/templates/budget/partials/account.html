@@ -4,7 +4,7 @@
 <entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
     autofocus
     name="transaction"
-    hx-trigger="select"
+    hx-trigger="select delay:100ms"
     hx-get="{% url 'transaction-panel' budget.id account.id %}"
     hx-target="#transaction">
     {% block list-contents %}
@@ -52,6 +52,3 @@
     {% endblock %}
 </entry-list>
 {% endspaceless %}
-
-<div id="transaction">
-</div>

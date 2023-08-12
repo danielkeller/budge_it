@@ -98,12 +98,12 @@ class CurrencyInput extends HTMLTableCellElement {
     set value(value) {
         this.#hidden.value = value;
         // Ugly!
-        const currency = getPart(this.#hidden).currencyInput.value;
+        const currency = getPart(this).currencyInput.value;
         this.input.value = value ? formatCurrencyField(value, currency) : "";
     }
     #parse() {
         accept(this);
-        const currency = getPart(this.#hidden).currencyInput.value;
+        const currency = getPart(this).currencyInput.value;
         this.#hidden.value = this.input.value
             && parseCurrency(this.input.value, currency);
         this.dispatchEvent(new CustomEvent('currency-input', { bubbles: true }));

@@ -1,0 +1,124 @@
+<form id="form" class="edit" action="{{ request.get_full_path }}" method="post"
+    is="transaction-editor" autocomplete="off">
+    <main class="edit">
+        <div class="editor">
+            <table class="date-table">
+                <tr>
+                    <th colspan="2">Date</th>
+                </tr>
+                <tr>
+                    <td class="tdinput t6" colspan="2">{{ form.date }}</td>
+                </tr>
+                <tr is="date-repeat" data-value="{{ form.repeat.value }}">
+                    <th class="tdinput" colspan="2">{{ form.repeat }}</th>
+                </tr>
+                <tr class="repeat R">
+                    <td class="tdinput">{{ form.interval }}</td>
+                    <td class="tdinput">{{ form.freq }}</td>
+                </tr>
+                <tr class="repeat C">
+                    <td class="tdinput" colspan="2">{{ form.recurrence }}</td>
+                </tr>
+            </table>
+            <button id="submit-button" form="form">
+                {% if transaction_id %}Save Changes{% else %}Create Transaction{% endif %}
+            </button>
+            {% for part in form.formset %}
+            {% with part_index=forloop.counter0 %}
+            {% block edit-part %}
+            <edit-part>
+                <hr>
+                <table class="edit-table">
+                    <tr>
+                        <th class="t6">Account</th>
+                        <th class="t6">Category</th>
+                        <th class="t4">Paid</th>
+                        <th class="t4">Owed</th>
+                    </tr>
+                    {% for row in part.formset %}
+                    {% block edit-row %}
+                    <tr class="edit-row" is="edit-row">
+                        <td class="tdinput" is="account-select">
+                            {{ row.account }}<span></span><input list="account-list">
+                        </td>
+                        <td class="tdinput" is="account-select">
+                            {{ row.category }}<span></span><input list="category-list">
+                        </td>
+                        <td class="tdinput" is="currency-input">
+                            {{ row.transferred }}
+                            <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*">
+                        </td>
+                        <td class="tdinput" is="currency-input">
+                            {{ row.moved }}
+                            <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*">
+                        </td>
+                    </tr>
+                    {% if not forloop or forloop.last %}
+                    <tr class="new_row" style="text-align:right;">
+                        <td colspan="4">
+                            {{ part.formset.management_form.TOTAL_FORMS }}
+                            &nbsp;
+                            {% if part.formset.management_form.TOTAL_FORMS.value < part.formset.management_form.MAX_NUM_FORMS.value %}
+                            <button type="button"
+                                hx-get="{% url 'row_form' budget.id part_index part.formset.management_form.TOTAL_FORMS.value %}"
+                                hx-target="closest .new_row"
+                                hx-swap="outerHTML">+</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endblock %}
+                    {% endfor %}
+                </table>
+                <div class="part-extras">
+                    {{ part.id }}
+                    {{ part.formset.management_form.INITIAL_FORMS }}
+                    {{ part.formset.management_form.MIN_NUM_FORMS }}
+                    {{ part.formset.management_form.MAX_NUM_FORMS }}
+                    <table>
+                        <tr>
+                            <th>Note</th>
+                        </tr>
+                        <tr>
+                            <td class="tdinput">{{ part.note }}</td>
+                        </tr>
+                    </table>
+                    <table>
+                        <tr>
+                            <th>Currency</th>
+                        </tr>
+                        <tr>
+                            <td class="tdinput t4">{{ part.currency }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="category-sum"></div>
+                <div class="account-sum"></div>
+                <div class="debt"></div>
+            </edit-part>
+
+            {% if not forloop or forloop.last %}
+            <div id="new_part">
+                {{ form.formset.management_form.TOTAL_FORMS }}
+                {% if form.formset.management_form.TOTAL_FORMS.value < form.formset.management_form.MAX_NUM_FORMS.value %}
+                <button type="button"
+                    hx-get="{% url 'part_form' budget.id form.formset.management_form.TOTAL_FORMS.value %}"
+                    hx-target="#new_part"
+                    hx-swap="outerHTML">Add Part</button>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endblock %}
+            {% endwith %}
+            {% endfor %}
+            {{ form.formset.management_form.INITIAL_FORMS }}
+            {{ form.formset.management_form.MIN_NUM_FORMS }}
+            {{ form.formset.management_form.MAX_NUM_FORMS }}
+            {% csrf_token %}
+        </div>
+    </main>
+</form>
+
+{{ form.errors|default:"" }}
+{{ form.formset.errors|default:"" }}
+{{ form.formset.non_form_errors }}

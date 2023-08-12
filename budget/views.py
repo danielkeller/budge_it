@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, Any, Literal
 from datetime import date, timedelta
 
 from django.shortcuts import render
@@ -69,18 +69,22 @@ def _get_allowed_account_or_404(request: HttpRequest, id: int):
 @login_required
 def all(request: HttpRequest, budget_id: int,
         account_id: Optional[int] = None,
-        transaction_id: Optional[int] = None):
+        transaction_id: int | Literal["new"] | None = None):
     budget = _get_allowed_budget_or_404(request, budget_id)
     accounts, categories, debts = accounts_overview(budget)
     totals = sum_by((category.currency, category.balance)
                     for category in categories)
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'today': date.today(),
-               'totals': totals,
-               'budget': budget}
+               'today': date.today(), 'totals': totals, 'budget': budget}
+    context |= _edit_context(budget)
     if account_id:
         account = _get_allowed_account_or_404(request, account_id)
         context |= {'account': account, 'entries': entries_for(account)}
+        if transaction_id:
+            form = _edit_form(budget, transaction_id)
+            context |= {'form': form, 'budget': budget,
+                        'transaction_id': transaction_id}
+
     return render(request, 'budget/all.html', context)
 
 
@@ -95,13 +99,45 @@ def account_panel(request: HttpRequest, budget_id: int, account_id: int):
 
 
 def transaction_panel(request: HttpRequest, budget_id: int, account_id: int):
-    transaction_id = request.GET.get('transaction')
-    if not transaction_id:
-        raise Http404()
-    response = HttpResponse('lel')
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    transaction_id = request.GET.get('transaction', 'new')
+    form = _edit_form(budget, transaction_id)
+    context = {'form': form, 'budget': budget,
+               'transaction_id': transaction_id}
+    response = render(request, 'budget/partials/edit.html', context)
     response['HX-Replace-Url'] = reverse('all-t', args=(
         budget_id, account_id, transaction_id))
     return response
+
+
+def _edit_context(budget: Budget):
+    friends = dict(budget.friends.values_list('id', 'name'))
+    payees = dict(Budget.objects.filter(payee_of=budget.owner())
+                                .values_list('id', 'name'))
+    # Closed?
+    accounts = budget.account_set.exclude(name='')
+    categories = budget.category_set.exclude(name='')
+    data = {
+        'budget': budget.id,
+        'accounts': (dict(accounts.values_list('id', 'currency'))
+                     | dict(categories.values_list('id', 'currency'))),
+        'budgets': {budget.id: budget.name, **friends, **payees},
+        'friends': friends,
+    }
+    return {'friends': friends, 'payees': payees,
+            'accounts': accounts, 'categories': categories,
+            'data': data}
+
+
+def _edit_form(budget: Budget, transaction_id: int | str):
+    budget = budget.main_budget()
+    if transaction_id == 'new':
+        transaction = None
+    else:
+        transaction = Transaction.objects.get_for(budget, int(transaction_id))
+        if not transaction:
+            raise Http404()
+    return TransactionForm(budget, prefix="tx", instance=transaction)
 
 
 @login_required
@@ -326,10 +362,7 @@ def edit(request: HttpRequest, budget_id: int,
         if form.is_valid():
             instance: Transaction = form.save()
             if instance.id:
-                part = instance.parts.first()
-                entry = (part.accountentry_set.first()
-                         or part.categoryentry_set.first())
-                budget.initial_currency = entry.sink.currency
+                budget.initial_currency = instance.first_currency()
                 budget.save()
             if 'back' in request.GET:
                 if instance.id:

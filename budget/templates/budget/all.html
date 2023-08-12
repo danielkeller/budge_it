@@ -16,7 +16,7 @@
 </head>
 
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-    <main>
+    <main class="all">
         <div id="overview">
             {% include 'budget/partials/overview.html' %}
         </div>
@@ -25,5 +25,36 @@
             {% include 'budget/partials/account.html' %}
             {% endif %}
         </div>
+        <div id="transaction">
+            {% if form %}
+            {% include 'budget/partials/edit.html' %}
+            {% endif %}
+        </div>
     </main>
+
+    <datalist id="account-list">
+        <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
+        {% for account in accounts %}
+        <option data-id="{{ account.id }}" data-name="{{ account.name }}" value="👤 {{ account.name }}"></option>
+        {% endfor %}
+        {% for id, name in friends.items %}
+        <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
+        {% endfor %}
+        {% for id, name in payees.items %}
+        <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
+        {% endfor %}
+    </datalist>
+    <datalist id="category-list">
+        <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
+        {% for category in categories %}
+        <option data-id="{{ category.id }}" data-name="{{ category.name }}" value="👤 {{ category.name }}"></option>
+        {% endfor %}
+        {% for id, name in friends.items %}
+        <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
+        {% endfor %}
+        {% for id, name in payees.items %}
+        <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
+        {% endfor %}
+    </datalist>
+    {{ data|json_script:"data" }}
 </body>

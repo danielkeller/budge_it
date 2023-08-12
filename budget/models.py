@@ -438,6 +438,15 @@ class Transaction(models.Model):
         )
         return ", ".join(names)
 
+    def first_currency(self):
+        part = self.parts.first()
+        if part:
+            entry = (part.accountentry_set.first()
+                     or part.categoryentry_set.first())
+            if entry:
+                return entry.sink.currency
+        raise ValueError()
+
     @atomic
     def change_inbox_to(self, account: Account | Category):
         for part in self.parts.all():
