@@ -137,9 +137,9 @@ class EntryList extends ListView {
         const selectFromUrl = () => {
             const match = location.pathname.match(/\w+\/\w+\/(\w+).*/);
             if (match) this.value = match[1];
-            document.removeEventListener('DOMContentLoaded', selectFromUrl);
+            document.removeEventListener('htmx:load', selectFromUrl);
         };
-        document.addEventListener('DOMContentLoaded', selectFromUrl);
+        document.addEventListener('htmx:load', selectFromUrl);
     }
     get checked() { return super.checked; }
     set checked(row) {
