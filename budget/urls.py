@@ -8,15 +8,15 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
 
     # Real pages
-    path('<int:budget_id>', views.all, name='all-o'),
-    path('<int:budget_id>/<int:account_id>/', views.all, name='all-a'),
-    path('<int:budget_id>/<int:account_id>/<int:transaction_id>/',
+    path('<int:budget_id>/', views.all, name='all-o'),
+    path('<int:budget_id>/<account_id>/', views.all, name='all-a'),
+    path('<int:budget_id>/<account_id>/<int:transaction_id>/',
          views.all, name='all-t'),
-    path('<int:budget_id>/<int:account_id>/new/',
+    path('<int:budget_id>/<account_id>/new/',
          views.all, name='all-t-new', kwargs={'transaction_id': 'new'}),
-    path('<int:budget_id>/<int:account_id>/panel',
+    path('<int:budget_id>/<account_id>/panel',
          views.account_panel, name='account-panel'),
-    path('<int:budget_id>/<int:account_id>/tpanel',
+    path('<int:budget_id>/<account_id>/tpanel',
          views.transaction_panel, name='transaction-panel'),
 
     path('overview/<int:budget_id>/', views.overview, name='overview'),

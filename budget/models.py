@@ -27,6 +27,7 @@ class Id(models.Model):
     of_budget: 'models.OneToOneField[Budget]'
     of_account: 'models.OneToOneField[Account]'
     of_category: 'models.OneToOneField[Category]'
+    def kind(self) -> str: ...  # pragma: no cover
 
 
 class Budget(Id):
@@ -65,6 +66,9 @@ class Budget(Id):
 
     def __str__(self):
         return self.name
+
+    def kind(self):
+        return 'budget'
 
     @functools.cache
     def get_absolute_url(self):
@@ -110,6 +114,11 @@ class Budget(Id):
             else:
                 return 'CHF'
 
+    @property
+    def budget(self):
+        """Quack like an account if needed"""
+        return self
+
 
 class BudgetFriends(models.Model):
     class Meta:  # type: ignore
@@ -145,7 +154,6 @@ class BaseAccount(Id):
     order = models.IntegerField(default=0)
     closed = models.BooleanField(default=False)
 
-    def kind(self) -> str: ...  # pragma: no cover
     def kind_name(self) -> str: ...  # pragma: no cover
     @property
     def clearable(self) -> bool: return False
@@ -179,6 +187,38 @@ class BaseAccount(Id):
     def __lt__(self, other: Self):
         """Not actually important"""
         return self.id < other.id
+
+    def transactions(self) -> list['Transaction']:
+        if isinstance(self, Account):  # gross
+            field, amount = 'parts__accounts', 'parts__accountentry_set__amount'
+        else:
+            field, amount = 'parts__categories', 'parts__categoryentry_set__amount'
+
+        if not self.is_inbox():
+            inbox = self.budget.get_inbox(type(self), self.currency).id
+        else:
+            inbox = None
+        qs = (Transaction.objects
+              .filter_for(self.budget)
+              .filter(Q(**{field: self}) |
+                      (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
+              .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
+              .order_by('date', '-kind', 'id'))
+        if sum(transaction.do_recurrence() for transaction in qs):
+            return self.transactions()  # Retry
+        cleared: set[int]
+        cleared = set(self.cleared.values_list('id', flat=True)
+                      ) if isinstance(self, Account) else set()
+        total = 0
+        for transaction in qs:
+            if getattr(transaction, 'account') == inbox:
+                setattr(transaction, 'is_inbox', True)
+            elif self.clearable and transaction.id not in cleared:
+                setattr(transaction, 'uncleared', True)
+            else:
+                total += getattr(transaction, 'change')
+                setattr(transaction, 'running_sum', total)
+        return list(reversed(qs))
 
 
 AccountT = TypeVar('AccountT', bound=BaseAccount)
@@ -234,6 +274,67 @@ class Balance:
     @property
     def name(self):
         return f"Owed by {self.other}"
+
+    def transactions(self) -> Iterable['Transaction']:
+        gets = (CategoryEntry.objects
+                .filter(part__transaction=OuterRef('pk'),
+                        source__currency=self.currency,
+                        source__budget=self.other, sink__budget=self.budget)
+                .values('part__transaction')
+                .values(sum=Sum('amount')))
+        has = (AccountEntry.objects
+               .filter(part__transaction=OuterRef('pk'),
+                       source__currency=self.currency,
+                       source__budget=self.other, sink__budget=self.budget)
+               .values('part__transaction')
+               .values(sum=Sum('amount')))
+        # Does it make sense to exclude transactions that don't alter the balance?
+        # In general transactions that do and don't will be on different payees.
+        qs = (Transaction.objects
+              .filter_for(self.budget)
+              .annotate(change=Coalesce(Subquery(gets), 0)
+                        - Coalesce(Subquery(has), 0))
+              .exclude(change=0)
+              .order_by('date', '-kind', 'id'))
+        if sum(transaction.do_recurrence() for transaction in qs):
+            return self.transactions()  # Retry
+        total = 0
+        for transaction in qs:
+            total += getattr(transaction, 'change')
+            setattr(transaction, 'running_sum', total)
+        return list(reversed(qs))
+
+
+@dataclass
+class Total:
+    """A fake account representing everything in a currency."""
+    budget: Budget
+    currency: str
+
+    @property
+    def name(self):
+        return self.budget.name
+
+    @property
+    def id(self):
+        # Templates/urls refer to it this way
+        return self.currency
+
+    def transactions(self) -> Iterable['Transaction']:
+        qs = (Transaction.objects
+              .filter_for(self.budget)
+              .filter(parts__categories__currency=self.currency,
+                      parts__categories__budget=self.budget)
+              .annotate(change=Sum('parts__categoryentry_set__amount'))
+              .exclude(change=0)
+              .order_by('date', '-kind', 'id'))
+        if sum(transaction.do_recurrence() for transaction in qs):
+            return self.transactions()  # Retry
+        total = 0
+        for transaction in qs:
+            total += getattr(transaction, 'change')
+            setattr(transaction, 'running_sum', total)
+        return list(reversed(qs))
 
 
 def group_by_currency(amounts: dict[AccountT, int]):
@@ -408,7 +509,7 @@ class Transaction(models.Model):
                 raise ValidationError(
                     {'recurrence': 'Transaction repeats more than 20 times'})
 
-    def auto_description(self, in_account: BaseAccount | Balance):
+    def auto_description(self, in_account: BaseAccount | Balance | Budget):
         if self.kind == self.Kind.BUDGETING:
             return "Budget"
 
@@ -422,10 +523,10 @@ class Transaction(models.Model):
         categories = {entry
                       for part in self.parts.all()
                       for entry in part.categoryentry_set.entries()}
-        if isinstance(in_account, BaseAccount):
-            this_budget = in_account.budget
-        else:
+        if isinstance(in_account, Balance):
             this_budget = in_account.other
+        else:
+            this_budget = in_account.budget
         names = (
             list({account.budget.name
                   for account in chain(accounts, categories)
@@ -655,69 +756,6 @@ def months_between(start: date, end: date):
         start = (start + timedelta(days=31)).replace(day=1)
 
 # Some of these could be methods
-
-
-def entries_for(account: BaseAccount) -> list[Transaction]:
-    if isinstance(account, Account):  # gross
-        field, amount = 'parts__accounts', 'parts__accountentry_set__amount'
-    else:
-        field, amount = 'parts__categories', 'parts__categoryentry_set__amount'
-
-    if not account.is_inbox():
-        inbox = account.budget.get_inbox(type(account), account.currency).id
-    else:
-        inbox = None
-    qs = (Transaction.objects
-          .filter_for(account.budget)
-          .filter(Q(**{field: account}) |
-                  (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
-          .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
-          .order_by('date', '-kind', 'id'))
-    if sum(transaction.do_recurrence() for transaction in qs):
-        return entries_for(account)  # Retry
-    cleared: set[int]
-    cleared = set(account.cleared.values_list('id', flat=True)
-                  ) if isinstance(account, Account) else set()
-    total = 0
-    for transaction in qs:
-        if getattr(transaction, 'account') == inbox:
-            setattr(transaction, 'is_inbox', True)
-        elif account.clearable and transaction.id not in cleared:
-            setattr(transaction, 'uncleared', True)
-        else:
-            total += getattr(transaction, 'change')
-            setattr(transaction, 'running_sum', total)
-    return list(reversed(qs))
-
-
-def entries_for_balance(account: Balance) -> Iterable[Transaction]:
-    gets = (CategoryEntry.objects
-            .filter(part__transaction=OuterRef('pk'),
-                    source__currency=account.currency,
-                    source__budget=account.other, sink__budget=account.budget)
-            .values('part__transaction')
-            .values(sum=Sum('amount')))
-    has = (AccountEntry.objects
-           .filter(part__transaction=OuterRef('pk'),
-                   source__currency=account.currency,
-                   source__budget=account.other, sink__budget=account.budget)
-           .values('part__transaction')
-           .values(sum=Sum('amount')))
-    # Does it make sense to exclude transactions that don't alter the balance?
-    # In general transactions that do and don't will be on different payees.
-    qs = (Transaction.objects
-          .filter_for(account.budget)
-          .annotate(change=Coalesce(Subquery(gets), 0)
-                    - Coalesce(Subquery(has), 0))
-          .exclude(change=0)
-          .order_by('date', '-kind', 'id'))
-    if sum(transaction.do_recurrence() for transaction in qs):
-        return entries_for_balance(account)  # Retry
-    total = 0
-    for transaction in qs:
-        total += getattr(transaction, 'change')
-        setattr(transaction, 'running_sum', total)
-    return list(reversed(qs))
 
 
 def accounts_overview(budget: Budget):

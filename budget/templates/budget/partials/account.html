@@ -12,7 +12,7 @@
         <span class="th">Date</span>
         <span class="th">Transaction</span>
         <span class="th">{{ account.currency }}</span>
-        <span class="th">Total</span>
+        <span class="th">{{ account.name|default:"Inbox" }}</span>
         {% if account.clearable %}<span class="th">☑️</span>{% endif %}
     </div>
     {% for transaction in entries %}
@@ -52,3 +52,8 @@
     {% endblock %}
 </entry-list>
 {% endspaceless %}
+<div id="transaction">
+    {% if form %}
+    {% include 'budget/partials/edit.html' %}
+    {% endif %}
+</div>

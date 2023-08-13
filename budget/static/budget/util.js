@@ -134,9 +134,12 @@ class ListView extends HTMLElement {
 class EntryList extends ListView {
     connectedCallback() {
         super.connectedCallback();
-        const match = location.pathname.match(/\d+\/\d+\/(\d+).*/);
-        // Let the children appear
-        if (match) setTimeout(() => this.value = match[1], 0);
+        const selectFromUrl = () => {
+            const match = location.pathname.match(/\w+\/\w+\/(\w+).*/);
+            if (match) this.value = match[1];
+            document.removeEventListener('DOMContentLoaded', selectFromUrl);
+        };
+        document.addEventListener('DOMContentLoaded', selectFromUrl);
     }
     get checked() { return super.checked; }
     set checked(row) {

@@ -16,7 +16,7 @@
         {% endifchanged %}
         <tr class="{% cycle rowcolor %}" draggable="true" data-form="{{forloop.counter0}}" data-category="1" data-value="{{category.id}}">
             <!--Kind of jank that they're different-->
-            <td><a href="#" hx-target="#account"
+            <td><a href="{% url 'all-a' budget.id category.id %}" hx-target="#account"
                     hx-get="{% url 'account-panel' budget.id category.id %}">
                     {{ category.name|default:"Inbox" }}</a></td>
             <td class="number">
@@ -37,7 +37,7 @@
     <th class="t5">Balance</th>
     {% for account in accounts %}
     <tr class="{% cycle 'a' 'b' as rowcolor %}" data-value="{{account.id}}">
-        <td><a href="#" hx-target="#account"
+        <td><a href="{% url 'all-a' budget.id account.id %}" hx-target="#account"
                 hx-get="{% url 'account-panel' budget.id account.id %}">
                 {{ account.name|default:"Inbox" }}</a></td>
         <td class="number"> <long-currency currency="{{ account.currency }}" value="{{ account.balance | default:0 }}"></long-currency></td>
@@ -53,7 +53,10 @@
     {% endfor %}
     {% for currency, total in totals.items %}
     <tr class="{% cycle rowcolor %}">
-        <td>Total</td>
+        <td><a href="{% url 'all-a' budget.id currency %}"
+                hx-target="#account"
+                hx-get="{% url 'account-panel' budget.id currency %}">
+                Total</a></td>
         <td class="number">
             <long-currency currency="{{ currency }}" value="{{ total }}"></long-currency>
         </td>

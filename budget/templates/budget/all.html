@@ -16,19 +16,20 @@
 </head>
 
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <div class="controls">
+        <div class="navigation">
+
+        </div>
+        <div class="tools">
+            <button type="button" hx-get="">New transaction</button>
+        </div>
+    </div>
     <main class="all">
         <div id="overview">
             {% include 'budget/partials/overview.html' %}
         </div>
         <div id="account">
-            {% if account %}
             {% include 'budget/partials/account.html' %}
-            {% endif %}
-        </div>
-        <div id="transaction">
-            {% if form %}
-            {% include 'budget/partials/edit.html' %}
-            {% endif %}
         </div>
     </main>
 

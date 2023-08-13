@@ -16,8 +16,8 @@ import cProfile
 from .models import (sum_by, date_range, months_between,
                      BaseAccount, Account, Category, Budget,
                      Transaction,
-                     accounts_overview, entries_for, category_balance,
-                     Balance, entries_for_balance, budgeting_transaction,
+                     accounts_overview,  category_balance,
+                     Balance, Total, budgeting_transaction,
                      prior_budgeting_transaction)
 from .forms import (TransactionForm,
                     BudgetingForm, rename_form, BudgetForm,
@@ -66,33 +66,43 @@ def _get_allowed_account_or_404(request: HttpRequest, id: int):
     return account
 
 
+def _get_allowed_object_or_404(request: HttpRequest, budget: Budget, name: str):
+    try:
+        id = int(name)
+    except ValueError:
+        return Total(budget, name)
+    return _get_allowed_account_or_404(request, id)
+
+
 @login_required
 def all(request: HttpRequest, budget_id: int,
-        account_id: Optional[int] = None,
+        account_id: Optional[str] = None,
         transaction_id: int | Literal["new"] | None = None):
     budget = _get_allowed_budget_or_404(request, budget_id)
     accounts, categories, debts = accounts_overview(budget)
     totals = sum_by((category.currency, category.balance)
                     for category in categories)
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'today': date.today(), 'totals': totals, 'budget': budget}
+               'today': date.today(), 'totals': totals,
+               'budget': budget}
     context |= _edit_context(budget)
-    if account_id:
-        account = _get_allowed_account_or_404(request, account_id)
-        context |= {'account': account, 'entries': entries_for(account)}
-        if transaction_id:
-            form = _edit_form(budget, transaction_id)
-            context |= {'form': form, 'budget': budget,
-                        'transaction_id': transaction_id}
+    account = _get_allowed_object_or_404(
+        request, budget, account_id or budget.initial_currency)
+    context |= {'account': account, 'entries': account.transactions()}
+    if transaction_id:
+        form = _edit_form(budget, transaction_id)
+        context |= {'form': form, 'budget': budget,
+                    'transaction_id': transaction_id}
 
     return render(request, 'budget/all.html', context)
 
 
-def account_panel(request: HttpRequest, budget_id: int, account_id: int):
+def account_panel(request: HttpRequest, budget_id: int, account_id: str):
     budget = _get_allowed_budget_or_404(request, budget_id)
-    account = _get_allowed_account_or_404(request, account_id)
-    context = {'budget': budget, 'account': account,
-               'entries': entries_for(account)}
+    account = _get_allowed_object_or_404(request, budget, account_id)
+    context = {'budget': budget,
+               'account': account,
+               'entries': account.transactions()}
     response = render(request, 'budget/partials/account.html', context)
     response['HX-Push-Url'] = reverse('all-a', args=(budget_id, account_id))
     return response

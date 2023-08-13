@@ -56,10 +56,16 @@ body {
 
 main.all {
     display: grid;
-    grid: minmax(0, 1fr) / max-content 1fr max-content;
+    grid: minmax(0, 1fr) / max-content 1fr;
     gap: var(--line-height);
     width: 100%;
     height: 100%;
+}
+
+.all>#account {
+    display: grid;
+    grid: minmax(0, 1fr) / 1fr max-content;
+    gap: var(--line-height);
 }
 
 #overview,
@@ -140,12 +146,12 @@ th {
 }
 
 tr.a,
-div.a>* {
+:not(tr).a>* {
     background-color: var(--alt-canvas);
 }
 
 tr.b,
-div.b>* {
+:not(tr).b>* {
     /* make dragging look nicer */
     background-color: var(--canvas);
 }
@@ -276,7 +282,7 @@ entry-list:focus .checked>* {
 }
 
 
-.grid>div {
+.grid>* {
     display: contents;
 }
 
