@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Any, Literal
 from datetime import date, timedelta
+from urllib.parse import urlparse
 
 from django.shortcuts import render
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
@@ -8,7 +9,7 @@ from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
-from django.urls import reverse
+from django.urls import reverse, resolve
 from django.forms import BoundField
 from render_block import render_block_to_string
 import cProfile
@@ -77,24 +78,29 @@ def _get_allowed_object_or_404(request: HttpRequest, budget: Budget, name: str):
 @login_required
 def all(request: HttpRequest, budget_id: int,
         account_id: Optional[str] = None,
-        transaction_id: int | Literal["new"] | None = None):
+        transaction_id: int | None = None):
     budget = _get_allowed_budget_or_404(request, budget_id)
     accounts, categories, debts = accounts_overview(budget)
     totals = sum_by((category.currency, category.balance)
                     for category in categories)
-    context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'today': date.today(), 'totals': totals,
-               'budget': budget}
-    context |= _edit_context(budget)
     account = _get_allowed_object_or_404(
         request, budget, account_id or budget.initial_currency)
-    context |= {'account': account, 'entries': account.transactions()}
-    if transaction_id:
-        form = _edit_form(budget, transaction_id)
-        context |= {'form': form, 'budget': budget,
-                    'transaction_id': transaction_id}
+    form = _edit_form(request, budget, transaction_id)
+    context = {'accounts': accounts, 'categories': categories, 'debts': debts,
+               'budget': budget, 'today': date.today(), 'totals': totals,
+               'account_id': account_id,
+               'account': account, 'entries': account.transactions(),
+               'form': form, 'budget': budget, 'transaction_id': transaction_id
+               } | _edit_context(budget)
 
-    return render(request, 'budget/all.html', context)
+    response = render(request, 'budget/all.html', context)
+
+    if form.is_valid():
+        # In case a new transaction was created.
+        response['HX-Replace-Url'] = reverse(
+            'all-t', args=(budget_id, account_id, form.instance.id))
+
+    return response
 
 
 def account_panel(request: HttpRequest, budget_id: int, account_id: str):
@@ -108,15 +114,26 @@ def account_panel(request: HttpRequest, budget_id: int, account_id: str):
     return response
 
 
-def transaction_panel(request: HttpRequest, budget_id: int, account_id: int):
+def transaction_panel(request: HttpRequest):
+    transaction_id = request.GET.get('transaction')
+    current_path = urlparse(request.headers.get('HX-Current-URL', '')).path
+    all_args = resolve(current_path).kwargs
+    account_id = all_args['account_id']
+    budget_id = all_args['budget_id']
+
     budget = _get_allowed_budget_or_404(request, budget_id)
-    transaction_id = request.GET.get('transaction', 'new')
-    form = _edit_form(budget, transaction_id)
+    form = _edit_form(request, budget, transaction_id)
+    if transaction_id:
+        new_url = reverse(
+            'all-t', args=(budget_id, account_id, transaction_id))
+    else:
+        new_url = reverse('all-a', args=(budget_id, account_id))
+
     context = {'form': form, 'budget': budget,
+               'new_url': new_url,
                'transaction_id': transaction_id}
     response = render(request, 'budget/partials/edit.html', context)
-    response['HX-Replace-Url'] = reverse('all-t', args=(
-        budget_id, account_id, transaction_id))
+    response['HX-Replace-Url'] = new_url
     return response
 
 
@@ -139,15 +156,25 @@ def _edit_context(budget: Budget):
             'data': data}
 
 
-def _edit_form(budget: Budget, transaction_id: int | str):
+def _edit_form(request: HttpRequest, budget: Budget, transaction_id: int | str | None):
     budget = budget.main_budget()
-    if transaction_id == 'new':
+    if not transaction_id:
         transaction = None
     else:
         transaction = Transaction.objects.get_for(budget, int(transaction_id))
         if not transaction:
             raise Http404()
-    return TransactionForm(budget, prefix="tx", instance=transaction)
+    if request.method == 'POST':
+        form = TransactionForm(budget, prefix="tx", instance=transaction,
+                               data=request.POST)
+        if form.is_valid():
+            instance: Transaction = form.save()
+            if instance.id:
+                budget.initial_currency = instance.first_currency()
+                budget.save()
+        return form
+    else:
+        return TransactionForm(budget, prefix="tx", instance=transaction)
 
 
 @login_required
@@ -198,8 +225,7 @@ def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: 
     # FIXME: This leaks the existence of budget ids
     other = get_object_or_404(Budget, id=budget_id_2)
     account = Balance(budget, other, currency)
-    entries = entries_for_balance(account)
-    context = {'entries': entries, 'account': account,
+    context = {'entries': account.transactions(), 'account': account,
                'form': None}
     return render(request, 'budget/account.html', context)
 
@@ -214,7 +240,7 @@ def account(request: HttpRequest, account_id: int):
             form.save()
         return HttpResponseRedirect(request.get_full_path())
     form = rename_form(instance=account)
-    context = {'entries': entries_for(account), 'account': account,
+    context = {'entries': account.transactions(), 'account': account,
                'form': form}
     return render(request, 'budget/account.html', context)
 
@@ -229,7 +255,7 @@ def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
     if not transaction:
         raise Http404()
     transaction.change_inbox_to(account)
-    context = {'entries': entries_for(account), 'account': account}
+    context = {'entries': account.transactions(), 'account': account}
     return HttpResponse(render_block_to_string(
         'budget/account.html', 'list-contents', context, request))
 
@@ -247,7 +273,7 @@ def clear(request: HttpRequest, account_id: int, transaction_id: int):
         transaction.cleared.add(account)
     else:
         transaction.cleared.remove(account)
-    context = {'entries': entries_for(account), 'account': account}
+    context = {'entries': account.transactions(), 'account': account}
     return render(request, 'budget/partials/account_sums.html', context)
 
 

@@ -474,9 +474,14 @@ hr {
     gap: var(--line-height);
 }
 
-.part-extras> :first-child {
+.note {
     width: 50px;
     flex: 1 1;
+}
+
+#submit-button {
+    margin-left: auto;
+    align-self: flex-end;
 }
 
 .datepicker {

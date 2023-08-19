@@ -5,7 +5,7 @@
     autofocus
     name="transaction"
     hx-trigger="select delay:100ms"
-    hx-get="{% url 'transaction-panel' budget.id account.id %}"
+    hx-get="{% url 'transaction-panel' %}"
     hx-target="#transaction">
     {% block list-contents %}
     <div>
@@ -52,7 +52,7 @@
     {% endblock %}
 </entry-list>
 {% endspaceless %}
-<div id="transaction">
+<div id="transaction" class="editor">
     {% if form %}
     {% include 'budget/partials/edit.html' %}
     {% endif %}

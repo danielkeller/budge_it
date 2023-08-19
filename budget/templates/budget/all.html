@@ -21,7 +21,9 @@
 
         </div>
         <div class="tools">
-            <button type="button" hx-get="">New transaction</button>
+            <button type="button"
+                hx-get="{% url 'transaction-panel' %}"
+                hx-target="#transaction">New transaction...</button>
         </div>
     </div>
     <main class="all">

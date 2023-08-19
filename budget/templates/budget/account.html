@@ -21,8 +21,7 @@
     <script src="{% static 'budget/account.js' %}"></script>
 </head>
 
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-    hx-on::after-swap="selectFromUrl();">
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <div class="controls">
         <div class="navigation">
             <div><a href="{% url 'overview' account.budget.main_budget.id %}">Overview</a></div>
@@ -124,5 +123,4 @@
         </div>
     </main>
     {% endspaceless %}
-    <script>selectFromUrl();</script>
 </body>
