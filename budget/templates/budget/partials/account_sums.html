@@ -1,3 +1,4 @@
+<span id="balance" data-currency="{{ account.currency }}" hx-swap-oob="true">{{ balance }}</span>
 {% for transaction in entries %}
 {% if not transaction.is_inbox %}
 <span class="td number shortcurrency"

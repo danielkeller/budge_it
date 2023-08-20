@@ -14,7 +14,7 @@ import cProfile
 
 from .models import (sum_by, date_range, months_between,
                      BaseAccount, Account, Category, Budget,
-                     Transaction,
+                     Transaction, Cleared,
                      accounts_overview, entries_for, category_balance,
                      Balance, entries_for_balance, budgeting_transaction,
                      prior_budgeting_transaction)
@@ -125,7 +125,8 @@ def account(request: HttpRequest, account_id: int):
         return HttpResponseRedirect(request.get_full_path())
     form = rename_form(instance=account)
     data = {'budget': account.budget_id}
-    context = {'entries': entries_for(account), 'account': account,
+    entries, balance = entries_for(account)
+    context = {'entries': entries, 'account': account, 'balance': balance,
                'form': form, 'data': data}
     return render(request, 'budget/account.html', context)
 
@@ -158,8 +159,20 @@ def clear(request: HttpRequest, account_id: int, transaction_id: int):
         transaction.cleared_account.add(account)
     else:
         transaction.cleared_account.remove(account)
-    context = {'entries': entries_for(account), 'account': account}
+    entries, balance = entries_for(account)
+    context = {'entries': entries, 'balance': balance, 'account': account}
     return render(request, 'budget/partials/account_sums.html', context)
+
+
+@login_required
+def reconcile(request: HttpRequest, account_id: int):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
+    account = _get_allowed_account_or_404(request, account_id)
+    if not isinstance(account, Account) or not account.clearable:
+        return HttpResponseBadRequest('Wrong kind of account')
+    Cleared.objects.filter(account=account).update(reconciled=True)
+    return HttpResponseRedirect(reverse('account', args=(account_id,)))
 
 
 def account_form(request: HttpRequest, budget_id: int, number: int):

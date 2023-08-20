@@ -384,6 +384,8 @@ class Transaction(models.Model):
 
     objects = TransactionManager()
 
+    reconciled: bool | None
+    change: int
     running_sum: int  # TODO this is gross, put in view logic
 
     def __str__(self):
@@ -480,6 +482,7 @@ class Cleared(models.Model):
                                     related_name='cleared')
     account = models.ForeignKey(Account, on_delete=models.CASCADE,
                                 related_name='cleared')
+    reconciled = models.BooleanField(default=False)
 
 
 class TransactionPart(models.Model):
@@ -661,7 +664,7 @@ def months_between(start: date, end: date):
 # Some of these could be methods
 
 
-def entries_for(account: BaseAccount) -> list[Transaction]:
+def entries_for(account: BaseAccount) -> tuple[list[Transaction], int]:
     if isinstance(account, Account):  # gross
         field, amount = 'parts__accounts', 'parts__accountentry_set__amount'
     else:
@@ -679,19 +682,21 @@ def entries_for(account: BaseAccount) -> list[Transaction]:
           .order_by('date', '-kind', 'id'))
     if sum(transaction.do_recurrence() for transaction in qs):
         return entries_for(account)  # Retry
-    cleared: set[int]
-    cleared = set(account.cleared.values_list('transaction', flat=True)
-                  ) if isinstance(account, Account) else set()
+    cleared: dict[int, bool]
+    cleared = dict(account.cleared.values_list('transaction', 'reconciled')
+                   ) if isinstance(account, Account) else dict()
     total = 0
     for transaction in qs:
+        reconciled = cleared.get(transaction.id)
+        setattr(transaction, 'reconciled', reconciled)
         if getattr(transaction, 'account') == inbox:
             setattr(transaction, 'is_inbox', True)
-        elif account.clearable and transaction.id not in cleared:
+        elif account.clearable and reconciled is None:
             setattr(transaction, 'uncleared', True)
         else:
             total += getattr(transaction, 'change')
             setattr(transaction, 'running_sum', total)
-    return list(reversed(qs))
+    return list(reversed(qs)), total
 
 
 def entries_for_balance(account: Balance) -> Iterable[Transaction]:

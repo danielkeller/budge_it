@@ -38,6 +38,14 @@
                 {% account_in_budget account account.budget %}
                 {% endif %}
             </div>
+            {% if account.clearable %}
+            <div>
+                <form method="post" action="{% url 'reconcile' account.id %}">
+                    {% csrf_token %}
+                    <button>Reconcile</button> balance of <span id="balance" data-currency="{{ account.currency }}">{{ balance }}</span>
+                </form>
+            </div>
+            {% endif %}
         </div>
     </div>
     {% spaceless %}
@@ -76,7 +84,10 @@
 
                     {% if account.clearable %}
                     <span class="td">
-                        {% if not transaction.is_inbox %}
+                        {% if transaction.is_inbox %}
+                        {% elif transaction.reconciled %}
+                        🔒
+                        {% else %}
                         <input type="checkbox"
                             name="clear"
                             hx-post="{% url 'clear' account.id transaction.id %}"
