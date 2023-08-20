@@ -1,6 +1,8 @@
 {% for transaction in entries %}
+{% if not transaction.is_inbox %}
 <span class="td number shortcurrency"
     data-currency="{{ account.currency }}"
     id="total-{{transaction.id}}"
     hx-swap-oob="true">{{transaction.running_sum}}</span>
+{% endif %}
 {% endfor %}

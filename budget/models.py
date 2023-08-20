@@ -191,7 +191,7 @@ class Account(BaseAccount):
         on_delete=models.CASCADE, parent_link=True)
 
     clearable = models.BooleanField(default=False)  # type: ignore
-    cleared: 'models.manager.RelatedManager[Transaction]'
+    cleared: 'models.manager.RelatedManager[Cleared]'
 
     def kind(self):
         return 'account'
@@ -370,8 +370,9 @@ class Transaction(models.Model):
     id: models.BigAutoField
     date = models.DateField()
     recurrence = RecurrenceRuleField(null=True, blank=True)
-    cleared: 'models.ManyToManyField[Account, models.Model]'
-    cleared = models.ManyToManyField(Account, related_name='cleared')
+    cleared_account: 'models.ManyToManyField[Account, Cleared]'
+    cleared_account = models.ManyToManyField(
+        Account, through='Cleared', related_name='cleared_transaction')
 
     class Kind(models.TextChoices):
         TRANSACTION = 'T', 'Transaction'
@@ -467,6 +468,18 @@ class Transaction(models.Model):
                 self.save()
                 return True
         raise RuntimeError("unreachable")
+
+
+class Cleared(models.Model):
+    class Meta:  # type: ignore
+        db_table = 'budget_transaction_cleared'
+        unique_together = ["transaction", "account"]
+
+    transaction: models.ForeignKey[Transaction]
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
+                                    related_name='cleared')
+    account = models.ForeignKey(Account, on_delete=models.CASCADE,
+                                related_name='cleared')
 
 
 class TransactionPart(models.Model):
@@ -667,7 +680,7 @@ def entries_for(account: BaseAccount) -> list[Transaction]:
     if sum(transaction.do_recurrence() for transaction in qs):
         return entries_for(account)  # Retry
     cleared: set[int]
-    cleared = set(account.cleared.values_list('id', flat=True)
+    cleared = set(account.cleared.values_list('transaction', flat=True)
                   ) if isinstance(account, Account) else set()
     total = 0
     for transaction in qs:
