@@ -395,6 +395,7 @@ hr {
 .tdinput>:disabled,
 .tdinput>[readonly] {
     background-color: var(--canvas);
+    color: GrayText;
     z-index: 0;
 }
 

@@ -381,6 +381,7 @@ class Transaction(models.Model):
                             default=Kind.TRANSACTION)
 
     parts: 'models.Manager[TransactionPart]'
+    cleared: 'models.Manager[Cleared]'
 
     objects = TransactionManager()
 
@@ -548,6 +549,7 @@ class TransactionPart(models.Model):
         account: Optional[Account]
         category: Optional[Category]
         amount: int
+        reconciled: bool
 
     def tabular(self):
         def pop_by_(entries: 'dict[AccountT, int]',
@@ -560,6 +562,10 @@ class TransactionPart(models.Model):
             except StopIteration:
                 return None
 
+        # Can this be cached?
+        reconciled = (self.transaction.cleared
+                      .filter(reconciled=True)
+                      .values_list('account', flat=True))
         accounts = self.accountentry_set.entries()
         categories = self.categoryentry_set.entries()
         amounts = sorted((account.currency, amount)
@@ -571,8 +577,9 @@ class TransactionPart(models.Model):
             account = pop_by_(accounts, currency, amount)
             category = pop_by_(categories, currency, amount)
             if account or category:
+                is_reconciled = (account and account.id) in reconciled
                 rows.append(TransactionPart.Row(
-                    account, category, amount))
+                    account, category, amount, is_reconciled))
         return rows
 
 
@@ -679,15 +686,15 @@ def entries_for(account: BaseAccount) -> tuple[list[Transaction], int]:
           .filter(Q(**{field: account}) |
                   (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
           .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
+          .prefetch_related('cleared')
           .order_by('date', '-kind', 'id'))
     if sum(transaction.do_recurrence() for transaction in qs):
         return entries_for(account)  # Retry
-    cleared: dict[int, bool]
-    cleared = dict(account.cleared.values_list('transaction', 'reconciled')
-                   ) if isinstance(account, Account) else dict()
     total = 0
     for transaction in qs:
-        reconciled = cleared.get(transaction.id)
+        reconciled = next((cleared.reconciled
+                           for cleared in transaction.cleared.all()
+                           if cleared.account == account), None)
         setattr(transaction, 'reconciled', reconciled)
         if getattr(transaction, 'account') == inbox:
             setattr(transaction, 'is_inbox', True)

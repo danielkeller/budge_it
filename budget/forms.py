@@ -53,6 +53,7 @@ class EntryForm(forms.Form):
     def __init__(self, *args: Any, initial: Optional[TransactionPart.Row] = None,
                  **kwargs: Any):
         values: dict[str, Any] = {}
+        self.row = initial
         if initial:
             values = {'account': initial.account, 'category': initial.category}
             if initial.account:
