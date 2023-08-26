@@ -42,6 +42,8 @@ urlpatterns = [
          views.add_to_account, name='add_to_account'),
     path('account/<int:account_id>/clear/<int:transaction_id>/',
          views.clear, name='clear'),
+    path('account/<int:account_id>/reconcole/',
+         views.reconcile, name='reconcile'),
     path('transaction/<int:budget_id>/<int:transaction_id>/delete/',
          views.delete, name='delete'),
     path('budget/copy/<int:budget_id>/<int:transaction_id>/<int:year>/<int:month>/',

@@ -188,7 +188,7 @@ class BaseAccount(Id):
         """Not actually important"""
         return self.id < other.id
 
-    def transactions(self) -> list['Transaction']:
+    def transactions(self) -> tuple[list['Transaction'], int]:
         if isinstance(self, Account):  # gross
             field, amount = 'parts__accounts', 'parts__accountentry_set__amount'
         else:
@@ -203,22 +203,24 @@ class BaseAccount(Id):
               .filter(Q(**{field: self}) |
                       (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
               .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
+              .prefetch_related('cleared')
               .order_by('date', '-kind', 'id'))
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
-        cleared: set[int]
-        cleared = set(self.cleared.values_list('id', flat=True)
-                      ) if isinstance(self, Account) else set()
         total = 0
         for transaction in qs:
+            reconciled = next((cleared.reconciled
+                               for cleared in transaction.cleared.all()
+                               if cleared.account == self), None)
+            setattr(transaction, 'reconciled', reconciled)
             if getattr(transaction, 'account') == inbox:
                 setattr(transaction, 'is_inbox', True)
-            elif self.clearable and transaction.id not in cleared:
+            elif self.clearable and reconciled is None:
                 setattr(transaction, 'uncleared', True)
             else:
                 total += getattr(transaction, 'change')
                 setattr(transaction, 'running_sum', total)
-        return list(reversed(qs))
+        return list(reversed(qs)), total
 
 
 AccountT = TypeVar('AccountT', bound=BaseAccount)
@@ -231,7 +233,7 @@ class Account(BaseAccount):
         on_delete=models.CASCADE, parent_link=True)
 
     clearable = models.BooleanField(default=False)  # type: ignore
-    cleared: 'models.manager.RelatedManager[Transaction]'
+    cleared: 'models.manager.RelatedManager[Cleared]'
 
     def kind(self):
         return 'account'
@@ -275,7 +277,7 @@ class Balance:
     def name(self):
         return f"Owed by {self.other}"
 
-    def transactions(self) -> Iterable['Transaction']:
+    def transactions(self) -> tuple[list['Transaction'], int]:
         gets = (CategoryEntry.objects
                 .filter(part__transaction=OuterRef('pk'),
                         source__currency=self.currency,
@@ -471,8 +473,9 @@ class Transaction(models.Model):
     id: models.BigAutoField
     date = models.DateField()
     recurrence = RecurrenceRuleField(null=True, blank=True)
-    cleared: 'models.ManyToManyField[Account, models.Model]'
-    cleared = models.ManyToManyField(Account, related_name='cleared')
+    cleared_account: 'models.ManyToManyField[Account, Cleared]'
+    cleared_account = models.ManyToManyField(
+        Account, through='Cleared', related_name='cleared_transaction')
 
     class Kind(models.TextChoices):
         TRANSACTION = 'T', 'Transaction'
@@ -481,9 +484,12 @@ class Transaction(models.Model):
                             default=Kind.TRANSACTION)
 
     parts: 'models.Manager[TransactionPart]'
+    cleared: 'models.Manager[Cleared]'
 
     objects = TransactionManager()
 
+    reconciled: bool | None
+    change: int
     running_sum: int  # TODO this is gross, put in view logic
 
     def __str__(self):
@@ -579,6 +585,19 @@ class Transaction(models.Model):
         raise RuntimeError("unreachable")
 
 
+class Cleared(models.Model):
+    class Meta:  # type: ignore
+        db_table = 'budget_transaction_cleared'
+        unique_together = ["transaction", "account"]
+
+    transaction: models.ForeignKey[Transaction]
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,
+                                    related_name='cleared')
+    account = models.ForeignKey(Account, on_delete=models.CASCADE,
+                                related_name='cleared')
+    reconciled = models.BooleanField(default=False)
+
+
 class TransactionPart(models.Model):
     id: models.BigAutoField
     transaction = models.ForeignKey(
@@ -642,6 +661,7 @@ class TransactionPart(models.Model):
         account: Optional[Account]
         category: Optional[Category]
         amount: int
+        reconciled: bool
 
     def tabular(self):
         def pop_by_(entries: 'dict[AccountT, int]',
@@ -654,6 +674,10 @@ class TransactionPart(models.Model):
             except StopIteration:
                 return None
 
+        # Can this be cached?
+        reconciled = (self.transaction.cleared
+                      .filter(reconciled=True)
+                      .values_list('account', flat=True))
         accounts = self.accountentry_set.entries()
         categories = self.categoryentry_set.entries()
         amounts = sorted((account.currency, amount)
@@ -665,8 +689,9 @@ class TransactionPart(models.Model):
             account = pop_by_(accounts, currency, amount)
             category = pop_by_(categories, currency, amount)
             if account or category:
+                is_reconciled = (account and account.id) in reconciled
                 rows.append(TransactionPart.Row(
-                    account, category, amount))
+                    account, category, amount, is_reconciled))
         return rows
 
 

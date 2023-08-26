@@ -39,6 +39,14 @@
                 {% account_in_budget account account.budget %}
                 {% endif %}
             </div>
+            {% if account.clearable %}
+            <div>
+                <form method="post" action="{% url 'reconcile' account.id %}">
+                    {% csrf_token %}
+                    <button>Reconcile</button> balance of <span id="balance" data-currency="{{ account.currency }}">{{ balance }}</span>
+                </form>
+            </div>
+            {% endif %}
         </div>
     </div>
     {% spaceless %}
@@ -76,11 +84,14 @@
 
                 {% if account.clearable %}
                 <span class="td">
-                    {% if not transaction.is_inbox %}
+                    {% if transaction.is_inbox %}
+                    {% elif transaction.reconciled %}
+                    🔒
+                    {% else %}
                     <input type="checkbox"
                         name="clear"
                         hx-post="{% url 'clear' account.id transaction.id %}"
-                        hx-swap="none"
+                        hx-swap="none settle:0"
                         hx-on:dblclick="event.stopPropagation()"
                         {% if not transaction.uncleared %}checked{% endif %}>
                     {% endif %}
@@ -89,38 +100,39 @@
             </div>
             {% endfor %}
             {% endblock %}
-        </entry-list>
-        <div class="transaction-details">
-            {% for transaction in entries %}
-            <div data-id="{{transaction.id}}">
-                {% if transaction.kind != 'B' %}
-                {% for part in transaction.parts.all %}
-                <table>
-                    <th>Account</th>
-                    <th>Category</th>
-                    <th>Amount</th>
-                    {% for entry in part.tabular %}
-                    <tr class="{% cycle 'a' 'b' %}">
-                        <td>{% account_in_budget entry.account account.budget %}</td>
-                        <td>{% account_in_budget entry.category account.budget %}</td>
-                        {% firstof entry.account.currency entry.category.currency as currency %}
-                        <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{entry.amount}}</td>
-                    </tr>
-                    {% endfor %}
-                    {% resetcycle %}
-                </table>
-                {% if part.note %}<div>
-                    <pre>{{ part.note }}</pre>
-                </div>{% endif %}
-                {% endfor %}
-                {% endif %}
-                <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">
-                        {% if transaction.kind != 'B' %}Edit...
-                        {% else %}Edit budget...{% endif %}
-                    </a></div>
             </div>
-            {% endfor %}
-        </div>
+            </div>
+            <div class="transaction-details">
+                {% for transaction in entries %}
+                <div data-id="{{transaction.id}}">
+                    {% if transaction.kind != 'B' %}
+                    {% for part in transaction.parts.all %}
+                    <table>
+                        <th>Account</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        {% for entry in part.tabular %}
+                        <tr class="{% cycle 'a' 'b' %}">
+                            <td>{% account_in_budget entry.account account.budget %}</td>
+                            <td>{% account_in_budget entry.category account.budget %}</td>
+                            {% firstof entry.account.currency entry.category.currency as currency %}
+                            <td class="number {% if currency == account.currency %}shortcurrency{% endif %}" data-currency="{{ currency }}">{{entry.amount}}</td>
+                        </tr>
+                        {% endfor %}
+                        {% resetcycle %}
+                    </table>
+                    {% if part.note %}<div>
+                        <pre>{{ part.note }}</pre>
+                    </div>{% endif %}
+                    {% endfor %}
+                    {% endif %}
+                    <div class="transaction-detail-edit"><a href="{% url 'edit' account.budget.id transaction.id %}?back={{ request.get_full_path|urlencode }}">
+                            {% if transaction.kind != 'B' %}Edit...
+                            {% else %}Edit budget...{% endif %}
+                        </a></div>
+                </div>
+                {% endfor %}
+            </div>
     </main>
     {% endspaceless %}
 </body>

@@ -61,11 +61,13 @@ class TransactionPartInline(admin.TabularInline):  # type: ignore
     show_change_link = True
 
 
+class ClearedInline(admin.TabularInline):  # type: ignore
+    model = Cleared
+    raw_id_fields = ['account']
+
+
 class TransactionAdmin(admin.ModelAdmin):  # type: ignore
-    raw_id_fields = ['cleared']
-    inlines = [
-        TransactionPartInline
-    ]
+    inlines = [ClearedInline, TransactionPartInline]
 
 
 admin.site.register(Transaction, TransactionAdmin)

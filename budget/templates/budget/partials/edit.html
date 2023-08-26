@@ -40,14 +40,16 @@
             {% block edit-row %}
             <tr class="edit-row" is="edit-row">
                 <td class="tdinput" is="account-select">
-                    {{ row.account }}<span></span><input list="account-list">
+                    {{ row.account }}<span></span><input list="account-list"
+                        {% if row.row.reconciled %}readonly{% endif %}>
                 </td>
                 <td class="tdinput" is="account-select">
                     {{ row.category }}<span></span><input list="category-list">
                 </td>
                 <td class="tdinput" is="currency-input">
                     {{ row.transferred }}
-                    <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*">
+                    <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*"
+                        {% if row.row.reconciled %}readonly{% endif %}>
                 </td>
                 <td class="tdinput" is="currency-input">
                     {{ row.moved }}
