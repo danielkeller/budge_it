@@ -9,10 +9,7 @@ class Editor extends HTMLFormElement {
         this.addEventListener('input', ({ target }) => {
             if (target.classList.contains('edit-currency')) checkValid();
         });
-        setTimeout(() => {
-            window.data = JSON.parse(document.getElementById('data').textContent);
-            checkValid();
-        }, 0);
+        setTimeout(checkValid, 0);
     }
     get parts() { return this.querySelectorAll('edit-part'); }
 }
@@ -46,7 +43,7 @@ class AccountSelect extends HTMLTableCellElement {
         this.addEventListener('input', this.#selectInput.bind(this));
         // This is a hack and also doesn't work very well (in FF at least).
         this.addEventListener('focusout', () => this.input.reportValidity());
-        setTimeout(() => this.value = this.value, 0);
+        whenContentIsReady(this, () => this.value = this.value);
     }
     get #hidden() { return this.children[0]; }
     get #sigil() { return this.children[1]; }
@@ -90,7 +87,7 @@ customElements.define("account-select", AccountSelect, { extends: "td" });
 class CurrencyInput extends HTMLTableCellElement {
     connectedCallback() {
         this.addEventListener('input', this.#parse.bind(this));
-        setTimeout(() => this.value = this.value, 0);
+        whenContentIsReady(this, () => this.value = this.value);
     }
     get #hidden() { return this.children[0]; }
     get input() { return this.children[1]; }

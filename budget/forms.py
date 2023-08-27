@@ -189,8 +189,9 @@ class PartForm(FormSetInline(EntryFormSet)):
     def full_clean(self):
         super().full_clean()
         # Kind of a hack
-        self.formset.currency = self.cleaned_data.get(
-            'currency')  # type: ignore
+        if self.is_bound:
+            self.formset.currency = self.cleaned_data.get(
+                'currency')  # type: ignore
 
     def save(self, commit: bool = True) -> Optional[TransactionPart]:
         instance: TransactionPart = super().save(commit)

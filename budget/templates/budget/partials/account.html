@@ -4,6 +4,7 @@
 <entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
     autofocus
     name="transaction"
+    id="entries"
     hx-trigger="select delay:100ms"
     hx-get="{% url 'transaction-panel' %}"
     hx-target="#transaction">

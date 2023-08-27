@@ -1,6 +1,7 @@
 <form id="form" class="edit" is="transaction-editor" autocomplete="off"
     hx-post="{{ new_url|default:current_url }}"
-    hx-target="body">
+    hx-swap="none"
+    hx-select-oob="#form,#entries:innerHTML,#categories">
     <div class="part-extras">
         <table class="date-table">
             <tr>
@@ -94,6 +95,7 @@
                     <td class="tdinput t4">{{ part.currency }}</td>
                 </tr>
             </table>
+            {{ part.errors }}
         </div>
         <div class="category-sum"></div>
         <div class="account-sum"></div>
@@ -121,5 +123,4 @@
 </form>
 
 {{ form.errors|default:"" }}
-{{ form.formset.errors|default:"" }}
-{{ form.formset.non_form_errors }}
+{{ form.formset.non_form_errors|default:"" }}

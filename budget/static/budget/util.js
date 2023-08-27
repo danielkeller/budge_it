@@ -58,6 +58,11 @@ function findAncestor(element, predicate) {
     return element;
 }
 
+function whenContentIsReady(element, callback) {
+    if (element.children.length) callback();
+    else setTimeout(callback, 0);
+}
+
 class ShortCurrency extends HTMLElement {
     connectedCallback() {
         const value = this.getAttribute('value');

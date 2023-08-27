@@ -86,10 +86,11 @@ def all(request: HttpRequest, budget_id: int,
     account = _get_allowed_object_or_404(
         request, budget, account_id or budget.initial_currency)
     form = _edit_form(request, budget, transaction_id)
+    entries, balance = account.transactions()
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
                'budget': budget, 'today': date.today(), 'totals': totals,
                'account_id': account_id,
-               'account': account, 'entries': account.transactions(),
+               'account': account, 'entries': entries, 'balance': balance,
                'form': form, 'budget': budget, 'transaction_id': transaction_id
                } | _edit_context(budget)
 
@@ -106,12 +107,28 @@ def all(request: HttpRequest, budget_id: int,
 def account_panel(request: HttpRequest, budget_id: int, account_id: str):
     budget = _get_allowed_budget_or_404(request, budget_id)
     account = _get_allowed_object_or_404(request, budget, account_id)
-    context = {'budget': budget,
-               'account': account,
-               'entries': account.transactions()}
+    entries, balance = account.transactions()
+    form = _edit_form(request, budget, None)
+    context = {'budget': budget, 'account': account,
+               'entries': entries, 'balance': balance,
+               'form': form}
     response = render(request, 'budget/partials/account.html', context)
     response['HX-Push-Url'] = reverse('all-a', args=(budget_id, account_id))
     return response
+
+
+def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
+    account = _get_allowed_account_or_404(request, account_id)
+    transaction = Transaction.objects.get_for(
+        account.budget, transaction_id)
+    if not transaction:
+        raise Http404()
+    transaction.change_inbox_to(account)
+    context = {'entries': account.transactions(), 'account': account}
+    return HttpResponse(render_block_to_string(
+        'budget/partials/account.html', 'list-contents', context, request))
 
 
 def transaction_panel(request: HttpRequest):
@@ -245,21 +262,6 @@ def account(request: HttpRequest, account_id: int):
     context = {'entries': entries, 'account': account, 'balance': balance,
                'form': form, 'data': data}
     return render(request, 'budget/account.html', context)
-
-
-@login_required
-def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
-    if request.method != 'POST':
-        return HttpResponseBadRequest('Wrong method')
-    account = _get_allowed_account_or_404(request, account_id)
-    transaction = Transaction.objects.get_for(
-        account.budget, transaction_id)
-    if not transaction:
-        raise Http404()
-    transaction.change_inbox_to(account)
-    context = {'entries': account.transactions(), 'account': account}
-    return HttpResponse(render_block_to_string(
-        'budget/account.html', 'list-contents', context, request))
 
 
 @login_required

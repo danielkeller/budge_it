@@ -12,7 +12,7 @@
     <script src="{% static 'budget/overview.js' %}"></script>
     <script src="{% static 'budget/account.js' %}"></script>
     <script src="{% static 'budget/editor.js' %}"></script>
-    <script src="{% static 'budget/htmx.min.js' %}"></script>
+    <script src="{% static 'budget/htmx.min.js' %}" defer></script>
 </head>
 
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
@@ -60,4 +60,5 @@
         {% endfor %}
     </datalist>
     {{ data|json_script:"data" }}
+    <script>window.data = JSON.parse(document.getElementById('data').textContent);</script>
 </body>
