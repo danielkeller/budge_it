@@ -1,58 +1,71 @@
 {% load budget %}
+<div style="display: grid;gap: var(--line-height);grid: minmax(0, max-content) min-content / auto;">
+    {% spaceless %}
+    <entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
+        autofocus
+        name="transaction"
+        id="entries"
+        hx-trigger="select delay:100ms"
+        hx-get="{% url 'transaction-panel' %}"
+        hx-target="#transaction">
+        {% block list-contents %}
+        <div>
+            <span class="th">Date</span>
+            <span class="th">Transaction</span>
+            <span class="th">{{ account.currency }}</span>
+            <span class="th">{{ account.name|default:"Inbox" }}</span>
+            {% if account.clearable %}<span class="th">☑️</span>{% endif %}
+        </div>
+        {% for transaction in entries %}
+        <div class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
+            data-value="{{transaction.id}}">
+            <span class="td">{{transaction.date|date:"SHORT_DATE_FORMAT"}}
+                {% if transaction.recurrence %}🔁{% endif %}
+            </span>
 
-{% spaceless %}
-<entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
-    autofocus
-    name="transaction"
-    id="entries"
-    hx-trigger="select delay:100ms"
-    hx-get="{% url 'transaction-panel' %}"
-    hx-target="#transaction">
-    {% block list-contents %}
-    <div>
-        <span class="th">Date</span>
-        <span class="th">Transaction</span>
-        <span class="th">{{ account.currency }}</span>
-        <span class="th">{{ account.name|default:"Inbox" }}</span>
-        {% if account.clearable %}<span class="th">☑️</span>{% endif %}
-    </div>
-    {% for transaction in entries %}
-    <div class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
-        data-value="{{transaction.id}}">
-        <span class="td">{{transaction.date|date:"SHORT_DATE_FORMAT"}}
-            {% if transaction.recurrence %}🔁{% endif %}
-        </span>
+            <span class="td">{{transaction|transaction_description:account}}</span>
 
-        <span class="td">{{transaction|transaction_description:account}}</span>
+            <short-currency class="td number" currency="{{ account.currency }}" value="{{ transaction.change }}"></short-currency>
 
-        <short-currency class="td number" currency="{{ account.currency }}" value="{{ transaction.change }}"></short-currency>
-
-        {% if transaction.is_inbox %}
-        <span class="td">
-            <button hx-post="{% url 'add_to_account' account.id transaction.id%}"
-                hx-target="closest entry-list">Move here</button>
-        </span>
-        {% else %}
-        <short-currency class="td number" value="{{transaction.running_sum}}" currency="{{ account.currency }}" id="total-{{transaction.id}}"></short-currency>
-        {% endif %}
-
-        {% if account.clearable %}
-        <span class="td">
-            {% if not transaction.is_inbox %}
-            <input type="checkbox"
-                name="clear"
-                hx-post="{% url 'clear' account.id transaction.id %}"
-                hx-swap="none"
-                hx-on:dblclick="event.stopPropagation()"
-                {% if not transaction.uncleared %}checked{% endif %}>
+            {% if transaction.is_inbox %}
+            <span class="td">
+                <button hx-post="{% url 'add_to_account' account.id transaction.id%}"
+                    hx-target="closest entry-list">Move here</button>
+            </span>
+            {% else %}
+            <short-currency class="td number" value="{{transaction.running_sum}}" currency="{{ account.currency }}" id="total-{{transaction.id}}"></short-currency>
             {% endif %}
-        </span>
-        {% endif %}
+
+            {% if account.clearable %}
+            {% if transaction.is_inbox %}
+            <span class="td"></span>
+            {% else %}
+            <span class="td" id="cleared-{{transaction.id}}">
+                {% if transaction.reconciled %}
+                🔒
+                {% else %}
+                <input type="checkbox"
+                    name="clear"
+                    hx-post="{% url 'clear' account.id transaction.id %}"
+                    hx-swap="none settle:0"
+                    hx-on:dblclick="event.stopPropagation()"
+                    {% if not transaction.uncleared %}checked{% endif %}>
+                {% endif %}
+            </span>
+            {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% endblock %}
+    </entry-list>
+    {% endspaceless %}
+    {% if account.clearable %}
+    <div style="text-align: right;">
+        <button hx-post="{% url 'reconcile' account.id %}" hx-swap="none">Reconcile</button> balance of
+        <long-currency id="balance" currency="{{ account.currency }}" value="{{ balance }}"></long-currency>
     </div>
-    {% endfor %}
-    {% endblock %}
-</entry-list>
-{% endspaceless %}
+    {% endif %}
+</div>
 <div id="transaction" class="editor">
     {% if form %}
     {% include 'budget/partials/edit.html' %}

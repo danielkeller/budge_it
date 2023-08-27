@@ -292,7 +292,9 @@ def reconcile(request: HttpRequest, account_id: int):
     if not isinstance(account, Account) or not account.clearable:
         return HttpResponseBadRequest('Wrong kind of account')
     Cleared.objects.filter(account=account).update(reconciled=True)
-    return HttpResponseRedirect(reverse('account', args=(account_id,)))
+    entries, balance = account.transactions()
+    context = {'entries': entries, 'balance': balance, 'account': account}
+    return render(request, 'budget/partials/account_sums.html', context)
 
 
 def account_form(request: HttpRequest, budget_id: int, number: int):
