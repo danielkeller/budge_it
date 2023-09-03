@@ -22,8 +22,8 @@
         </div>
         <div class="tools">
             <button type="button"
-                hx-get="{% url 'transaction-panel' %}"
-                hx-target="#transaction">New transaction...</button>
+                hx-on:click="document.getElementById('entries').select(null)">
+                New transaction...</button>
         </div>
     </div>
     <main class="all">

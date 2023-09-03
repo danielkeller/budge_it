@@ -99,6 +99,7 @@ class ListView extends HTMLElement {
                 this.prev();
             }
         });
+        whenContentIsReady(this, () => this.value = this.getAttribute('value'));
     }
     get name() { return this.getAttribute('name'); }
     get checked() { return this.querySelector('.checked'); }
@@ -114,7 +115,8 @@ class ListView extends HTMLElement {
     select(row) {
         if (this.checked !== row) {
             this.checked = row;
-            row.dispatchEvent(new CustomEvent('select', { bubbles: true }));
+            (row || this).dispatchEvent(
+                new CustomEvent('select', { bubbles: true }));
         }
     }
     prev() {
@@ -137,15 +139,6 @@ class ListView extends HTMLElement {
     }
 }
 class EntryList extends ListView {
-    connectedCallback() {
-        super.connectedCallback();
-        const selectFromUrl = () => {
-            const match = location.pathname.match(/\w+\/\w+\/(\w+).*/);
-            if (match) this.value = match[1];
-            document.removeEventListener('htmx:load', selectFromUrl);
-        };
-        document.addEventListener('htmx:load', selectFromUrl);
-    }
     get checked() { return super.checked; }
     set checked(row) {
         super.checked = row;

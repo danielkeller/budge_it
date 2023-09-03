@@ -5,6 +5,7 @@
         autofocus
         name="transaction"
         id="entries"
+        value="{{ transaction_id|default:"" }}"
         hx-trigger="select delay:100ms"
         hx-get="{% url 'transaction-panel' %}"
         hx-target="#transaction">
