@@ -1,10 +1,9 @@
 {% load budget %}
-<div style="display: grid;gap: var(--line-height);grid: minmax(0, max-content) min-content / auto;">
+<div style="display: grid;gap: var(--line-height);grid: minmax(0, max-content) min-content / auto;" id="entries">
     {% spaceless %}
     <entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
         autofocus
         name="transaction"
-        id="entries"
         value="{{ transaction_id|default:"" }}"
         hx-trigger="select delay:100ms"
         hx-get="{% url 'transaction-panel' %}"

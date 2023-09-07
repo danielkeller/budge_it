@@ -322,7 +322,7 @@ class Total:
         # Templates/urls refer to it this way
         return self.currency
 
-    def transactions(self) -> Iterable['Transaction']:
+    def transactions(self) -> tuple[Iterable['Transaction'], int]:
         qs = (Transaction.objects
               .filter_for(self.budget)
               .filter(parts__categories__currency=self.currency,
@@ -336,7 +336,7 @@ class Total:
         for transaction in qs:
             total += getattr(transaction, 'change')
             setattr(transaction, 'running_sum', total)
-        return list(reversed(qs))
+        return list(reversed(qs)), total
 
 
 def group_by_currency(amounts: dict[AccountT, int]):

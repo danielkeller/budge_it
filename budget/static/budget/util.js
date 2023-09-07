@@ -99,7 +99,8 @@ class ListView extends HTMLElement {
                 this.prev();
             }
         });
-        whenContentIsReady(this, () => this.value = this.getAttribute('value'));
+        // Wait for htmx to do its thing
+        setTimeout(() => this.value = this.getAttribute('value'), 0);
     }
     get name() { return this.getAttribute('name'); }
     get checked() { return this.querySelector('.checked'); }

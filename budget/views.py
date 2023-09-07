@@ -75,6 +75,17 @@ def _get_allowed_object_or_404(request: HttpRequest, budget: Budget, name: str):
     return _get_allowed_account_or_404(request, id)
 
 
+def _get_allowed_transaction_or_404(budget: Budget, transaction_id: int|str|None):
+    budget = budget.main_budget()
+    if not transaction_id:
+        return None
+    else:
+        transaction = Transaction.objects.get_for(budget, int(transaction_id))
+        if not transaction:
+            raise Http404()
+        return transaction
+
+
 @login_required
 def all(request: HttpRequest, budget_id: int,
         account_id: Optional[str] = None,
@@ -85,7 +96,8 @@ def all(request: HttpRequest, budget_id: int,
                     for category in categories)
     account = _get_allowed_object_or_404(
         request, budget, account_id or budget.initial_currency)
-    form = _edit_form(request, budget, transaction_id)
+    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
+    form = TransactionForm(budget, prefix="tx", instance=transaction)
     entries, balance = account.transactions()
     context = {'accounts': accounts, 'categories': categories, 'debts': debts,
                'budget': budget, 'today': date.today(), 'totals': totals,
@@ -94,14 +106,7 @@ def all(request: HttpRequest, budget_id: int,
                'form': form, 'budget': budget, 'transaction_id': transaction_id
                } | _edit_context(budget)
 
-    response = render(request, 'budget/all.html', context)
-
-    if form.is_valid():
-        # In case a new transaction was created.
-        response['HX-Replace-Url'] = reverse(
-            'all-t', args=(budget_id, account_id, form.instance.id))
-
-    return response
+    return render(request, 'budget/all.html', context)
 
 
 def account_panel(request: HttpRequest, budget_id: int, account_id: str):
@@ -139,18 +144,31 @@ def transaction_panel(request: HttpRequest):
     budget_id = all_args['budget_id']
 
     budget = _get_allowed_budget_or_404(request, budget_id)
-    form = _edit_form(request, budget, transaction_id)
+    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
+    response = None
+    if request.method == 'POST':
+        form = TransactionForm(budget, prefix="tx", instance=transaction,
+                               data=request.POST)
+        if form.is_valid():
+            transaction = form.save()
+            transaction_id = transaction.id
+            if transaction_id:
+                budget.initial_currency = transaction.first_currency()
+                budget.save()
+            response = all(request, budget_id, account_id, transaction_id)
+    else:
+        form = TransactionForm(budget, prefix="tx", instance=transaction)
+    if not response:
+        context = {'form': form, 'budget': budget,
+                   'transaction_id': transaction_id}
+        response = render(request, 'budget/partials/edit.html', context)
+
     if transaction_id:
-        new_url = reverse(
+        response['HX-Replace-Url'] = reverse(
             'all-t', args=(budget_id, account_id, transaction_id))
     else:
-        new_url = reverse('all-a', args=(budget_id, account_id))
+        response['HX-Replace-Url'] = reverse('all-a', args=(budget_id, account_id))
 
-    context = {'form': form, 'budget': budget,
-               'new_url': new_url,
-               'transaction_id': transaction_id}
-    response = render(request, 'budget/partials/edit.html', context)
-    response['HX-Replace-Url'] = new_url
     return response
 
 
@@ -174,13 +192,7 @@ def _edit_context(budget: Budget):
 
 
 def _edit_form(request: HttpRequest, budget: Budget, transaction_id: int | str | None):
-    budget = budget.main_budget()
-    if not transaction_id:
-        transaction = None
-    else:
-        transaction = Transaction.objects.get_for(budget, int(transaction_id))
-        if not transaction:
-            raise Http404()
+    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
     if request.method == 'POST':
         form = TransactionForm(budget, prefix="tx", instance=transaction,
                                data=request.POST)
