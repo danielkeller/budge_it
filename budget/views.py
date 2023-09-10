@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from urllib.parse import urlparse
 
 from django.shortcuts import render
+from django.template.loader import render_to_string
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
                          HttpResponseBadRequest, Http404)
 from django.shortcuts import get_object_or_404
@@ -154,14 +155,11 @@ def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
     if request.method != 'POST':
         return HttpResponseBadRequest('Wrong method')
     account = _get_allowed_account_or_404(request, account_id)
-    transaction = Transaction.objects.get_for(
-        account.budget, transaction_id)
+    transaction = Transaction.objects.get_for(account.budget, transaction_id)
     if not transaction:
         raise Http404()
     transaction.change_inbox_to(account)
-    context = {'entries': account.transactions(), 'account': account}
-    return HttpResponse(render_block_to_string(
-        'budget/partials/account.html', 'list-contents', context, request))
+    return all(request, account.budget_id, account_id, transaction_id)
 
 
 def _edit_context(budget: Budget):

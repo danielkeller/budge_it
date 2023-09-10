@@ -30,7 +30,9 @@
             {% if transaction.is_inbox %}
             <span class="td">
                 <button hx-post="{% url 'add_to_account' account.id transaction.id%}"
-                    hx-target="closest entry-list">Move here</button>
+                    hx-swap="none" hx-select-oob="#transaction,#entries,#categories"
+                    hx-target="this">
+                    Move here</button>
             </span>
             {% else %}
             <short-currency class="td number" value="{{transaction.running_sum}}" currency="{{ account.currency }}" id="total-{{transaction.id}}"></short-currency>
