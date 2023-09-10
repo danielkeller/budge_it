@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Any, Literal
+from typing import Optional, Any, cast
 from datetime import date, timedelta
 from urllib.parse import urlparse
 
@@ -67,58 +67,86 @@ def _get_allowed_account_or_404(request: HttpRequest, id: int):
     return account
 
 
-def _get_allowed_object_or_404(request: HttpRequest, budget: Budget, name: str):
+def _get_allowed_object_or_404(request: HttpRequest, budget: Budget,
+                               name: str | int):
     try:
         id = int(name)
     except ValueError:
-        return Total(budget, name)
+        return Total(budget, cast(str, name))
     return _get_allowed_account_or_404(request, id)
 
 
-def _get_allowed_transaction_or_404(budget: Budget, transaction_id: int|str|None):
-    budget = budget.main_budget()
+def _get_allowed_transaction_or_404(budget: Budget,
+                                    transaction_id: int | str | None):
     if not transaction_id:
         return None
-    else:
-        transaction = Transaction.objects.get_for(budget, int(transaction_id))
-        if not transaction:
-            raise Http404()
-        return transaction
+    budget = budget.main_budget()
+    transaction = Transaction.objects.get_for(budget, int(transaction_id))
+    if not transaction:
+        raise Http404()
+    return transaction
+
+
+def reverse_all(budget_id: int, account_id: str | int | None = None,
+                transaction_id: str | int | None = None):
+    return reverse('all', args=[arg for arg in (
+        budget_id, account_id, transaction_id) if arg])
 
 
 @login_required
 def all(request: HttpRequest, budget_id: int,
-        account_id: Optional[str] = None,
-        transaction_id: int | None = None):
+        account_id: str | int | None = None,
+        transaction_id: str | int | None = None):
     budget = _get_allowed_budget_or_404(request, budget_id)
+    context = {'budget': budget, 'today': date.today()}
+
+    transaction_id = transaction_id or request.GET.get('transaction')
+    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
+    form = TransactionForm(budget, prefix="tx", instance=transaction)
+    context |= {'transaction_id': transaction_id, 'form': form}
+
+    if request.headers.get('HX-Target') == 'transaction':
+        response = render(request, 'budget/partials/edit.html', context)
+        response['HX-Replace-Url'] = reverse_all(
+            budget_id, account_id, transaction_id)
+        return response
+
+    if account_id:
+        account = _get_allowed_object_or_404(request, budget, account_id)
+        entries, balance = account.transactions()
+        context |= {'account': account, 'entries': entries, 'balance': balance}
+
+    if request.headers.get('HX-Target') == 'account':
+        return render(request, 'budget/partials/account.html', context)
+
     accounts, categories, debts = accounts_overview(budget)
     totals = sum_by((category.currency, category.balance)
                     for category in categories)
-    account = _get_allowed_object_or_404(
-        request, budget, account_id or budget.initial_currency)
-    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
-    form = TransactionForm(budget, prefix="tx", instance=transaction)
-    entries, balance = account.transactions()
-    context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'budget': budget, 'today': date.today(), 'totals': totals,
-               'account_id': account_id,
-               'account': account, 'entries': entries, 'balance': balance,
-               'form': form, 'budget': budget, 'transaction_id': transaction_id
-               } | _edit_context(budget)
+    context |= {'accounts': accounts, 'categories': categories,
+                'debts': debts, 'totals': totals,
+                'edit': _edit_context(budget)}
 
     return render(request, 'budget/all.html', context)
 
 
-def account_panel(request: HttpRequest, budget_id: int, account_id: str):
+def save(request: HttpRequest, budget_id: int, account_id: str | int,
+         transaction_id: str | int | None = None):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Wrong method')
     budget = _get_allowed_budget_or_404(request, budget_id)
-    account = _get_allowed_object_or_404(request, budget, account_id)
-    entries, balance = account.transactions()
-    form = _edit_form(request, budget, None)
-    context = {'budget': budget, 'account': account,
-               'entries': entries, 'balance': balance,
-               'form': form}
-    response = render(request, 'budget/partials/account.html', context)
-    response['HX-Push-Url'] = reverse('all-a', args=(budget_id, account_id))
+    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
+    form = TransactionForm(budget, prefix="tx", instance=transaction,
+                           data=request.POST)
+    if not form.is_valid():
+        raise ValueError(form.errors, form.formset.non_form_errors())
+    transaction = form.save()
+    transaction_id = transaction.id
+    if transaction_id:
+        budget.initial_currency = transaction.first_currency()
+        budget.save()
+    response = all(request, budget_id, account_id, transaction_id)
+    response['HX-Replace-Url'] = reverse_all(
+        budget_id, account_id, transaction_id)
     return response
 
 
@@ -134,42 +162,6 @@ def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
     context = {'entries': account.transactions(), 'account': account}
     return HttpResponse(render_block_to_string(
         'budget/partials/account.html', 'list-contents', context, request))
-
-
-def transaction_panel(request: HttpRequest):
-    transaction_id = request.GET.get('transaction')
-    current_path = urlparse(request.headers.get('HX-Current-URL', '')).path
-    all_args = resolve(current_path).kwargs
-    account_id = all_args['account_id']
-    budget_id = all_args['budget_id']
-
-    budget = _get_allowed_budget_or_404(request, budget_id)
-    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
-    response = None
-    if request.method == 'POST':
-        form = TransactionForm(budget, prefix="tx", instance=transaction,
-                               data=request.POST)
-        if form.is_valid():
-            transaction = form.save()
-            transaction_id = transaction.id
-            if transaction_id:
-                budget.initial_currency = transaction.first_currency()
-                budget.save()
-            response = all(request, budget_id, account_id, transaction_id)
-    else:
-        form = TransactionForm(budget, prefix="tx", instance=transaction)
-    if not response:
-        context = {'form': form, 'budget': budget,
-                   'transaction_id': transaction_id}
-        response = render(request, 'budget/partials/edit.html', context)
-
-    if transaction_id:
-        response['HX-Replace-Url'] = reverse(
-            'all-t', args=(budget_id, account_id, transaction_id))
-    else:
-        response['HX-Replace-Url'] = reverse('all-a', args=(budget_id, account_id))
-
-    return response
 
 
 def _edit_context(budget: Budget):
@@ -189,21 +181,6 @@ def _edit_context(budget: Budget):
     return {'friends': friends, 'payees': payees,
             'accounts': accounts, 'categories': categories,
             'data': data}
-
-
-def _edit_form(request: HttpRequest, budget: Budget, transaction_id: int | str | None):
-    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
-    if request.method == 'POST':
-        form = TransactionForm(budget, prefix="tx", instance=transaction,
-                               data=request.POST)
-        if form.is_valid():
-            instance: Transaction = form.save()
-            if instance.id:
-                budget.initial_currency = instance.first_currency()
-                budget.save()
-        return form
-    else:
-        return TransactionForm(budget, prefix="tx", instance=transaction)
 
 
 @login_required

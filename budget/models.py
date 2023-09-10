@@ -1,4 +1,5 @@
-from typing import Optional, Iterable, TypeVar, Type, Union, Self, Generic, Any
+from typing import (Optional, Iterable, TypeVar, Type, Union, Self, Generic,
+                    Any, ClassVar)
 import functools
 from itertools import chain, islice
 from datetime import date, timedelta
@@ -72,7 +73,7 @@ class Budget(Id):
 
     @functools.cache
     def get_absolute_url(self):
-        return reverse('overview', kwargs={'budget_id': self.id})
+        return reverse('all', args=(self.id,))
 
     def get_inbox(self, cls: 'Type[AccountT]', currency: str) -> 'AccountT':
         # Caching this doesn't work well with rollbacks
@@ -173,7 +174,7 @@ class BaseAccount(Id):
 
     @functools.cache
     def get_absolute_url(self):
-        return reverse('account', kwargs={'account_id': self.id})
+        return reverse('all', args=(self.budget_id, self.id))
 
     def is_inbox(self):
         return self.name == ""
@@ -486,7 +487,7 @@ class Transaction(models.Model):
     parts: 'models.Manager[TransactionPart]'
     cleared: 'models.Manager[Cleared]'
 
-    objects = TransactionManager()
+    objects: ClassVar[TransactionManager] = TransactionManager()
 
     reconciled: bool | None
     change: int
@@ -736,7 +737,7 @@ class Entry(Generic[AccountT], models.Model):
         abstract = True
         constraints = [models.UniqueConstraint(
             fields=["part", "source", "sink"], name="m2m_%(class)s")]
-    objects: EntryManager[AccountT] = EntryManager()
+    objects: ClassVar[EntryManager[AccountT]] = EntryManager()  # type: ignore
     part = models.ForeignKey(TransactionPart, on_delete=models.CASCADE,
                              related_name="%(class)s_set")
     source: models.ForeignKey[AccountT]

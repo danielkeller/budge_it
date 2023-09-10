@@ -22,7 +22,7 @@
         </div>
         <div class="tools">
             <button type="button"
-                hx-on:click="document.getElementById('entries').select(null)">
+                hx-on:click="document.querySelector('entry-list').select(null)">
                 New transaction...</button>
         </div>
     </div>
@@ -31,34 +31,36 @@
             {% include 'budget/partials/overview.html' %}
         </div>
         <div id="account">
+            {% if account %}
             {% include 'budget/partials/account.html' %}
+            {% endif %}
         </div>
     </main>
 
     <datalist id="account-list">
         <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
-        {% for account in accounts %}
+        {% for account in edit.accounts %}
         <option data-id="{{ account.id }}" data-name="{{ account.name }}" value="👤 {{ account.name }}"></option>
         {% endfor %}
-        {% for id, name in friends.items %}
+        {% for id, name in edit.friends.items %}
         <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
         {% endfor %}
-        {% for id, name in payees.items %}
+        {% for id, name in edit.payees.items %}
         <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
         {% endfor %}
     </datalist>
     <datalist id="category-list">
         <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
-        {% for category in categories %}
+        {% for category in edit.categories %}
         <option data-id="{{ category.id }}" data-name="{{ category.name }}" value="👤 {{ category.name }}"></option>
         {% endfor %}
-        {% for id, name in friends.items %}
+        {% for id, name in edit.friends.items %}
         <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
         {% endfor %}
-        {% for id, name in payees.items %}
+        {% for id, name in edit.payees.items %}
         <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
         {% endfor %}
     </datalist>
-    {{ data|json_script:"data" }}
+    {{ edit.data|json_script:"data" }}
     <script>window.data = JSON.parse(document.getElementById('data').textContent);</script>
 </body>

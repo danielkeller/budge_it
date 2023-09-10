@@ -82,7 +82,7 @@ class ListView extends HTMLElement {
         this.setAttribute('tabindex', 0);
         this.addEventListener('mousedown', ({ target }) => {
             const row = target.closest('[data-value]');
-            if (row) this.select(row);
+            if (row && this.checked !== row) this.select(row);
         });
         this.addEventListener('keydown', (event) => {
             if (event.key === 'ArrowUp') {
@@ -114,11 +114,9 @@ class ListView extends HTMLElement {
         this.checked = this.querySelector(`[data-value="${value}"]`);
     }
     select(row) {
-        if (this.checked !== row) {
-            this.checked = row;
-            (row || this).dispatchEvent(
-                new CustomEvent('select', { bubbles: true }));
-        }
+        this.checked = row;
+        (row || this).dispatchEvent(
+            new CustomEvent('select', { bubbles: true }));
     }
     prev() {
         const items = Array.from(this.querySelectorAll('[data-value]'));

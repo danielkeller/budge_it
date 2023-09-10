@@ -6,7 +6,7 @@
         name="transaction"
         value="{{ transaction_id|default:"" }}"
         hx-trigger="select delay:100ms"
-        hx-get="{% url 'transaction-panel' %}"
+        hx-get="{% url 'all' budget.id account.id %}"
         hx-target="#transaction">
         {% block list-contents %}
         <div>
@@ -67,7 +67,7 @@
     {% endif %}
 </div>
 <div id="transaction" class="editor">
-    {% if form %}
+    {% if transaction_id %}
     {% include 'budget/partials/edit.html' %}
     {% endif %}
 </div>

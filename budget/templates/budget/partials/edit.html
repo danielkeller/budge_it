@@ -1,7 +1,7 @@
 <form id="form" class="edit" is="transaction-editor" autocomplete="off"
-    hx-post="{% url 'transaction-panel' %}?transaction={{ transaction_id|default:"" }}"
+    hx-post="save/"
     hx-swap="none"
-    hx-select-oob="#form,#entries,#categories">
+    hx-select-oob="#transaction,#entries,#categories">
     <div class="part-extras">
         <table class="date-table">
             <tr>
