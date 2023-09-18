@@ -3,6 +3,7 @@ from typing import Optional, Any, cast
 from datetime import date, timedelta
 from urllib.parse import urlparse
 
+from django.views.decorators.http import require_http_methods
 from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
@@ -88,8 +89,8 @@ def _get_allowed_transaction_or_404(budget: Budget,
     return transaction
 
 
-def reverse_all(budget_id: int, account_id: str | int | None = None,
-                transaction_id: str | int | None = None):
+def reverse_all(budget_id: int, account_id: str | int | None,
+                transaction_id: str | int | None):
     return reverse('all', args=[arg for arg in (
         budget_id, account_id, transaction_id) if arg])
 
@@ -99,12 +100,18 @@ def all(request: HttpRequest, budget_id: int,
         account_id: str | int | None = None,
         transaction_id: str | int | None = None):
     budget = _get_allowed_budget_or_404(request, budget_id)
-    context = {'budget': budget, 'today': date.today()}
-
     transaction_id = transaction_id or request.GET.get('transaction')
+
+    if request.method == 'POST':
+        transaction_id = save(request, budget, transaction_id)
+    elif request.method == 'DELETE':
+        transaction_id = delete(budget, transaction_id)
+
     transaction = _get_allowed_transaction_or_404(budget, transaction_id)
+
     form = TransactionForm(budget, prefix="tx", instance=transaction)
-    context |= {'transaction_id': transaction_id, 'form': form}
+    context = {'budget': budget, 'today': date.today(),
+               'transaction_id': transaction_id, 'form': form}
 
     if request.headers.get('HX-Target') == 'transaction':
         response = render(request, 'budget/partials/edit.html', context)
@@ -127,33 +134,36 @@ def all(request: HttpRequest, budget_id: int,
                 'debts': debts, 'totals': totals,
                 'edit': _edit_context(budget)}
 
-    return render(request, 'budget/all.html', context)
-
-
-def save(request: HttpRequest, budget_id: int, account_id: str | int,
-         transaction_id: str | int | None = None):
-    if request.method != 'POST':
-        return HttpResponseBadRequest('Wrong method')
-    budget = _get_allowed_budget_or_404(request, budget_id)
-    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
-    form = TransactionForm(budget, prefix="tx", instance=transaction,
-                           data=request.POST)
-    if not form.is_valid():
-        raise ValueError(form.errors, form.formset.non_form_errors())
-    transaction = form.save()
-    transaction_id = transaction.id
-    if transaction_id:
-        budget.initial_currency = transaction.first_currency()
-        budget.save()
-    response = all(request, budget_id, account_id, transaction_id)
+    response = render(request, 'budget/all.html', context)
     response['HX-Replace-Url'] = reverse_all(
         budget_id, account_id, transaction_id)
     return response
 
 
+def save(request: HttpRequest, budget: Budget, transaction_id: str | int | None):
+    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
+    form = TransactionForm(budget, prefix="tx", instance=transaction,
+                           data=request.POST)
+    if not form.is_valid():
+        raise ValueError(form.errors, form.formset.non_form_errors())
+    saved = form.save()
+    if saved.id:
+        budget.initial_currency = saved.first_currency()
+        budget.save()
+    return saved.id
+
+
+def delete(budget: Budget, transaction_id: str | int | None):
+    transaction = get_object_or_404(Transaction, id=transaction_id)
+    with atomic():
+        if not any([part.set_entries(budget, {}, {})
+                    for part in transaction.parts.all()]):
+            transaction.delete()
+    return None
+
+
+@require_http_methods(['POST'])
 def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
-    if request.method != 'POST':
-        return HttpResponseBadRequest('Wrong method')
     account = _get_allowed_account_or_404(request, account_id)
     transaction = Transaction.objects.get_for(account.budget, transaction_id)
     if not transaction:
@@ -438,19 +448,6 @@ def edit(request: HttpRequest, budget_id: int,
                'transaction_id': transaction_id,
                'data': data}
     return render(request, 'budget/edit.html', context)
-
-
-@login_required
-def delete(request: HttpRequest, budget_id: int, transaction_id: int):
-    if request.method != 'POST':
-        return HttpResponseBadRequest('Wrong method')
-    budget = _get_allowed_budget_or_404(request, budget_id)
-    transaction = get_object_or_404(Transaction, id=transaction_id)
-    with atomic():
-        if not any([part.set_entries(budget, {}, {})
-                    for part in transaction.parts.all()]):
-            transaction.delete()
-    return HttpResponseRedirect(request.GET.get('back') or '/')
 
 
 @dataclass

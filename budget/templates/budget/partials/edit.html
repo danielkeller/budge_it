@@ -1,5 +1,5 @@
 <form id="form" class="edit" is="transaction-editor" autocomplete="off"
-    hx-post="save/"
+    hx-post=""
     hx-swap="none" hx-select-oob="#transaction,#entries,#categories">
     <div class="part-extras">
         <table class="date-table">
@@ -23,6 +23,9 @@
         <button id="submit-button" form="form">
             {% if transaction_id %}Save Changes{% else %}Create Transaction{% endif %}
         </button>
+        {% if transaction_id %}
+        <button type="button" hx-delete="">Delete Transaction</button>
+        {% endif %}
     </div>
     {% for part in form.formset %}
     {% with part_index=forloop.counter0 %}

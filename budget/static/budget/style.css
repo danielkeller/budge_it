@@ -480,11 +480,6 @@ hr {
     flex: 1 1;
 }
 
-#submit-button {
-    margin-left: auto;
-    align-self: flex-end;
-}
-
 .datepicker {
     width: max-content;
     border: var(--td-border) solid var(--line);

@@ -12,10 +12,6 @@ urlpatterns = [
     path('<int:budget_id>/<account_id>/', views.all, name='all'),
     path('<int:budget_id>/<account_id>/<int:transaction_id>/',
          views.all, name='all'),
-    path('<int:budget_id>/<account_id>/save/',
-         views.save, name='save'),
-    path('<int:budget_id>/<account_id>/<int:transaction_id>/save/',
-         views.save, name='save'),
 
     path('overview/<int:budget_id>/', views.overview, name='overview'),
 
