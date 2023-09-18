@@ -1,68 +1,71 @@
-<table id="categories">
-    <tbody data-group="">
-        <tr data-category="1">
-            <th>Category</th>
-            <th class="t5">Balance</th>
-        </tr>
-        {% for category in categories %}
-        {% ifchanged category.group %}
-    </tbody>
-    <tbody draggable="true" data-group="{{category.group}}">
-        <tr class="{% cycle 'a' 'b' as rowcolor %}" data-category="1">
-            <td colspan="2" class="groupname">
-                <button>{{category.group}}</button>
-            </td>
-        </tr>
-        {% endifchanged %}
-        <tr class="{% cycle rowcolor %}" draggable="true" data-form="{{forloop.counter0}}" data-category="1" data-value="{{category.id}}">
-            <td><a href="{{ category.get_absolute_url }}"
-                    hx-boost="true" hx-target="#account">
-                    {{ category.name|default:"Inbox" }}</a></td>
+<div class="controls">&nbsp;</div>
+<div class="scroll">
+    <table id="categories">
+        <tbody data-group="">
+            <tr data-category="1">
+                <th>Category</th>
+                <th class="t5">Balance</th>
+            </tr>
+            {% for category in categories %}
+            {% ifchanged category.group %}
+        </tbody>
+        <tbody draggable="true" data-group="{{category.group}}">
+            <tr class="{% cycle 'a' 'b' as rowcolor %}" data-category="1">
+                <td colspan="2" class="groupname">
+                    <button>{{category.group}}</button>
+                </td>
+            </tr>
+            {% endifchanged %}
+            <tr class="{% cycle rowcolor %}" draggable="true" data-form="{{forloop.counter0}}" data-category="1" data-value="{{category.id}}">
+                <td><a href="{{ category.get_absolute_url }}"
+                        hx-boost="true" hx-target="#account">
+                        {{ category.name|default:"Inbox" }}</a></td>
+                <td class="number">
+                    <long-currency currency="{{ category.currency }}" value="{{ category.balance | default:0 }}"></long-currency>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        {% for currency, total in totals.items %}
+        <tr class=" {% cycle rowcolor %}">
+            <td>Total</td>
             <td class="number">
-                <long-currency currency="{{ category.currency }}" value="{{ category.balance | default:0 }}"></long-currency>
+                <long-currency currency="{{ currency }}" value="{{ total }}"></long-currency>
             </td>
         </tr>
         {% endfor %}
-    </tbody>
-    {% for currency, total in totals.items %}
-    <tr class=" {% cycle rowcolor %}">
-        <td>Total</td>
-        <td class="number">
-            <long-currency currency="{{ currency }}" value="{{ total }}"></long-currency>
-        </td>
-    </tr>
-    {% endfor %}
-    <th>Account</th>
-    <th class="t5">Balance</th>
-    {% for account in accounts %}
-    <tr class="{% cycle 'a' 'b' as rowcolor %}" data-value="{{account.id}}">
-        <td><a href="{{ account.get_absolute_url }}"
-                hx-boost="true" hx-target="#account">
-                {{ account.name|default:"Inbox" }}</a></td>
-        <td class="number"> <long-currency currency="{{ account.currency }}" value="{{ account.balance | default:0 }}"></long-currency></td>
-    </tr>
-    {% endfor %}
-    {% for debt in debts %}
-    <tr class=" {% cycle rowcolor %}">
-        <td><a href="todo">Owed by {{ debt }}</a></td>
-        <td class="number">
-            <long-currency currency="{{ debt.currency }}" value="{{ debt.balance }}"></long-currency>
-        </td>
-    </tr>
-    {% endfor %}
-    {% for currency, total in totals.items %}
-    <tr class="{% cycle rowcolor %}">
-        <td><a href="{{ account.get_absolute_url }}"
-                hx-boost="true" hx-target="#account">
-                Total</a></td>
-        <td class="number">
-            <long-currency currency="{{ currency }}" value="{{ total }}"></long-currency>
-        </td>
-    </tr>
-    {% endfor %}
-</table>
-<template id="new-group-t">
-    <tr id="new-group" data-category="1">
-        <th colspan="2">New Group</th>
-    </tr>
-</template>
+        <th>Account</th>
+        <th class="t5">Balance</th>
+        {% for account in accounts %}
+        <tr class="{% cycle 'a' 'b' as rowcolor %}" data-value="{{account.id}}">
+            <td><a href="{{ account.get_absolute_url }}"
+                    hx-boost="true" hx-target="#account">
+                    {{ account.name|default:"Inbox" }}</a></td>
+            <td class="number"> <long-currency currency="{{ account.currency }}" value="{{ account.balance | default:0 }}"></long-currency></td>
+        </tr>
+        {% endfor %}
+        {% for debt in debts %}
+        <tr class=" {% cycle rowcolor %}">
+            <td><a href="todo">Owed by {{ debt }}</a></td>
+            <td class="number">
+                <long-currency currency="{{ debt.currency }}" value="{{ debt.balance }}"></long-currency>
+            </td>
+        </tr>
+        {% endfor %}
+        {% for currency, total in totals.items %}
+        <tr class="{% cycle rowcolor %}">
+            <td><a href="{{ account.get_absolute_url }}"
+                    hx-boost="true" hx-target="#account">
+                    Total</a></td>
+            <td class="number">
+                <long-currency currency="{{ currency }}" value="{{ total }}"></long-currency>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    <template id="new-group-t">
+        <tr id="new-group" data-category="1">
+            <th colspan="2">New Group</th>
+        </tr>
+    </template>
+</div>

@@ -54,27 +54,28 @@ body {
     gap: var(--line-height);
 }
 
-main.all {
+.all {
     display: grid;
     grid: minmax(0, 1fr) / max-content 1fr;
     gap: var(--line-height);
-    width: 100%;
-    height: 100%;
 }
 
-.all>#account {
+#account {
     display: grid;
     grid: minmax(0, 1fr) / 1fr max-content;
     gap: var(--line-height);
 }
 
-#overview,
-#transaction {
+.scroll {
     overflow-y: auto;
 }
 
-main {
-    min-height: 0;
+#overview,
+#entries,
+#transaction {
+    display: grid;
+    gap: var(--line-height);
+    grid: minmax(0, max-content) / auto;
 }
 
 .controls,
@@ -86,7 +87,6 @@ main {
 .tools {
     margin-left: auto;
     flex-wrap: wrap;
-    flex-direction: row-reverse;
 }
 
 button,
@@ -197,7 +197,7 @@ main.otg {
     overflow: visible;
 }
 
-.editor,
+.edit,
 edit-part {
     display: flex;
     gap: var(--line-height);

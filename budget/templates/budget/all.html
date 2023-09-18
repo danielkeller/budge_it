@@ -15,27 +15,15 @@
     <script src="{% static 'budget/htmx.min.js' %}" defer></script>
 </head>
 
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-    <div class="controls">
-        <div class="navigation">
-
-        </div>
-        <div class="tools">
-            <button type="button"
-                hx-on:click="document.querySelector('entry-list').select(null)">
-                New transaction...</button>
-        </div>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' class="all">
+    <div id="overview">
+        {% include 'budget/partials/overview.html' %}
     </div>
-    <main class="all">
-        <div id="overview">
-            {% include 'budget/partials/overview.html' %}
-        </div>
-        <div id="account">
-            {% if account %}
-            {% include 'budget/partials/account.html' %}
-            {% endif %}
-        </div>
-    </main>
+    <div id="account">
+        {% if account %}
+        {% include 'budget/partials/account.html' %}
+        {% endif %}
+    </div>
 
     <datalist id="account-list">
         <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
