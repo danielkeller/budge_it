@@ -24,7 +24,7 @@ from .models import (sum_by, date_range, months_between,
                      prior_budgeting_transaction)
 from .forms import (TransactionForm,
                     BudgetingForm, rename_form, BudgetForm,
-                    OnTheGoForm,
+                    OnTheGoForm, RowAddForm,
                     ReorderingFormSet, AccountManagementFormSet,
                     CategoryManagementFormSet, CurrencyManagementFormSet)
 
@@ -123,6 +123,9 @@ def all(request: HttpRequest, budget_id: int,
         account = _get_allowed_object_or_404(request, budget, account_id)
         entries, balance = account.transactions()
         context |= {'account': account, 'entries': entries, 'balance': balance}
+        if isinstance(account, Account):
+            row_add = RowAddForm(account=account)
+            context |= {'row_add': row_add}
 
     if request.headers.get('HX-Target') == 'account':
         return render(request, 'budget/partials/account.html', context)

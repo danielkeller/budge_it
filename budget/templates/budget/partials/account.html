@@ -29,6 +29,17 @@
             <span class="th">{{ account.name|default:"Inbox" }}</span>
             {% if account.clearable %}<span class="th">☑️</span>{% endif %}
         </div>
+        {% if row_add %}
+        <div>
+            <form>
+                <span class="td tdinput">{{ row_add.date }}</span>
+                <span class="td tdinput">{{ row_add.category }}<span></span><input list="category-list"></span>
+                <span class="td tdinput">{{ row_add.amount }}<input pattern="\s*-?\d+(?:\.\d*)?\s*" class="number" size="6"></span>
+                <span class="td"><button>Create</button></span>
+                {% if account.clearable %}<span class="td"></span>{% endif %}
+            </form>
+        </div>
+        {% endif %}
         {% for transaction in entries %}
         <div class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
             data-value="{{transaction.id}}">

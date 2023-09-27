@@ -99,13 +99,15 @@ input {
 }
 
 td button,
-td input {
+td input,
+.td button,
+.td input {
     height: var(--td-line-height);
     margin: 0;
 }
 
-td button,
-td [type="submit"] {
+.td button,
+.td [type="submit"] {
     min-width: max-content;
 }
 
@@ -286,7 +288,7 @@ entry-list:focus .checked>* {
     display: contents;
 }
 
-.grid span {
+.grid span:not(.tdinput) {
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
@@ -296,6 +298,7 @@ entry-list:focus .checked>* {
     position: sticky;
     top: 0;
     background-color: var(--canvas);
+    z-index: 2;
 }
 
 @media (max-width: 500px) {

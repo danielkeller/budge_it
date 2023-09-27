@@ -85,6 +85,7 @@ class ListView extends HTMLElement {
             if (row && this.checked !== row) this.select(row);
         });
         this.addEventListener('keydown', (event) => {
+            if (event.target !== this) return;
             if (event.key === 'ArrowUp') {
                 this.prev();
                 event.preventDefault();

@@ -1,7 +1,7 @@
 <div class="controls">
     <div class="tools">
         {% if transaction_id %}
-        <button type="button" hx-delete="">Delete Transaction</button>
+        <button type="button" hx-delete="">Delete</button>
         {% endif %}
         <button id="submit-button" form="form">
             {% if transaction_id %}Save Changes{% else %}Create Transaction{% endif %}

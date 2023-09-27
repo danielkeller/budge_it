@@ -492,7 +492,7 @@ class OnTheGoForm(forms.Form):
         part.save()
 
         currency = self.cleaned_data['currency']
-        split = self.cleaned_data['split']
+        split = self.cleaned_data['split'] or [self.budget]
         self.budget.initial_currency = currency
         self.budget.initial_split = ','.join(
             str(friend.id) for friend in split)
@@ -517,4 +517,41 @@ class OnTheGoForm(forms.Form):
             categories[from_categories[i]] = -div - (i < rem)
 
         part.set_entries(self.budget, accounts, categories)
+        return transaction
+
+
+class RowAddForm(forms.Form):
+    account: Account
+    category = AccountChoiceField(type=Category)
+    amount = forms.IntegerField(widget=forms.HiddenInput)
+    note = forms.CharField(required=False)
+    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
+                                                  format='%Y-%m-%d'),
+                           required=True,
+                           initial=date.today)
+
+    def __init__(self, *args: Any, account: Account, **kwargs: Any):
+        self.account = account
+        super().__init__(*args, **kwargs)
+
+    @transaction.atomic
+    def save(self):
+        transaction = Transaction(date=self.cleaned_data['date'])
+        transaction.save()
+
+        part = TransactionPart(transaction=transaction)
+        part.note = self.cleaned_data['note'] or ''
+        part.save()
+
+        amount = self.cleaned_data['amount']
+        budget = self.account.budget
+        payee = Budget.objects.get_or_create(
+            name="Payee", payee_of_id=budget.owner())[0]
+        currency = self.account.currency
+
+        accounts = {self.account: amount,
+                    payee.get_inbox(Account, currency): -amount}
+        categories = {self.cleaned_data['category']: -amount,
+                      payee.get_inbox(Category, currency): amount}
+        part.set_entries(budget, accounts, categories)
         return transaction
