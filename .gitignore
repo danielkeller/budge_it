@@ -2,6 +2,7 @@ bin
 lib
 __pycache__
 pyvenv.cfg
+.vscode
 .coverage
 *.sqlite3
 *.sqlite3-shm

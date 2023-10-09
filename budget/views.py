@@ -302,7 +302,10 @@ def account_form(request: HttpRequest, budget_id: int, number: int):
     formset.min_num = number + 1  # type: ignore
     context = {'budget': budget,
                'account_formset': formset, 'form': formset.forms[number]}
-    return HttpResponse(render_block_to_string('budget/manage.html', 'account-form', context, request))
+    return HttpResponse(
+        render_block_to_string('budget/manage.html',
+                               'account-form', context, request)
+        + render_block_to_string('budget/manage.html', 'new-account', context, request))
 
 
 def category_form(request: HttpRequest, budget_id: int, number: int):
@@ -313,14 +316,20 @@ def category_form(request: HttpRequest, budget_id: int, number: int):
     formset.min_num = number + 1  # type: ignore
     context = {'budget': budget,
                'category_formset': formset, 'form': formset.forms[number]}
-    return HttpResponse(render_block_to_string('budget/manage.html', 'category-form', context, request))
+    return HttpResponse(
+        render_block_to_string('budget/manage.html',
+                               'category-form', context, request)
+        + render_block_to_string('budget/manage.html', 'new-category', context, request))
 
 
 def currency_form(request: HttpRequest, number: int):
     formset = CurrencyManagementFormSet(prefix="currencies")
     formset.min_num = number + 1  # type: ignore
     context = {'currency_formset': formset, 'form': formset.forms[number]}
-    return HttpResponse(render_block_to_string('budget/manage.html', 'currency-form', context, request))
+    return HttpResponse(
+        render_block_to_string('budget/manage.html',
+                               'currency-form', context, request)
+        + render_block_to_string('budget/manage.html', 'new-currency', context, request))
 
 
 def manage_accounts(request: HttpRequest, budget_id: int):
