@@ -43,7 +43,7 @@ class AccountSelect extends HTMLTableCellElement {
         this.addEventListener('input', this.#selectInput.bind(this));
         // This is a hack and also doesn't work very well (in FF at least).
         this.addEventListener('focusout', () => this.input.reportValidity());
-        whenContentIsReady(this, () => this.value = this.value);
+        setTimeout(() => this.value = this.value, 0);
     }
     get #hidden() { return this.children[0]; }
     get #sigil() { return this.children[1]; }

@@ -35,11 +35,6 @@ html {
     font-family: Avenir, 'Avenir Next LT Pro', Montserrat, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
 }
 
-body {
-    margin: 0;
-    padding-bottom: var(--line-height);
-}
-
 pre {
     margin: 0;
 }
@@ -58,6 +53,10 @@ body {
     display: grid;
     grid: minmax(0, 1fr) / max-content 1fr;
     gap: var(--line-height);
+}
+
+#datas {
+    display: none;
 }
 
 #account {
