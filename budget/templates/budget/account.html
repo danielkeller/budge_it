@@ -56,7 +56,7 @@
                     <span class="th">Date</span>
                     <span class="th">Transaction</span>
                     <span class="th">{{ account.currency }}</span>
-                    <span class="th">Total</span>
+                    <span class="th shortcurrency" data-currency="{{ account.currency }}" id="balance-th">{{ balance }}</span>
                     {% if account.clearable %}<span class="th">☑️</span>{% endif %}
                 </div>
                 {% for transaction in entries %}

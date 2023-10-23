@@ -706,7 +706,7 @@ def entries_for(account: BaseAccount) -> tuple[list[Transaction], int]:
     return list(reversed(qs)), total
 
 
-def entries_for_balance(account: Balance) -> Iterable[Transaction]:
+def entries_for_balance(account: Balance) -> tuple[Iterable[Transaction], int]:
     gets = (CategoryEntry.objects
             .filter(part__transaction=OuterRef('pk'),
                     source__currency=account.currency,
@@ -733,7 +733,7 @@ def entries_for_balance(account: Balance) -> Iterable[Transaction]:
     for transaction in qs:
         total += getattr(transaction, 'change')
         setattr(transaction, 'running_sum', total)
-    return list(reversed(qs))
+    return list(reversed(qs)), total
 
 
 def accounts_overview(budget: Budget):

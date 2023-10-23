@@ -107,9 +107,9 @@ def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: 
     # FIXME: This leaks the existence of budget ids
     other = get_object_or_404(Budget, id=budget_id_2)
     account = Balance(budget, other, currency)
-    entries = entries_for_balance(account)
+    entries, balance = entries_for_balance(account)
     data = {'budget': budget.id}
-    context = {'entries': entries, 'account': account,
+    context = {'entries': entries, 'account': account, 'balance': balance,
                'form': None, 'data': data}
     return render(request, 'budget/account.html', context)
 
