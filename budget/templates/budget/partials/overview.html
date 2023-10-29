@@ -1,4 +1,6 @@
-<div class="controls">&nbsp;</div>
+<div class="controls"><div class="tools">
+    <a href="{% url 'manage' budget.id %}">Manage...</a>
+</div></div>
 <entry-list
     class="scroll"
     name="account"
@@ -16,14 +18,12 @@
             {% for category in categories %}
             {% ifchanged category.group %}
         </tbody>
-        <tbody draggable="true" data-group="{{category.group}}">
+        <tbody data-group="{{category.group}}">
             <tr class="{% cycle 'a' 'b' as rowcolor %}" data-category="1">
-                <td colspan="2" class="groupname">
-                    <button>{{category.group}}</button>
-                </td>
+                <th colspan="2">{{ category.group|default:"&nbsp;" }}</th>
             </tr>
             {% endifchanged %}
-            <tr class="{% cycle rowcolor %}" draggable="true" data-form="{{forloop.counter0}}" data-category="1" data-value="{{category.id}}">
+            <tr class="{% cycle rowcolor %}" data-form="{{forloop.counter0}}" data-category="1" data-value="{{category.id}}">
                 <td>{{ category.name|default:"Inbox" }}</td>
                 <td class="number">
                     <long-currency currency="{{ category.currency }}" value="{{ category.balance | default:0 }}"></long-currency>

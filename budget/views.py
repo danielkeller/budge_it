@@ -341,7 +341,7 @@ def currency_form(request: HttpRequest, number: int):
 
 def manage_accounts(request: HttpRequest, budget_id: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
-    categories = (budget.category_set.exclude(name='')
+    categories = (budget.category_set.exclude(name='', closed=True)
                   .order_by('order', 'group', 'name'))
     accounts = (budget.account_set.exclude(name='')
                 .order_by('order', 'group', 'name'))

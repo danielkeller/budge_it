@@ -350,9 +350,10 @@ ReorderingFormSet = forms.modelformset_factory(
 class BaseAccountManagementForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = BaseAccount
-        fields = ('name', 'currency', 'closed')
+        fields = ('name', 'currency', 'group', 'closed')
         widgets = {'name': forms.TextInput(attrs={'required': True,
-                                                  'autofocus': ''})}
+                                                  'autofocus': ''}),
+                   'group': forms.HiddenInput(attrs={'class': 'group'})}
     currency = forms.ChoiceField()
 
 
@@ -370,7 +371,7 @@ class BaseAccountManagementFormSet(forms.BaseInlineFormSet):
         currencies = self.instance.currencies
         form.fields['currency'].choices = list(zip(currencies, currencies))
         if form.instance.pk:
-            if form.instance.entries.exists():  # Optimize?
+            if form.instance.name == '' or form.instance.entries.exists():  # Optimize?
                 form.fields['currency'].disabled = True
                 form.fields['DELETE'].disabled = True
             if form.instance.currency not in currencies:

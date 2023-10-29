@@ -49,6 +49,10 @@ body {
     gap: var(--line-height);
 }
 
+body.popup {
+    width: max-content;
+}
+
 .all {
     display: grid;
     grid: minmax(0, 1fr) / max-content 1fr;
@@ -226,14 +230,6 @@ tbody.droppable>:last-child {
 
 .groupname {
     text-align: center;
-}
-
-.groupname button {
-    font-weight: bold;
-    cursor: pointer;
-    border: none;
-    background: none;
-    min-width: calc(4 * var(--line-height));
 }
 
 .dragging button {
