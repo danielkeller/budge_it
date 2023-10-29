@@ -26,7 +26,7 @@
             <span class="th">Date</span>
             <span class="th">Transaction</span>
             <span class="th">{{ account.currency }}</span>
-            <span class="th">{{ account.name|default:"Inbox" }}</span>
+            <span class="th"><short-currency currency="{{ account.currency }}" value="{{ balance }}"></short-currency></span>
             {% if account.clearable %}<span class="th">☑️</span>{% endif %}
         </div>
         {% for transaction in entries %}
