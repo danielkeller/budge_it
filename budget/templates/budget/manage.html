@@ -23,9 +23,9 @@
     <main class="manage">
         <div>Budget name for others: {{ budget_form.name }}</div>
         <table>
-            <tbody>
+            <tbody data-group>
             <tr>
-                <th colspan=2>Category</th>
+                <th colspan=2 class="order">Category</th>
                 <th>Currency</th>
                 <th></th>
                 <th>Closed</th>
@@ -34,16 +34,16 @@
             {% for form in category_formset %}
             {% ifchanged form.instance.group %}
         </tbody>
-        <tbody draggable="true">
+        <tbody draggable="true" data-group>
             <tr>
-                <td>=</td>
+                <td class="order">=</td>
                 <th class="tdinput"><input class="groupname" value="{{ form.instance.group }}" placeholder="Group"></th>
                 <th colspan="4"></th>
             </tr>
             {% endifchanged %}
             {% block category-form %}
-            <tr draggable="true">
-                <td>={{ form.group }}{{ form.id_ptr }}</td>
+            <tr draggable="true" data-category>
+                <td>={{ form.order }}{{ form.group }}{{ form.id_ptr }}</td>
                 {% if form.instance.pk and form.instance.name == '' %}
                 <td>Inbox</td>
                 <td class="tdinput">{{ form.currency }}</td>
@@ -83,7 +83,7 @@
             {% for form in account_formset %}
             {% block account-form %}
             <tr>
-                <td>=</td>
+                <td></td>
                 <td class="tdinput">{{ form.name }}</td>
                 <td class="tdinput">{{ form.currency }}</td>
                 <td>{{ form.clearable }}</td>
@@ -108,6 +108,13 @@
             </tr>
             {% endblock %}
         </table>
+        <template id="new-group-t">
+            <tr id="new-group">
+                <td class="order"></td>
+                <th>New Group</th>
+                <td colspan="4"></td>
+            </tr>
+        </template>
         {{ category_formset.management_form.INITIAL_FORMS }}
         {{ category_formset.management_form.MIN_NUM_FORMS }}
         {{ category_formset.management_form.MAX_NUM_FORMS }}

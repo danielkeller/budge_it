@@ -216,14 +216,18 @@ edit-part {
 }
 
 tr.droppable,
-tbody.droppable>:last-child {
+tbody.droppable>:last-child,
+tr.droppable>.tdinput>*,
+tbody.droppable>:last-child>.tdinput>* {
     /* work around chrome bug */
     box-shadow: inset 0 -2px 0 LinkText;
     box-shadow: inset 0 -2px 0 AccentColor;
 }
 
 .droppable+tr,
-.droppable+tbody>:first-child {
+.droppable+tbody>:first-child,
+.droppable+td>.tdinput>*,
+.droppable+tbody>:first-child>.tdinput>* {
     box-shadow: inset 0 2px 0 LinkText;
     box-shadow: inset 0 2px 0 AccentColor;
 }
@@ -376,25 +380,23 @@ hr {
     align-self: stretch;
 }
 
-/* The focus ring is on the same z-index as the input, so if an adjacent input
-   has a background it will cover part of it. Work around this by making enabled
-   inputs transparent and ones with a background on a lower z-index. */
-
 .tdinput {
-    background-color: Field;
     padding: 0;
-    /* position: relative; */
-    /* Makes position: relative work */
-    /* background-clip: content-box; */
 }
 
 .tdinput>* {
     border: none;
     width: 100%;
-    background-color: transparent;
+    vertical-align: bottom;
+    background-color: Field;
+}
+
+/* The focus ring is on the same z-index as the input, so if an adjacent input
+   has a background it will cover part of it. */
+
+.tdinput>:focus-visible {
     position: relative;
     z-index: 1;
-    vertical-align: bottom;
 }
 
 .tdinput>input,
@@ -406,7 +408,6 @@ hr {
 .tdinput>[readonly] {
     background-color: var(--canvas);
     color: GrayText;
-    z-index: 0;
 }
 
 .tdinput>input,
@@ -451,6 +452,8 @@ hr {
 .tdinput .sigil {
     position: absolute;
     padding-left: var(--td-hpad);
+    z-index: 2;
+    background-color: transparent;
     /* ??? */
     width: max-content;
 }

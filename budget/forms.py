@@ -350,10 +350,11 @@ ReorderingFormSet = forms.modelformset_factory(
 class BaseAccountManagementForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = BaseAccount
-        fields = ('name', 'currency', 'group', 'closed')
+        fields = ('name', 'currency', 'order', 'group', 'closed')
         widgets = {'name': forms.TextInput(attrs={'required': True,
                                                   'autofocus': ''}),
-                   'group': forms.HiddenInput(attrs={'class': 'group'})}
+                   'group': forms.HiddenInput(attrs={'class': 'group'}),
+                   'order': forms.HiddenInput(attrs={'class': 'order'})}
     currency = forms.ChoiceField()
 
 
