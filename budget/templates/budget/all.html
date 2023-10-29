@@ -15,7 +15,7 @@
     <script src="{% static 'budget/htmx.min.js' %}" defer></script>
 </head>
 
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' class="all">
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-ext="event-header" class="all">
     <div id="datas">
         <datalist id="account-list">
             <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>

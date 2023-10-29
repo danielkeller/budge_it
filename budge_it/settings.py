@@ -76,6 +76,7 @@ TEMPLATES: Any = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'budget.views.hx_current_url',
+                'budget.views.hx',
             ],
         },
     },

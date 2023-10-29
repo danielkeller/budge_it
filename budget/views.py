@@ -46,6 +46,13 @@ def hx_current_url(request: HttpRequest):
             request.headers.get('HX-Current-URL') or request.get_full_path()}
 
 
+def hx(request: HttpRequest):
+    class HX:
+        def __getitem__(self, key: str):
+            return request.headers['HX-' + key.replace('_', '-')]
+    return {'hx': HX()}
+
+
 @login_required
 def index(request: HttpRequest):
     # type: ignore
@@ -100,12 +107,18 @@ def all(request: HttpRequest, budget_id: int,
         account_id: str | int | None = None,
         transaction_id: str | int | None = None):
     budget = _get_allowed_budget_or_404(request, budget_id)
+    account_id = account_id or request.GET.get('account')
     transaction_id = transaction_id or request.GET.get('transaction')
 
     if request.method == 'POST':
         transaction_id = save(request, budget, transaction_id)
     elif request.method == 'DELETE':
         transaction_id = delete(budget, transaction_id)
+
+    def fix_url(response: HttpResponse):
+        response['HX-Replace-Url'] = reverse_all(
+            budget_id, account_id, transaction_id)
+        return response
 
     transaction = _get_allowed_transaction_or_404(budget, transaction_id)
 
@@ -114,10 +127,7 @@ def all(request: HttpRequest, budget_id: int,
                'transaction_id': transaction_id, 'form': form}
 
     if request.headers.get('HX-Target') == 'transaction':
-        response = render(request, 'budget/partials/edit.html', context)
-        response['HX-Replace-Url'] = reverse_all(
-            budget_id, account_id, transaction_id)
-        return response
+        return fix_url(render(request, 'budget/partials/edit.html', context))
 
     if account_id:
         account = _get_allowed_object_or_404(request, budget, account_id)
@@ -125,7 +135,7 @@ def all(request: HttpRequest, budget_id: int,
         context |= {'account': account, 'entries': entries, 'balance': balance}
 
     if request.headers.get('HX-Target') == 'account':
-        return render(request, 'budget/partials/account.html', context)
+        return fix_url(render(request, 'budget/partials/account.html', context))
 
     accounts, categories, debts = accounts_overview(budget)
     totals = sum_by((category.currency, category.balance)
@@ -134,10 +144,7 @@ def all(request: HttpRequest, budget_id: int,
                 'debts': debts, 'totals': totals,
                 'edit': _edit_context(budget)}
 
-    response = render(request, 'budget/all.html', context)
-    response['HX-Replace-Url'] = reverse_all(
-        budget_id, account_id, transaction_id)
-    return response
+    return fix_url(render(request, 'budget/all.html', context))
 
 
 def save(request: HttpRequest, budget: Budget, transaction_id: str | int | None):

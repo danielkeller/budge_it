@@ -15,10 +15,10 @@
     </div>
     {% spaceless %}
     <entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
-        autofocus
+        {% if hx.event != 'kbdselect' %}autofocus{% endif %}
         name="transaction"
         value="{{ transaction_id|default:"" }}"
-        hx-trigger="select delay:100ms"
+        hx-trigger="kbdselect,mouseselect delay:100ms"
         hx-get="{% url 'all' budget.id account.id %}"
         hx-target="#transaction">
         {% block list-contents %}

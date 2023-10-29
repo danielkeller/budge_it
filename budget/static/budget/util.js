@@ -82,7 +82,7 @@ class ListView extends HTMLElement {
         this.setAttribute('tabindex', 0);
         this.addEventListener('mousedown', ({ target }) => {
             const row = target.closest('[data-value]');
-            if (row && this.checked !== row) this.select(row);
+            if (row && this.checked !== row) this.select(row, 'mouse');
         });
         this.addEventListener('keydown', (event) => {
             if (event.key === 'ArrowUp') {
@@ -113,27 +113,27 @@ class ListView extends HTMLElement {
     set value(value) {
         this.checked = this.querySelector(`[data-value="${value}"]`);
     }
-    select(row) {
+    select(row, source) {
         this.checked = row;
         (row || this).dispatchEvent(
-            new CustomEvent('select', { bubbles: true }));
+            new CustomEvent(source + 'select', { bubbles: true }));
     }
     prev() {
         const items = Array.from(this.querySelectorAll('[data-value]'));
         const index = items.indexOf(this.checked);
         if (index !== -1 && index !== 0) {
-            this.select(items[index - 1]);
+            this.select(items[index - 1], 'kbd');
         } else if (items.length >= 1) {
-            this.select(items[items.length - 1]);
+            this.select(items[items.length - 1], 'kbd');
         }
     }
     next() {
         const items = Array.from(this.querySelectorAll('[data-value]'));
         const index = items.indexOf(this.checked);
         if (index !== -1 && index !== items.length - 1) {
-            this.select(items[index + 1]);
+            this.select(items[index + 1], 'kbd');
         } else if (items.length >= 1) {
-            this.select(items[0]);
+            this.select(items[0], 'kbd');
         }
     }
 }
@@ -144,7 +144,7 @@ class EntryList extends ListView {
         if (!row) return;
         const rowRect = row.children[0].getBoundingClientRect();
         const viewRect = this.getBoundingClientRect();
-        const headerRect = this.querySelector('.th').getBoundingClientRect();
+        const headerRect = this.querySelector('.th,th').getBoundingClientRect();
         const border = 1; // Not nice but w/e
         if (rowRect.top < headerRect.bottom) {
             this.scrollTop += rowRect.top - headerRect.bottom - border;
@@ -154,3 +154,15 @@ class EntryList extends ListView {
     }
 }
 customElements.define("entry-list", EntryList);
+
+document.addEventListener('DOMContentLoaded', () => {
+    htmx.defineExtension('event-header', {
+        onEvent: function (name, evt) {
+            if (name === "htmx:configRequest") {
+                if (evt.detail.triggeringEvent) {
+                    evt.detail.headers['HX-Event'] = evt.detail.triggeringEvent.type;
+                }
+            }
+        }
+    });
+})
