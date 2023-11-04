@@ -319,7 +319,8 @@ def category_form(request: HttpRequest, budget_id: int, number: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
     queryset = Category.objects.none()
     formset = CategoryManagementFormSet(
-        instance=budget, queryset=queryset, prefix="categories")
+        instance=budget, queryset=queryset, prefix="categories",
+        initial=[{}] * number + [{'group': request.GET.get('groupname', '')}])
     formset.min_num = number + 1  # type: ignore
     context = {'budget': budget,
                'category_formset': formset, 'form': formset.forms[number]}

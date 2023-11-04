@@ -371,6 +371,8 @@ class BaseAccountManagementFormSet(forms.BaseInlineFormSet):
         super().add_fields(form, index)
         currencies = self.instance.currencies
         form.fields['currency'].choices = list(zip(currencies, currencies))
+        if not self.is_bound:  # Hack: Fake out is_changed
+            form.initial['order'] = index
         if form.instance.pk:
             if form.instance.name == '' or form.instance.entries.exists():  # Optimize?
                 form.fields['currency'].disabled = True
