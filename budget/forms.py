@@ -417,28 +417,14 @@ class BaseCurrencyManagementFormSet(forms.BaseInlineFormSet):
             budget: Budget = form.instance.budget
             currency: str = form.instance.currency
             if (budget.account_set
-                .filter(currency=currency).exclude(name='')
-                .exists()
+                    .filter(currency=currency).exclude(name='')
+                    .exists()
                 or budget.category_set
-                .filter(currency=currency).exclude(name='')
+                    .filter(currency=currency).exclude(name='')
                     .exists()
                 or budget.get_inbox(Category, currency).entries.exists()
                     or budget.get_inbox(Account, currency).entries.exists()):
                 form.fields['DELETE'].disabled = True
-
-    def save_new(self, form: forms.ModelForm, commit: bool = True) -> Category:
-        try:
-            form.instance = Category.objects.get(
-                budget=self.instance, name='', currency=form.instance.currency)
-        except Category.DoesNotExist:
-            pass
-        form.instance.closed = False
-        return super().save_new(form, commit)
-
-    def delete_existing(self, obj: Category, commit: bool = True):
-        obj.closed = True
-        if commit:
-            obj.save()
 
 
 CurrencyManagementFormSet = forms.inlineformset_factory(

@@ -342,11 +342,11 @@ def currency_form(request: HttpRequest, number: int):
 
 def manage_accounts(request: HttpRequest, budget_id: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
-    categories = (budget.category_set.exclude(name='', closed=True)
+    categories = (budget.category_set
                   .order_by('order', 'group', 'name'))
     accounts = (budget.account_set.exclude(name='')
                 .order_by('order', 'group', 'name'))
-    currencies = budget.category_set.filter(name='', closed=False)
+    currencies = budget.category_set.filter(name='')
     if request.method == 'POST':
         budget_form = BudgetForm(instance=budget, data=request.POST,
                                  prefix="budget")
