@@ -84,6 +84,7 @@ class AccountSelect extends HTMLTableCellElement {
 }
 customElements.define("account-select", AccountSelect, { extends: "td" });
 
+// TODO: Clean these up
 class CurrencyInput extends HTMLTableCellElement {
     connectedCallback() {
         this.addEventListener('input', this.#parse.bind(this));
@@ -107,6 +108,28 @@ class CurrencyInput extends HTMLTableCellElement {
     }
 }
 customElements.define("currency-input", CurrencyInput, { extends: "td" });
+
+class StandaloneCurrencyInput extends HTMLSpanElement {
+    connectedCallback() {
+        this.addEventListener('input', this.#parse.bind(this));
+        whenContentIsReady(this, () => this.value = this.value);
+    }
+    get #hidden() { return this.children[0]; }
+    get input() { return this.children[1]; }
+    get value() { return this.#hidden.value; }
+    get currency() { return this.getAttribute('currency'); }
+    set value(value) {
+        this.#hidden.value = value;
+        this.input.value = value ? formatCurrencyField(value, this.currency) : "";
+    }
+    #parse() {
+        accept(this);
+        this.#hidden.value = this.input.value
+            && parseCurrency(this.input.value, this.currency);
+        this.dispatchEvent(new CustomEvent('currency-input', { bubbles: true }));
+    }
+}
+customElements.define("standalone-currency-input", StandaloneCurrencyInput, { extends: "span" });
 
 function unsuggest(element) {
     if (element.input.classList.contains('suggested')) {

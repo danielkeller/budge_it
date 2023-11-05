@@ -508,3 +508,79 @@ class OnTheGoForm(forms.Form):
 
         part.set_entries(self.budget, accounts, categories)
         return transaction
+
+
+class QuickAddForm(forms.Form):
+    account: Account | Category
+    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
+                                                  format='%Y-%m-%d'),
+                           required=True,
+                           initial=date.today)
+    note = forms.CharField(required=False)
+    amount = forms.IntegerField(widget=forms.HiddenInput)
+    is_split = forms.BooleanField(required=False,
+                                  widget=forms.CheckboxInput(attrs={'class': 'disclosure'}))
+    split = forms.TypedMultipleChoiceField(required=False, choices=[],
+                                           coerce=_get_budget,
+                                           widget=forms.CheckboxSelectMultiple)
+
+    def __init__(self, account: Account | Category, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.account = account
+        budget = account.budget
+        self.fields['split'].choices = (
+            [(budget.id, 'Yourself')]
+            + list(budget.friends.values_list('id', 'name')))
+        initial_split = budget.initial_split or str(budget.id)
+        self.fields['split'].initial = initial_split.split(',')
+        self.fields['is_split'].initial = initial_split != str(budget.id)
+
+    @transaction.atomic
+    def save(self):
+        transaction = Transaction(date=self.cleaned_data['date'])
+        transaction.save()
+
+        part = TransactionPart(transaction=transaction)
+        if self.cleaned_data['note']:
+            part.note = self.cleaned_data['note']
+        part.save()
+
+        budget = self.account.budget
+        currency = self.account.currency
+
+        if self.cleaned_data['is_split']:
+            split: list[Budget] = self.cleaned_data['split']
+        else:
+            split = [budget]
+        budget.initial_split = ','.join(str(friend.id) for friend in split)
+        budget.save()
+
+        amount = self.cleaned_data['amount']
+        payee = Budget.objects.get_or_create(
+            name="Payee", payee_of_id=budget.owner())[0]
+
+        if isinstance(self.account, Account):
+            own_account = self.account
+            own_category = budget.get_inbox(Category, currency)
+        else:
+            own_account = budget.get_inbox(Account, currency)
+            own_category = self.account
+
+        accounts = {own_account: amount,
+                    payee.get_inbox(Account, currency): -amount}
+        categories = {payee.get_inbox(Category, currency): -amount}
+
+        from_categories = [
+            friend.get_inbox(Category, currency)
+            for friend in split
+            if friend != budget]
+        if budget in split or not from_categories:
+            from_categories.append(own_category)
+
+        div = amount // len(from_categories)
+        rem = amount - div * len(from_categories)
+        for i in range(len(from_categories)):
+            categories[from_categories[i]] = div + (i < rem)
+
+        part.set_entries(budget, accounts, categories)
+        return transaction

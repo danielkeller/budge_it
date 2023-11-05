@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Any, cast
+from typing import Optional, Any, cast, Callable
 from datetime import date, timedelta
 from urllib.parse import urlparse
 
@@ -7,7 +7,7 @@ from django.views.decorators.http import require_http_methods
 from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
-                         HttpResponseBadRequest, Http404)
+                         HttpResponseBadRequest, Http404, QueryDict)
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
@@ -24,7 +24,7 @@ from .models import (sum_by, date_range, months_between,
                      prior_budgeting_transaction)
 from .forms import (TransactionForm,
                     BudgetingForm, rename_form, BudgetForm,
-                    OnTheGoForm,
+                    OnTheGoForm, QuickAddForm,
                     ReorderingFormSet, AccountManagementFormSet,
                     CategoryManagementFormSet, CurrencyManagementFormSet)
 
@@ -40,17 +40,20 @@ def profileit(func: Any):
     return wrapper
 
 
-def hx_current_url(request: HttpRequest):
-    """Adds to the context the URL that the user is actually looking at"""
-    return {'current_url':
-            request.headers.get('HX-Current-URL') or request.get_full_path()}
-
-
 def hx(request: HttpRequest):
     class HX:
         def __getitem__(self, key: str):
             return request.headers['HX-' + key.replace('_', '-')]
     return {'hx': HX()}
+
+
+def post_data(get_response: Callable[[HttpRequest], HttpResponse]):
+    def middleware(request: HttpRequest):
+        if not request.POST and request.content_type == "application/x-www-form-urlencoded":
+            request.POST = QueryDict(request.body, encoding=request.encoding)
+        response = get_response(request)
+        return response
+    return middleware
 
 
 @login_required
@@ -110,7 +113,10 @@ def all(request: HttpRequest, budget_id: int,
     account_id = account_id or request.GET.get('account')
     transaction_id = transaction_id or request.GET.get('transaction')
 
-    if request.method == 'POST':
+    if request.method == 'PUT':
+        # A bit of a hack to use the method like this
+        transaction_id = quick_save(request, budget, account_id)
+    elif request.method == 'POST':
         transaction_id = save(request, budget, transaction_id)
     elif request.method == 'DELETE':
         transaction_id = delete(budget, transaction_id)
@@ -133,6 +139,9 @@ def all(request: HttpRequest, budget_id: int,
         account = _get_allowed_object_or_404(request, budget, account_id)
         entries, balance = account.transactions()
         context |= {'account': account, 'entries': entries, 'balance': balance}
+        if isinstance(account, (Account, Category)):
+            quick_add = QuickAddForm(account, prefix="qa")
+            context |= {'quick_add': quick_add}
 
     if request.headers.get('HX-Target') == 'account':
         return fix_url(render(request, 'budget/partials/account.html', context))
@@ -145,6 +154,18 @@ def all(request: HttpRequest, budget_id: int,
                 'edit': _edit_context(budget)}
 
     return fix_url(render(request, 'budget/all.html', context))
+
+
+def quick_save(request: HttpRequest, budget: Budget, account_id: str | int | None):
+    try:
+        account_id = int(account_id or "")
+    except ValueError:
+        raise Http404()
+    account = _get_allowed_account_or_404(request, account_id)
+    form = QuickAddForm(account, prefix="qa", data=request.POST)
+    if not form.is_valid():
+        raise ValueError(form.errors)
+    return form.save().id
 
 
 def save(request: HttpRequest, budget: Budget, transaction_id: str | int | None):

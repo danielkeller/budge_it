@@ -60,6 +60,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'budget.views.post_data',
 ]
 
 ROOT_URLCONF = 'budge_it.urls'
@@ -75,7 +76,6 @@ TEMPLATES: Any = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'budget.views.hx_current_url',
                 'budget.views.hx',
             ],
         },

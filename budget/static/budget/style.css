@@ -285,7 +285,7 @@ entry-list:focus .checked>* {
     display: contents;
 }
 
-.grid span {
+.grid .ellipsis {
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
@@ -363,6 +363,44 @@ entry-list:focus .checked>* {
 
 .transaction-details table {
     width: 100%;
+}
+
+/* TODO: Set input widths like this*/
+[is="standalone-currency-input"] {
+    max-width: calc(4 * var(--line-height));
+}
+
+.disclosure {
+    position: absolute;
+    left: -100px;
+}
+
+.disclosure:focus-visible+label {
+    outline: 3px solid LinkText;
+    outline: 3px solid AccentColor;
+    border-radius: 2px;
+    position: relative;
+    z-index: 1;
+}
+
+.disclosure+label::before {
+    content: '▶';
+    display: inline-block;
+    width: 1em;
+}
+
+.disclosure:checked+label::before {
+    content: '▼';
+    display: inline-block;
+    width: 1em;
+}
+
+.disclosure+label+* {
+    display: none;
+}
+
+.disclosure:checked+label+* {
+    display: initial;
 }
 
 form {
