@@ -9,25 +9,26 @@
     <script src="{% static 'budget/jdecimal.js' %}"></script>
     <script src="{% static 'budget/budget.js' %}"></script>
 </head>
-<div class="controls">
-    <div class="navigation">
-        <a href="{% url 'overview' budget.id %}">Overview</a>
+<body class="popup">
+    <div class="controls">
+        <div class="navigation">
+            <div><a href="{{ budget.get_absolute_url }}">Back</a></div>
+        </div>
+        <div class="tools">
+            {% if prior and not form.instance.id %}
+            <form method="post" action="{% url 'copy_budget' budget.id prior.id current_year current_month  %}">
+                {% csrf_token %}
+                <div>
+                    <button>Copy from {{ prior.date|date:"M Y" }}</button>
+                    <button form="form">Save</button>
+                </div>
+            </form>
+            {% endif %}
+            <button form="form">Save</button>
+        </div>
     </div>
-    <div class="tools">
-        {% if prior and not form.instance.id %}
-        <form method="post" action="{% url 'copy_budget' budget.id prior.id current_year current_month  %}">
-            {% csrf_token %}
-            <div>
-                <button>Copy from {{ prior.date|date:"M Y" }}</button>
-            </div>
-        </form>
-        {% endif %}
-        <button form="form">Save</button>
-    </div>
-</div>
 
-<main class="edit">
-    <div class="editor">
+    <main class="manage">
         <form id="datepicker">
             <div class="datepicker">
                 <div class="years">
@@ -48,7 +49,7 @@
             </div>
         </form>
 
-        <form id="form" method="post" action="{{ request.get_full_path }}">
+        <form id="form" method="post">
             <table id="table">
                 <tr>
                     <th>Category</th>
@@ -85,7 +86,7 @@
             {% csrf_token %}
             {{ form.date }}
         </form>
-        {{ data|json_script:"data" }}
-        {{ form.errors|default:"" }}
-    </div>
-</main>
+    </main>
+    {{ data|json_script:"data" }}
+    {{ form.errors|default:"" }}
+</body>

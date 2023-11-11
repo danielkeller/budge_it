@@ -1,5 +1,6 @@
 <div class="controls"><div class="tools">
     <a href="{% url 'manage' budget.id %}">Manage...</a>
+    <a href="{% url 'budget' budget.id today.year today.month %}">Budget...</a>
 </div></div>
 <entry-list
     class="scroll"

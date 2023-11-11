@@ -153,6 +153,7 @@ def all(request: HttpRequest, budget_id: int,
                     for category in categories)
     context |= {'accounts': accounts, 'categories': categories,
                 'debts': debts, 'totals': totals,
+                'today': date.today(),
                 'edit': _edit_context(budget)}
 
     return fix_url(render(request, 'budget/all.html', context))
