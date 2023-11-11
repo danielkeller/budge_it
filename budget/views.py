@@ -79,13 +79,11 @@ def _get_allowed_account_or_404(request: HttpRequest, id: int):
     return account
 
 
-def _get_allowed_object_or_404(request: HttpRequest, budget: Budget,
-                               name: str | int):
-    try:
-        id = int(name)
-    except ValueError:
-        return Total(budget, cast(str, name))
-    return _get_allowed_account_or_404(request, id)
+def _get_account_like_or_404(request: HttpRequest, budget: Budget,
+                             name: str | int):
+    if isinstance(name, str) and name.startswith('all-'):
+        return Total(budget, name.removeprefix('all-'))
+    return _get_allowed_account_or_404(request, int(name))
 
 
 def _get_allowed_transaction_or_404(budget: Budget,
@@ -136,7 +134,7 @@ def all(request: HttpRequest, budget_id: int,
         return fix_url(render(request, 'budget/partials/edit.html', context))
 
     if account_id:
-        account = _get_allowed_object_or_404(request, budget, account_id)
+        account = _get_account_like_or_404(request, budget, account_id)
         entries, balance = account.transactions()
         context |= {'account': account, 'entries': entries, 'balance': balance}
         if isinstance(account, (Account, Category)):

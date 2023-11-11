@@ -10,6 +10,8 @@
     hx-get="{% url 'all' budget.id %}"
     hx-target="#account">
     <table id="categories">
+        <!--<tr data-value="manage"><td colspan="2">Manage</td></tr>
+        <tr><th colspan="2">&nbsp;</th></tr>-->
         <tbody data-group="">
             <tr data-category="1">
                 <th>Category</th>
@@ -32,15 +34,18 @@
             {% endfor %}
         </tbody>
         {% for currency, total in totals.items %}
-        <tr class=" {% cycle rowcolor %}">
+        <tr class="{% cycle rowcolor %}" data-value="all-{{ currency }}">
             <td>Total</td>
             <td class="number">
                 <long-currency currency="{{ currency }}" value="{{ total }}"></long-currency>
             </td>
         </tr>
         {% endfor %}
-        <th>Account</th>
-        <th class="t5">Balance</th>
+        <tr><th colspan="2">&nbsp;</th></tr>
+        <tr>
+            <th>Account</th>
+            <th class="t5">Balance</th>
+        </tr>
         {% for account in accounts %}
         <tr class="{% cycle 'a' 'b' as rowcolor %}" data-value="{{account.id}}">
             <td>{{ account.name|default:"Inbox" }}</td>
@@ -56,7 +61,7 @@
         </tr>
         {% endfor %}
         {% for currency, total in totals.items %}
-        <tr class="{% cycle rowcolor %}">
+        <tr class="{% cycle rowcolor %}" data-value="all-{{ currency }}">
             <td>Total</td>
             <td class="number">
                 <long-currency currency="{{ currency }}" value="{{ total }}"></long-currency>
