@@ -266,17 +266,22 @@ class Category(BaseAccount):
 class Balance:
     """A fake account representing the balance between two budgets."""
     budget: Budget
-    other: Budget
+    other: int
     currency: str
 
     def get_absolute_url(self):
         return reverse('balance', kwargs={'currency': self.currency,
                                           'budget_id_1': self.budget.id,
-                                          'budget_id_2': self.other.id})
+                                          'budget_id_2': self.other})
 
     @property
     def name(self):
         return f"Owed by {self.other}"
+
+    @property
+    def id(self):
+        # Templates/urls refer to it this way
+        return f'owed-{self.currency}-{self.other}'
 
     def transactions(self) -> tuple[list['Transaction'], int]:
         gets = (CategoryEntry.objects
@@ -305,7 +310,7 @@ class Balance:
         for transaction in qs:
             total += getattr(transaction, 'change')
             setattr(transaction, 'running_sum', total)
-        return list(reversed(qs))
+        return list(reversed(qs)), total
 
 
 @dataclass
@@ -321,7 +326,7 @@ class Total:
     @property
     def id(self):
         # Templates/urls refer to it this way
-        return self.currency
+        return 'all-' + self.currency
 
     def transactions(self) -> tuple[Iterable['Transaction'], int]:
         qs = (Transaction.objects
@@ -516,7 +521,7 @@ class Transaction(models.Model):
                 raise ValidationError(
                     {'recurrence': 'Transaction repeats more than 20 times'})
 
-    def auto_description(self, in_account: BaseAccount | Balance | Budget):
+    def auto_description(self, in_account: BaseAccount | Balance | Budget | Total):
         if self.kind == self.Kind.BUDGETING:
             return "Budget"
 
@@ -785,6 +790,7 @@ def months_between(start: date, end: date):
 
 
 def accounts_overview(budget: Budget):
+    # TODO: Return totals and debts using the corresponding objects
     past = Q(entries__part__transaction__date__lte=date.today())
     sum_entries = Sum('entries__amount', filter=past, default=0)
     accounts = (Account.objects

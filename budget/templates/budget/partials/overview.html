@@ -53,7 +53,7 @@
         </tr>
         {% endfor %}
         {% for debt in debts %}
-        <tr class=" {% cycle rowcolor %}">
+        <tr class="{% cycle rowcolor %}" data-value="owed-{{ debt.currency }}-{{ debt.id }}">
             <td>Owed by {{ debt }}</td>
             <td class="number">
                 <long-currency currency="{{ debt.currency }}" value="{{ debt.balance }}"></long-currency>
