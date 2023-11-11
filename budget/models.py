@@ -345,6 +345,9 @@ class Total:
         return list(reversed(qs)), total
 
 
+AccountLike = Account | Category | Total | Balance
+
+
 def group_by_currency(amounts: dict[AccountT, int]):
     result: dict[str, dict[AccountT, int]] = {}
     for account, amount in amounts.items():
@@ -521,7 +524,7 @@ class Transaction(models.Model):
                 raise ValidationError(
                     {'recurrence': 'Transaction repeats more than 20 times'})
 
-    def auto_description(self, in_account: BaseAccount | Balance | Budget | Total):
+    def auto_description(self, in_account: AccountLike):
         if self.kind == self.Kind.BUDGETING:
             return "Budget"
 

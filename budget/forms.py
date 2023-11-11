@@ -8,7 +8,7 @@ from django.forms import ValidationError
 from django.db import transaction
 
 from .models import (Id, Budget, BaseAccount, Account, Category,
-                     TransactionPart, Transaction)
+                     TransactionPart, Transaction, AccountLike)
 from .recurrence import RRule
 
 
@@ -511,7 +511,7 @@ class OnTheGoForm(forms.Form):
 
 
 class QuickAddForm(forms.Form):
-    account: Account | Category
+    account: AccountLike
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
                                                   format='%Y-%m-%d'),
                            required=True,
@@ -524,7 +524,7 @@ class QuickAddForm(forms.Form):
                                            coerce=_get_budget,
                                            widget=forms.CheckboxSelectMultiple)
 
-    def __init__(self, account: Account | Category, *args: Any, **kwargs: Any):
+    def __init__(self, account: AccountLike, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.account = account
         budget = account.budget
@@ -559,11 +559,12 @@ class QuickAddForm(forms.Form):
         payee = Budget.objects.get_or_create(
             name="Payee", payee_of_id=budget.owner())[0]
 
+        own_category = budget.get_inbox(Category, currency)
+        own_account = budget.get_inbox(Account, currency)
+
         if isinstance(self.account, Account):
             own_account = self.account
-            own_category = budget.get_inbox(Category, currency)
-        else:
-            own_account = budget.get_inbox(Account, currency)
+        elif isinstance(self.account, Category):
             own_category = self.account
 
         accounts = {own_account: amount,

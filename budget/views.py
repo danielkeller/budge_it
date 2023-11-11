@@ -20,7 +20,7 @@ from .models import (sum_by, date_range, months_between,
                      BaseAccount, Account, Category, Budget,
                      Transaction, Cleared,
                      accounts_overview,  category_balance,
-                     Balance, Total, budgeting_transaction,
+                     Balance, Total, AccountLike, budgeting_transaction,
                      prior_budgeting_transaction)
 from .forms import (TransactionForm,
                     BudgetingForm, rename_form, BudgetForm,
@@ -69,10 +69,10 @@ def _get_allowed_budget_or_404(request: HttpRequest, id: int):
     return budget
 
 
-def _get_allowed_account_or_404(request: HttpRequest, id: int):
+def _get_allowed_account_or_404(request: HttpRequest, id: int | str):
     try:
-        account = BaseAccount.get(id)
-    except BaseAccount.DoesNotExist:
+        account = BaseAccount.get(int(id))
+    except (ValueError, BaseAccount.DoesNotExist):
         raise Http404()
     if not account.budget.view_permission(request.user):
         raise Http404()
@@ -80,14 +80,14 @@ def _get_allowed_account_or_404(request: HttpRequest, id: int):
 
 
 def _get_account_like_or_404(request: HttpRequest, budget: Budget,
-                             name: str | int):
+                             name: str | int) -> AccountLike:
     if isinstance(name, str):
         if name.startswith('all-'):
             return Total(budget, name.removeprefix('all-'))
         if name.startswith('owed-'):
             _, currency, other = name.split('-')
             return Balance(budget, int(other), currency)
-    return _get_allowed_account_or_404(request, int(name))
+    return _get_allowed_account_or_404(request, name)
 
 
 def _get_allowed_transaction_or_404(budget: Budget,
@@ -131,7 +131,7 @@ def all(request: HttpRequest, budget_id: int,
     transaction = _get_allowed_transaction_or_404(budget, transaction_id)
 
     form = TransactionForm(budget, prefix="tx", instance=transaction)
-    context = {'budget': budget, 'today': date.today(),
+    context = {'budget': budget,
                'transaction_id': transaction_id, 'form': form}
 
     if request.headers.get('HX-Target') == 'transaction':
@@ -141,7 +141,7 @@ def all(request: HttpRequest, budget_id: int,
         account = _get_account_like_or_404(request, budget, account_id)
         entries, balance = account.transactions()
         context |= {'account': account, 'entries': entries, 'balance': balance}
-        if isinstance(account, (Account, Category)):
+        if not isinstance(account, Balance):
             quick_add = QuickAddForm(account, prefix="qa")
             context |= {'quick_add': quick_add}
 
@@ -159,11 +159,7 @@ def all(request: HttpRequest, budget_id: int,
 
 
 def quick_save(request: HttpRequest, budget: Budget, account_id: str | int | None):
-    try:
-        account_id = int(account_id or "")
-    except ValueError:
-        raise Http404()
-    account = _get_allowed_account_or_404(request, account_id)
+    account = _get_account_like_or_404(request, budget, account_id or "")
     form = QuickAddForm(account, prefix="qa", data=request.POST)
     if not form.is_valid():
         raise ValueError(form.errors)
