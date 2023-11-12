@@ -425,35 +425,38 @@ hr {
     padding: 0;
 }
 
-.tdinput>* {
+/* The focus ring is on the same z-index as the input, so if an adjacent input
+   has a background it will cover part of it. */
+
+.tdinput :focus-visible {
+    position: relative;
+    z-index: 1;
+}
+
+.tdinput input,
+.tdinput select,
+.tdinput textarea {
     border: none;
     width: 100%;
     vertical-align: bottom;
     background-color: Field;
 }
 
-/* The focus ring is on the same z-index as the input, so if an adjacent input
-   has a background it will cover part of it. */
-
-.tdinput>:focus-visible {
-    position: relative;
-    z-index: 1;
-}
-
-.tdinput>input,
-.tdinput>select {
+.tdinput input,
+.tdinput select {
     height: var(--td-line-height);
 }
 
-.tdinput>:disabled,
-.tdinput>[readonly] {
-    background-color: var(--canvas);
-    color: GrayText;
+.tdinput input,
+.tdinput textarea {
+    padding: 0 var(--td-hpad);
+    resize: vertical;
 }
 
-.tdinput>input,
-.tdinput>textarea {
-    padding: 0 var(--td-hpad);
+.tdinput :disabled,
+.tdinput [readonly] {
+    background-color: var(--canvas);
+    color: GrayText;
 }
 
 :invalid:not(:focus) {

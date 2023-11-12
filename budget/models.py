@@ -329,6 +329,7 @@ class Total:
         return 'all-' + self.currency
 
     def transactions(self) -> tuple[Iterable['Transaction'], int]:
+        # TODO: Do we want to include budgets and transfers here?
         qs = (Transaction.objects
               .filter_for(self.budget)
               .filter(parts__categories__currency=self.currency,

@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="{% static 'budget/style.css' %}">
     <script src="{% static 'budget/util.js' %}"></script>
     <script src="{% static 'budget/jdecimal.js' %}"></script>
+    <script src="{% static 'budget/editor.js' %}"></script>
     <script src="{% static 'budget/budget.js' %}"></script>
+    <script src="{% static 'budget/htmx.min.js' %}" defer></script>
 </head>
 <body class="popup">
     <div class="controls">
@@ -29,7 +31,7 @@
     </div>
 
     <main class="manage">
-        <form id="datepicker">
+        <form id="datepicker" is="date-picker">
             <div class="datepicker">
                 <div class="years">
                     {% for year in years %}
@@ -49,7 +51,7 @@
             </div>
         </form>
 
-        <form id="form" method="post">
+        <form id="form" method="post" is="budget-form">
             <table id="table">
                 <tr>
                     <th>Category</th>
@@ -68,18 +70,28 @@
                     <td></td>
                 </tr>
                 {% endifchanged %}
-                <tr class="{% cycle rowcolor %}"
-                    data-category="{{ row.category.id }}"
-                    data-categorycurrency="{{ row.category.currency }}">
+                <tr class="{% cycle rowcolor %}">
                     <td>{% account_in_budget row.category budget %}</td>
-                    <td class="number" data-currency="{{ row.category.currency }}">
-                        {{ row.category.balance }}
+                    <td class="number">
+                        <long-currency currency="{{ row.category.currency }}" value="{{ row.category.balance }}"></long-currency>
                     </td>
-                    <td class="tdinput">{{ row.field }}<input class="number" {% if row.category.name %}autofocus{% endif %}></td>
-                    <td class="number" data-currency="{{ row.category.currency }}">
-                        {{ row.category.change }}
+                    <td class="tdinput">
+                        {% if row.category.name == '' %}
+                        <span is="standalone-currency-input" currency="{{ row.category.currency }}" data-budget-inbox>
+                            {{ row.field }}<input class="suggested number" readonly>
+                        </span>
+                        {% else %}
+                        <span is="standalone-currency-input" currency="{{ row.category.currency }}" data-budget-category>
+                            {{ row.field }}<input class="number">
+                        </span>
+                        {% endif %}
                     </td>
-                    <td class="number" data-value="{{ row.total }}"></td>
+                    <td class="number">
+                        <short-currency currency="{{ row.category.currency }}" value="{{ row.category.change }}"></short-currency>
+                    </td>
+                    <td class="number">
+                        <short-currency currency="{{ row.category.currency }}" value="{{ row.final }}" data-total="{{ row.total }}"></short-currency>
+                    </td>
                 </tr>
                 {% endfor %}
             </table>

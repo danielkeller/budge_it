@@ -495,6 +495,13 @@ class BudgetRow:
     def total(self):
         return self.category.balance + self.category.change
 
+    @property
+    def final(self):
+        try:
+            return self.total + int(self.field.value())
+        except (ValueError, TypeError):
+            return self.total
+
 
 @login_required
 def budget(request: HttpRequest, budget_id: int, year: int, month: int):

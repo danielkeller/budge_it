@@ -70,6 +70,12 @@ class ShortCurrency extends HTMLElement {
         this.textContent = value && this.formatter(value, currency);
     }
     get formatter() { return formatCurrencyField; }
+    get value() { return this.getAttribute('value'); }
+    set value(value) {
+        this.setAttribute('value', value);
+        const currency = this.getAttribute('currency');
+        this.textContent = value && this.formatter(value, currency);
+    }
 }
 class LongCurrency extends ShortCurrency {
     get formatter() { return formatCurrency; }
