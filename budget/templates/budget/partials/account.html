@@ -16,7 +16,7 @@
     <entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
         {% if hx.event != 'kbdselect' %}autofocus{% endif %}
         name="transaction"
-        value="{{ transaction_id|default:"" }}"
+        value="{{ transaction.id|default:"" }}"
         hx-trigger="kbdselect,mouseselect delay:100ms"
         hx-get="{% url 'all' budget.id account.id %}"
         hx-target="#transaction">
@@ -93,7 +93,7 @@
     </entry-list>
 </div>
 <div id="transaction" class="editor">
-    {% if transaction_id %}
+    {% if transaction.id %}
     {% include 'budget/partials/edit.html' %}
     {% endif %}
 </div>

@@ -280,6 +280,9 @@ entry-list:focus .checked>* {
     grid: auto-flow / max-content 1fr max-content max-content;
 }
 
+.c5 .disclosure+label {
+    grid-column: span 2;
+}
 
 .grid>* {
     display: contents;

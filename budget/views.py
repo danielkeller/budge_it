@@ -131,8 +131,7 @@ def all(request: HttpRequest, budget_id: int,
     transaction = _get_allowed_transaction_or_404(budget, transaction_id)
 
     form = TransactionForm(budget, prefix="tx", instance=transaction)
-    context = {'budget': budget,
-               'transaction_id': transaction_id, 'form': form}
+    context = {'budget': budget, 'transaction': transaction, 'form': form}
 
     if request.headers.get('HX-Target') == 'transaction':
         return fix_url(render(request, 'budget/partials/edit.html', context))
