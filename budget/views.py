@@ -98,12 +98,6 @@ def _get_allowed_transaction_or_404(budget: Budget,
     return transaction
 
 
-def reverse_all(budget_id: int, account_id: str | int | None,
-                transaction_id: str | int | None):
-    return reverse('all', args=[arg for arg in (
-        budget_id, account_id, transaction_id) if arg])
-
-
 @login_required
 def all(request: HttpRequest, budget_id: int,
         account_id: str | int | None = None,
@@ -112,7 +106,7 @@ def all(request: HttpRequest, budget_id: int,
     account_id = account_id or request.GET.get('account')
     transaction_id = transaction_id or request.GET.get('transaction')
 
-    # FIXME: This breaks the other forms that refresh 'all'
+    budget = _get_allowed_budget_or_404(request, budget_id)
     if request.method == 'PUT':
         # A bit of a hack to use the method like this
         transaction_id = quick_save(request, budget, account_id)
@@ -121,9 +115,26 @@ def all(request: HttpRequest, budget_id: int,
     elif request.method == 'DELETE':
         transaction_id = delete(budget, transaction_id)
 
+    return all_view(request, budget, account_id, transaction_id)
+
+
+@require_http_methods(['POST'])
+def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
+    account = _get_allowed_account_or_404(request, account_id)
+    transaction = _get_allowed_transaction_or_404(
+        account.budget, transaction_id)
+    assert transaction
+    transaction.change_inbox_to(account)
+    return all_view(request, account.budget, account_id, transaction_id)
+
+
+def all_view(request: HttpRequest, budget: Budget,
+             account_id: str | int | None = None,
+             transaction_id: str | int | None = None):
     def fix_url(response: HttpResponse):
-        response['HX-Replace-Url'] = reverse_all(
-            budget_id, account_id, transaction_id)
+        response['HX-Replace-Url'] = reverse(
+            'all', args=[arg for arg in (
+                budget.id, account_id, transaction_id) if arg])
         return response
 
     transaction = _get_allowed_transaction_or_404(budget, transaction_id)
@@ -193,16 +204,6 @@ def delete(budget: Budget, transaction_id: str | int | None):
                     for part in transaction.parts.all()]):
             transaction.delete()
     return None
-
-
-@require_http_methods(['POST'])
-def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
-    account = _get_allowed_account_or_404(request, account_id)
-    transaction = Transaction.objects.get_for(account.budget, transaction_id)
-    if not transaction:
-        raise Http404()
-    transaction.change_inbox_to(account)
-    return all(request, account.budget_id, account_id, transaction_id)
 
 
 def _edit_context(budget: Budget):
