@@ -1,10 +1,24 @@
-<span id="balance" data-currency="{{ account.currency }}" hx-swap-oob="true">{{ balance }}</span>
-<span class="th shortcurrency" data-currency="{{ account.currency }}" id="balance-th" hx-swap-oob="true">{{ balance }}</span>
+<short-currency id="balance" currency="{{ account.currency }}" value="{{ balance }}" hx-swap-oob="true"></short-currency>
 {% for transaction in entries %}
 {% if not transaction.is_inbox %}
-<span class="td number shortcurrency"
-    data-currency="{{ account.currency }}"
+<short-currency class="td number"
+    currency="{{ account.currency }}"
+    value="{{ transaction.running_sum }}"
     id="total-{{transaction.id}}"
-    hx-swap-oob="true">{{transaction.running_sum}}</span>
+    hx-swap-oob="true"></short-currency>
+{% if account.clearable %}
+<span class="td" id="cleared-{{transaction.id}}" hx-swap-oob="true">
+    {% if transaction.reconciled %}
+    🔒
+    {% else %}
+    <input type="checkbox"
+        name="clear"
+        hx-post="{% url 'clear' account.id transaction.id %}"
+        hx-swap="none settle:0"
+        hx-on:dblclick="event.stopPropagation()"
+        {% if not transaction.uncleared %}checked{% endif %}>
+    {% endif %}
+</span>
+{% endif %}
 {% endif %}
 {% endfor %}

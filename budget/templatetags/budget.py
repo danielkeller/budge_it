@@ -3,6 +3,7 @@ from budget import models
 from django import template
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from datetime import date, timedelta
 
 register = template.Library()
 
@@ -27,3 +28,8 @@ def account_in_budget(account: models.BaseAccount, budget: models.Budget):
 def transaction_description(value: models.Transaction,
                             account: models.BaseAccount):
     return value.auto_description(account)
+
+
+@register.filter
+def end_of_month(value: date):
+    return (value + timedelta(days=31)).replace(day=1) - timedelta(days=1)

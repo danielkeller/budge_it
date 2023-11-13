@@ -8,34 +8,22 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
 
     # Real pages
-    path('overview/<int:budget_id>/', views.overview, name='overview'),
+    path('<int:budget_id>/', views.all, name='all'),
+    path('<int:budget_id>/<account_id>/', views.all, name='all'),
+    path('<int:budget_id>/<account_id>/<int:transaction_id>/',
+         views.all, name='all'),
 
     path('manage/<int:budget_id>/', views.manage_accounts, name='manage'),
-
-    path('otg/<int:budget_id>/', views.onthego, name='otg'),
-
-    path('account/<int:account_id>/', views.account, name='account'),
-    path('balance/<str:currency>/<int:budget_id_1>/to/<int:budget_id_2>/',
-         views.balance, name='balance'),
-
     path('budget/<int:budget_id>/<int:year>/<int:month>/',
          views.budget, name='budget'),
 
-    path('transaction/<int:budget_id>/',
-         views.edit, name='create'),
-    path('transaction/<int:budget_id>/<int:transaction_id>/',
-         views.edit, name='edit'),
-
     # POST-only paths
-    path('reorder/<int:budget_id>/', views.reorder, name='reorder'),
     path('account/<int:account_id>/add/<int:transaction_id>/',
          views.add_to_account, name='add_to_account'),
     path('account/<int:account_id>/clear/<int:transaction_id>/',
          views.clear, name='clear'),
     path('account/<int:account_id>/reconcole/',
          views.reconcile, name='reconcile'),
-    path('transaction/<int:budget_id>/<int:transaction_id>/delete/',
-         views.delete, name='delete'),
     path('budget/copy/<int:budget_id>/<int:transaction_id>/<int:year>/<int:month>/',
          views.copy_budget, name='copy_budget'),
 

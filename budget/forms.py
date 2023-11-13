@@ -1,14 +1,16 @@
+from dataclasses import dataclass
 from collections import defaultdict
-from typing import Any, Dict, Union, Mapping, Optional, Type, TypeVar, Iterable
+from typing import Any, Union, Mapping, Optional, Type, TypeVar, Iterable
 from datetime import date
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from django.forms import ValidationError
+from django.forms import ValidationError, BoundField
 from django.db import transaction
 
 from .models import (Id, Budget, BaseAccount, Account, Category,
-                     TransactionPart, Transaction)
+                     TransactionPart, Transaction, AccountLike,
+                     budgeting_categories)
 from .recurrence import RRule
 
 
@@ -164,7 +166,8 @@ class PartForm(FormSetInline(EntryFormSet)):
     budget: Budget
     note = forms.CharField(required=False,
                            widget=forms.Textarea(attrs={'rows': 0}))
-    currency = forms.ChoiceField(required=False)
+    currency = forms.ChoiceField(required=False, widget=forms.Select(
+        attrs={'class': 'part-currency'}))
 
     def __init__(self, budget: Budget, *args: Any,
                  instance: Optional[TransactionPart] = None,
@@ -188,8 +191,9 @@ class PartForm(FormSetInline(EntryFormSet)):
     def full_clean(self):
         super().full_clean()
         # Kind of a hack
-        self.formset.currency = self.cleaned_data.get(
-            'currency')  # type: ignore
+        if self.is_bound:
+            self.formset.currency = self.cleaned_data.get(
+                'currency')  # type: ignore
 
     def save(self, commit: bool = True) -> Optional[TransactionPart]:
         instance: TransactionPart = super().save(commit)
@@ -217,8 +221,7 @@ class TransactionForm(FormSetInline(PartFormSet)):
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date', 'recurrence',)
-    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date',
-                                                         'autofocus': ''},
+    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
                                                   format='%Y-%m-%d'),
                            initial=date.today)
 
@@ -271,6 +274,22 @@ class TransactionForm(FormSetInline(PartFormSet)):
 
 
 class BudgetingForm(forms.ModelForm):
+    @dataclass
+    class Row:
+        category: Category
+        field: BoundField
+
+        @property
+        def total(self):
+            return self.category.balance + self.category.change
+
+        @property
+        def final(self):
+            try:
+                return self.total + int(self.field.value())
+            except (ValueError, TypeError):
+                return self.total
+
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date',)
@@ -279,19 +298,21 @@ class BudgetingForm(forms.ModelForm):
 
     date = forms.DateField(widget=forms.HiddenInput)
 
-    def __init__(self, *args: Any,
-                 categories: Iterable[Category],
-                 instance: Optional[Transaction] = None, **kwargs: Any):
+    def __init__(self, budget: Budget, *args: Any,
+                 instance: Transaction, **kwargs: Any):
         super().__init__(*args, instance=instance, **kwargs)
-        self.categories = categories
-        for category in categories:
+        self.categories = budgeting_categories(budget, instance)
+        self.budget = budget
+        for category in self.categories:
             self.fields[str(category.id)] = forms.IntegerField(
                 required=False, widget=forms.HiddenInput(
                     attrs={'form': 'form'}))
-        if instance:
+        if instance.pk:
             for category, amount in (instance.parts.get()
                                      .categoryentry_set.entries().items()):
                 self.initial[str(category.id)] = amount
+        self.rows = [BudgetingForm.Row(category, self[str(category.id)])
+                     for category in self.categories]
 
     def clean(self):
         if any(self.errors):
@@ -303,7 +324,8 @@ class BudgetingForm(forms.ModelForm):
             raise ValidationError("Amounts do not sum to zero")
         return self.cleaned_data
 
-    def save_entries(self, budget: Budget):
+    @transaction.atomic
+    def save(self):
         self.instance.kind = Transaction.Kind.BUDGETING
         super().save(commit=True)
         entries = {}
@@ -311,7 +333,11 @@ class BudgetingForm(forms.ModelForm):
             entries[category] = self.cleaned_data[str(category.id)] or 0
         part, _ = (TransactionPart.objects
                    .get_or_create(transaction=self.instance))
-        part.set_entries(budget, {}, entries)
+        # TODO: Factor this out with the transaction form
+        part = part.set_entries(self.budget, {}, entries)
+        if not part:
+            self.instance.delete()
+        return self.instance
 
 
 class BudgetForm(forms.ModelForm):
@@ -349,9 +375,11 @@ ReorderingFormSet = forms.modelformset_factory(
 class BaseAccountManagementForm(forms.ModelForm):
     class Meta:  # type: ignore
         model = BaseAccount
-        fields = ('name', 'currency', 'closed')
+        fields = ('name', 'currency', 'order', 'group', 'closed')
         widgets = {'name': forms.TextInput(attrs={'required': True,
-                                                  'autofocus': ''})}
+                                                  'autofocus': ''}),
+                   'group': forms.HiddenInput(attrs={'class': 'group'}),
+                   'order': forms.HiddenInput(attrs={'class': 'order'})}
     currency = forms.ChoiceField()
 
 
@@ -368,8 +396,10 @@ class BaseAccountManagementFormSet(forms.BaseInlineFormSet):
         super().add_fields(form, index)
         currencies = self.instance.currencies
         form.fields['currency'].choices = list(zip(currencies, currencies))
+        if not self.is_bound:  # Hack: Fake out is_changed
+            form.initial['order'] = index
         if form.instance.pk:
-            if form.instance.entries.exists():  # Optimize?
+            if form.instance.name == '' or form.instance.entries.exists():  # Optimize?
                 form.fields['currency'].disabled = True
                 form.fields['DELETE'].disabled = True
             if form.instance.currency not in currencies:
@@ -412,28 +442,14 @@ class BaseCurrencyManagementFormSet(forms.BaseInlineFormSet):
             budget: Budget = form.instance.budget
             currency: str = form.instance.currency
             if (budget.account_set
-                .filter(currency=currency).exclude(name='')
-                .exists()
+                    .filter(currency=currency).exclude(name='')
+                    .exists()
                 or budget.category_set
-                .filter(currency=currency).exclude(name='')
+                    .filter(currency=currency).exclude(name='')
                     .exists()
                 or budget.get_inbox(Category, currency).entries.exists()
                     or budget.get_inbox(Account, currency).entries.exists()):
                 form.fields['DELETE'].disabled = True
-
-    def save_new(self, form: forms.ModelForm, commit: bool = True) -> Category:
-        try:
-            form.instance = Category.objects.get(
-                budget=self.instance, name='', currency=form.instance.currency)
-        except Category.DoesNotExist:
-            pass
-        form.instance.closed = False
-        return super().save_new(form, commit)
-
-    def delete_existing(self, obj: Category, commit: bool = True):
-        obj.closed = True
-        if commit:
-            obj.save()
 
 
 CurrencyManagementFormSet = forms.inlineformset_factory(
@@ -453,32 +469,30 @@ def _get_budget(id: int):
     return Budget.objects.get(id=id)
 
 
-class OnTheGoForm(forms.Form):
-    budget: Budget
-    amount = forms.IntegerField(widget=forms.HiddenInput)
-    note = forms.CharField(required=False)
-    currency = forms.ChoiceField()
+class QuickAddForm(forms.Form):
+    account: AccountLike
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
                                                   format='%Y-%m-%d'),
                            required=True,
                            initial=date.today)
+    note = forms.CharField(required=False)
+    amount = forms.IntegerField(widget=forms.HiddenInput)
+    is_split = forms.BooleanField(required=False,
+                                  widget=forms.CheckboxInput(attrs={'class': 'disclosure'}))
     split = forms.TypedMultipleChoiceField(required=False, choices=[],
                                            coerce=_get_budget,
                                            widget=forms.CheckboxSelectMultiple)
 
-    def __init__(self, *args: Any, budget: Budget, **kwargs: Any):
-        self.budget = budget
-        initial = {'currency': budget.get_initial_currency()}
-        super().__init__(*args, initial=initial, **kwargs)
+    def __init__(self, account: AccountLike, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.account = account
+        budget = account.budget
         self.fields['split'].choices = (
             [(budget.id, 'Yourself')]
             + list(budget.friends.values_list('id', 'name')))
-        if budget.initial_split:
-            self.fields['split'].initial = budget.initial_split.split(',')
-        else:
-            self.fields['split'].initial = [budget.id]
-        currencies = budget.currencies
-        self.fields['currency'].choices = list(zip(currencies, currencies))
+        initial_split = budget.initial_split or str(budget.id)
+        self.fields['split'].initial = initial_split.split(',')
+        self.fields['is_split'].initial = initial_split != str(budget.id)
 
     @transaction.atomic
     def save(self):
@@ -490,30 +504,43 @@ class OnTheGoForm(forms.Form):
             part.note = self.cleaned_data['note']
         part.save()
 
-        currency = self.cleaned_data['currency']
-        split = self.cleaned_data['split']
-        self.budget.initial_currency = currency
-        self.budget.initial_split = ','.join(
-            str(friend.id) for friend in split)
-        self.budget.save()
+        budget = self.account.budget
+        currency = self.account.currency
+
+        if self.cleaned_data['is_split']:
+            split: list[Budget] = self.cleaned_data['split']
+        else:
+            split = [budget]
+        budget.initial_split = ','.join(str(friend.id) for friend in split)
+        budget.save()
 
         amount = self.cleaned_data['amount']
         payee = Budget.objects.get_or_create(
-            name="Payee", payee_of_id=self.budget.owner())[0]
+            name="Payee", payee_of_id=budget.owner())[0]
 
-        accounts = {self.budget.get_inbox(Account, currency): -amount,
-                    payee.get_inbox(Account, currency): amount}
-        categories = {payee.get_inbox(Category, currency): amount}
+        own_category = budget.get_inbox(Category, currency)
+        own_account = budget.get_inbox(Account, currency)
 
-        from_categories: list[Category] = [
-            budget.get_inbox(Category, currency)
-            for budget in split
-        ] or [self.budget.get_inbox(Category, currency)]
+        if isinstance(self.account, Account):
+            own_account = self.account
+        elif isinstance(self.account, Category):
+            own_category = self.account
+
+        accounts = {own_account: amount,
+                    payee.get_inbox(Account, currency): -amount}
+        categories = {payee.get_inbox(Category, currency): -amount}
+
+        from_categories = [
+            friend.get_inbox(Category, currency)
+            for friend in split
+            if friend != budget]
+        if budget in split or not from_categories:
+            from_categories.append(own_category)
 
         div = amount // len(from_categories)
         rem = amount - div * len(from_categories)
         for i in range(len(from_categories)):
-            categories[from_categories[i]] = -div - (i < rem)
+            categories[from_categories[i]] = div + (i < rem)
 
-        part.set_entries(self.budget, accounts, categories)
+        part.set_entries(budget, accounts, categories)
         return transaction

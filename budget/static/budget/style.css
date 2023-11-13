@@ -1,5 +1,6 @@
 * {
     box-sizing: border-box;
+    gap: var(--line-height);
 }
 
 @media (prefers-color-scheme: light) {
@@ -8,8 +9,6 @@
         --alt-canvas: #e0f0eb;
         --inactive-selected: rgb(200, 200, 200);
         --line: #888;
-        --field-highlight: rgb(255, 254, 239);
-        --canvas-highlight: rgb(255, 249, 173);
     }
 }
 
@@ -19,8 +18,6 @@
         --inactive-selected: rgb(100, 100, 100);
         --alt-canvas: #1e4438;
         --line: #888;
-        --field-highlight: rgb(60, 56, 0);
-        --canvas-highlight: rgb(96, 89, 0);
     }
 }
 
@@ -36,39 +33,58 @@ html {
 }
 
 body {
-    margin: 0;
-    padding-bottom: var(--line-height);
-}
-
-pre {
-    margin: 0;
-}
-
-body {
     margin: 0 auto;
-    display: flex;
-    flex-direction: column;
     height: 100vh;
-    max-width: 1024px;
     overflow: hidden;
     padding: var(--line-height);
-    gap: var(--line-height);
 }
 
-main {
-    min-height: 0;
+.column,
+.popup {
+    display: grid;
+    grid: minmax(0, max-content) / auto;
+}
+
+.popup {
+    width: max-content;
+}
+
+#datas {
+    display: none;
+}
+
+.all {
+    display: grid;
+    grid: minmax(0, 1fr) / max-content 1fr;
+}
+
+#account {
+    display: grid;
+    grid: minmax(0, 1fr) / 1fr max-content;
+}
+
+.scroll {
+    overflow-y: auto;
 }
 
 .controls,
 .tools {
     display: flex;
-    gap: var(--line-height);
 }
 
 .tools {
     margin-left: auto;
     flex-wrap: wrap;
-    flex-direction: row-reverse;
+}
+
+.edit,
+edit-part {
+    display: flex;
+    flex-direction: column;
+}
+
+form {
+    display: contents;
 }
 
 button,
@@ -128,12 +144,12 @@ th {
 }
 
 tr.a,
-div.a>* {
+:not(tr).a>* {
     background-color: var(--alt-canvas);
 }
 
 tr.b,
-div.b>* {
+:not(tr).b>* {
     /* make dragging look nicer */
     background-color: var(--canvas);
 }
@@ -150,39 +166,11 @@ th {
     padding: 0 var(--td-hpad);
 }
 
-main.overview {
+main.manage {
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    gap: var(--line-height);
-    overflow-y: auto;
-}
-
-@media (max-width: 500px) {
-    main.overview {
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-    }
-}
-
-main.manage,
-main.edit {
-    display: flex;
-    gap: var(--line-height);
     flex-direction: column;
     align-items: center;
     overflow-y: auto;
-}
-
-main.otg {
-    overflow: visible;
-}
-
-.editor {
-    display: flex;
-    gap: var(--line-height);
-    flex-direction: column;
 }
 
 [draggable=true] {
@@ -194,14 +182,18 @@ main.otg {
 }
 
 tr.droppable,
-tbody.droppable>:last-child {
+tbody.droppable>:last-child,
+tr.droppable>.tdinput>*,
+tbody.droppable>:last-child>.tdinput>* {
     /* work around chrome bug */
     box-shadow: inset 0 -2px 0 LinkText;
     box-shadow: inset 0 -2px 0 AccentColor;
 }
 
 .droppable+tr,
-.droppable+tbody>:first-child {
+.droppable+tbody>:first-child,
+.droppable+td>.tdinput>*,
+.droppable+tbody>:first-child>.tdinput>* {
     box-shadow: inset 0 2px 0 LinkText;
     box-shadow: inset 0 2px 0 AccentColor;
 }
@@ -210,122 +202,93 @@ tbody.droppable>:last-child {
     text-align: center;
 }
 
-.groupname button {
-    font-weight: bold;
-    cursor: pointer;
-    border: none;
-    background: none;
-    min-width: calc(4 * var(--line-height));
-}
-
 .dragging button {
     cursor: grabbing;
 }
 
-.account {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--line-height);
+entry-list .checked>* {
+    background-color: var(--inactive-selected);
+    color: ButtonText;
 }
 
-@media (max-width: 900px) {
-    .account {
-        grid-template-columns: 1fr;
-        grid-template-rows: 1fr 1fr;
-    }
+entry-list:focus .checked>* {
+    background-color: SelectedItem;
+    color: SelectedItemText;
 }
 
-.listview {
+.grid {
     align-self: start;
     max-height: 100%;
     overflow-y: auto;
-}
-
-.listview>* {
     display: grid;
     gap: var(--td-border);
     padding: var(--td-border);
 }
 
-.listview.c5>* {
+.grid.c5 {
     grid: auto-flow / max-content 1fr max-content max-content max-content;
 }
 
-.listview.c4>* {
+.grid.c4 {
     grid: auto-flow / max-content 1fr max-content max-content;
 }
 
+.c5 .disclosure+label {
+    grid-column: span 2;
+}
 
-.listview>*>div {
+.grid>* {
     display: contents;
 }
 
-.listview .th {
+.grid .ellipsis {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.transactions.grid .th {
     position: sticky;
-    top: var(--td-border);
+    top: 0;
     background-color: var(--canvas);
 }
 
-.listview span {
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-}
-
-.listview .checked>* {
-    background-color: var(--inactive-selected);
-    color: ButtonText;
-}
-
-.listview:focus .checked>* {
-    background-color: SelectedItem;
-    color: SelectedItemText;
-}
-
-
 @media (max-width: 500px) {
-    .listview.c4>* {
+    .grid.c4 {
         grid: auto-flow dense / max-content 1fr 1fr;
     }
 
-    .listview.c4 span:nth-child(4n+1) {
+    .grid.c4 span:nth-child(4n+1) {
         grid-row: span 2;
     }
 
-    .listview.c4 span:nth-child(5n+2) {
+    .grid.c4 span:nth-child(5n+2) {
         grid-column: 2 / 4;
     }
 
-    .listview.c5>* {
+    .grid.c5 {
         grid: auto-flow dense / max-content 1fr 1fr max-content;
     }
 
-    .listview.c5 span:nth-child(5n+1) {
+    .grid.c5 span:nth-child(5n+1) {
         grid-row: span 2;
     }
 
-    .listview.c5 span:nth-child(5n+2) {
+    .grid.c5 span:nth-child(5n+2) {
         grid-column: 2 / 5;
     }
 
-    .listview.c5 .is_inbox :nth-child(5n+4) {
+    .grid.c5 .is_inbox :nth-child(5n+4) {
         grid-column: span 2;
     }
 
-    .listview.c5 .is_inbox :nth-child(5n+5) {
+    .grid.c5 .is_inbox :nth-child(5n+5) {
         display: none;
     }
 
-    .listview .th {
+    .transactions.grid .th {
         position: static;
     }
-}
-
-.longtext {
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-    max-width: var(--cell-width);
 }
 
 .is_inbox {
@@ -333,29 +296,45 @@ tbody.droppable>:last-child {
     font-style: italic;
 }
 
-.transaction-details {
-    overflow-y: auto;
+/* TODO: Set input widths like this*/
+[is="standalone-currency-input"] {
+    max-width: calc(4 * var(--line-height));
 }
 
-.transaction-details>:not(.checked) {
+.disclosure {
+    position: absolute;
+    left: -100px;
+}
+
+.disclosure:focus-visible+label {
+    outline: 3px solid LinkText;
+    outline: 3px solid AccentColor;
+    border-radius: 2px;
+    position: relative;
+    z-index: 1;
+}
+
+.disclosure+label::before {
+    content: '▶';
+    display: inline-block;
+    width: 1em;
+}
+
+.disclosure:checked+label::before {
+    content: '▼';
+    display: inline-block;
+    width: 1em;
+}
+
+.disclosure+label+* {
     display: none;
 }
 
-.transaction-details>div {
-    display: flex;
-    flex-direction: column;
-    gap: var(--line-height);
+.disclosure:checked+label+* {
+    display: initial;
 }
 
-.transaction-details table {
-    width: 100%;
-}
-
-form {
-    display: contents;
-}
-
-.editor>div:empty {
+edit-part>div:empty {
     display: none;
 }
 
@@ -366,61 +345,63 @@ hr {
     align-self: stretch;
 }
 
-/* The focus ring is on the same z-index as the input, so if an adjacent input
-   has a background it will cover part of it. Work around this by making enabled
-   inputs transparent and ones with a background on a lower z-index. */
-
 .tdinput {
-    background-color: Field;
     padding: 0;
-    /* position: relative; */
-    /* Makes position: relative work */
-    /* background-clip: content-box; */
 }
 
-.tdinput>* {
-    border: none;
-    width: 100%;
-    background-color: transparent;
+/* The focus ring is on the same z-index as the input, so if an adjacent input
+   has a background it will cover part of it. */
+
+.tdinput :focus-visible {
     position: relative;
     z-index: 1;
-    vertical-align: bottom;
 }
 
-.tdinput>input,
-.tdinput>select {
+.tdinput input,
+.tdinput select,
+.tdinput textarea {
+    border: none;
+    width: 100%;
+    vertical-align: bottom;
+    background-color: Field;
+}
+
+.tdinput input,
+.tdinput select {
     height: var(--td-line-height);
 }
 
-.tdinput>:disabled,
-.tdinput>[readonly] {
-    background-color: var(--canvas);
-    color: GrayText;
-    z-index: 0;
+.tdinput input,
+.tdinput textarea {
+    padding: 0 var(--td-hpad);
+    resize: vertical;
 }
 
-.tdinput>input,
-.tdinput>textarea {
-    padding: 0 var(--td-hpad);
+.tdinput :disabled,
+.tdinput [readonly] {
+    background-color: var(--canvas);
+    color: GrayText;
 }
 
 :invalid:not(:focus) {
     outline: 2px solid red;
 }
 
+/* editor */
+
 .date-table {
     align-self: flex-start;
 }
 
-.date-repeat~.repeat {
+[is="date-repeat"]~.repeat {
     display: none;
 }
 
-.date-repeat[data-value=R]~.R {
+[is="date-repeat"][data-value=R]~.R {
     display: table-row;
 }
 
-.date-repeat[data-value=C]~.C {
+[is="date-repeat"][data-value=C]~.C {
     display: table-row;
 }
 
@@ -441,6 +422,8 @@ hr {
 .tdinput .sigil {
     position: absolute;
     padding-left: var(--td-hpad);
+    z-index: 2;
+    background-color: transparent;
     /* ??? */
     width: max-content;
 }
@@ -457,13 +440,14 @@ hr {
     display: flex;
     width: 100%;
     align-items: flex-start;
-    gap: var(--line-height);
 }
 
-.part-extras> :first-child {
+.note {
     width: 50px;
     flex: 1 1;
 }
+
+/* budgeting */
 
 .datepicker {
     width: max-content;
@@ -474,6 +458,7 @@ hr {
 .months,
 .years {
     display: flex;
+    gap: 0;
 }
 
 .years>input {
@@ -514,14 +499,4 @@ hr {
     font-weight: bold;
     text-decoration: inherit;
     color: inherit;
-}
-
-.newaccount {
-    float: right;
-}
-
-.newaccount::before {
-    content: '←';
-    position: absolute;
-    margin-left: calc(var(--td-hpad) + var(--td-border));
 }

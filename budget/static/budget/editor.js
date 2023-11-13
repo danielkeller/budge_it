@@ -1,99 +1,62 @@
 "use strict";
 
-addEventListener("DOMContentLoaded", function () {
-    window.data = JSON.parse(document.getElementById('data').textContent);
-    window.valid = true;
-    window.parts = {};
-
-    document.forms.form.elements['tx-repeat'].addEventListener('change', changeRepeat);
-    document.forms.form.addEventListener('submit', onSubmit);
-    document.addEventListener("keydown", key);
-});
-
-htmx.onLoad(setUp);
-
-function key(event) {
-    if (event.key === "Escape") {
-        // The default behavior of "esc" is to stop page load
-        // event.preventDefault();
-        // cancel();
-    } else if (event.key === "Enter") {
-        if (document.activeElement.type !== "button"
-            && document.activeElement.type !== "submit"
-            && document.activeElement.type !== "textarea")
-            if (valid) document.forms['form'].submit();
-    }
-}
-
-function cancel() {
-    let back = new URLSearchParams(window.location.search).get('back');
-    if (back) {
-        if (window.data.transaction) {
-            back = `${back}?t=${window.data.transaction}`;
-        }
-        window.location.href = back;
-    }
-    else {
-        history.back();
-    }
-}
-
-function changeRepeat() {
-    const tr = document.getElementsByClassName('date-repeat')[0];
-    tr.dataset.value = document.forms.form.elements['tx-repeat'].value;
-}
-
-function findRow(input) {
-    for (const part of Object.values(window.parts)) {
-        for (const row of part) {
-            const { account, category, moved, transferred } = row;
-            if ([account, category, moved, transferred].includes(input))
-                return row;
-        }
-    }
-}
-
-function currencyInput(part) {
-    return document.getElementById(`id_tx-${part}-currency`);
-}
-
-function getPart(element) {
-    if (element.input)
-        return element.input.closest('table').dataset.part;
-    else
-        return element.closest('table').dataset.part;
-}
-
 function ownAccount(value) {
     return value == data.budget || value in data.accounts;
 }
 
-// TODO: This could potentially do its thing in a more htmx-y way by setting
-// values on elements and triggering events and it might avoid the windows.parts
-// stuff.
-// Specifically, one function can set up the event listeners and stuff, and
-// another object can wrap these td's when they're returned from getRows(part)
-class Selector {
-    #visible; #hidden; #sigil; #oninput;
-    constructor([hidden, sigil, visible], oninput) {
-        this.#visible = visible;
-        this.#sigil = sigil;
-        this.#hidden = hidden;
-        this.#oninput = oninput;
-        visible.addEventListener('input', this.#selectInput.bind(this));
-        // This is a hack and also doesn't work very well (in FF at least).
-        visible.addEventListener('blur', () => visible.reportValidity());
-        this.value = this.value;
+class Editor extends HTMLFormElement {
+    connectedCallback() {
+        this.addEventListener('input', ({ target }) => {
+            if (target.classList.contains('edit-currency')) checkValid();
+        });
+        setTimeout(checkValid, 0);
     }
-    get options() { return Array.from(this.#visible.list.options); }
+    get parts() { return this.querySelectorAll('edit-part'); }
+}
+customElements.define("transaction-editor", Editor, { extends: "form" });
+
+function editor() {
+    return document.querySelector('[is="transaction-editor"]');
+}
+
+class DateRepeat extends HTMLTableRowElement {
+    connectedCallback() {
+        this.addEventListener('change', ({ target }) => {
+            this.dataset.value = target.value;
+        })
+    }
+}
+customElements.define("date-repeat", DateRepeat, { extends: "tr" });
+
+class EditPart extends HTMLElement {
+    get currencyInput() { return this.querySelector(`.part-currency`); }
+    get rows() { return this.querySelectorAll('[is="edit-row"]'); }
+}
+customElements.define("edit-part", EditPart);
+
+function getPart(element) {
+    return element.closest('edit-part');
+}
+
+class AccountSelect extends HTMLTableCellElement {
+    connectedCallback() {
+        this.addEventListener('input', this.#selectInput.bind(this));
+        // This is a hack and also doesn't work very well (in FF at least).
+        this.addEventListener('focusout', () => this.input.reportValidity());
+        setTimeout(() => this.value = this.value, 0);
+    }
+    get #hidden() { return this.children[0]; }
+    get #sigil() { return this.children[1]; }
+    get input() { return this.children[2]; }
+    get value() { return this.#hidden.value; }
     set value(value) {
         value = String(value);
         this.#hidden.value = value;
-        const option = this.options.find(opt => opt.dataset.id === value);
-        this.#visible.value = option ? option.dataset.name : value;
+        const option = this.#options.find(opt => opt.dataset.id === value);
+        this.input.value = option ? option.dataset.name : value;
         this.#updateSigil();
     }
-    get value() { return this.#hidden.value; }
+    get #options() { return Array.from(this.input.list.options); }
     #updateSigil() {
         const sigil = ownAccount(this.value) ? '👤'
             : this.value in data.friends ? '👥'
@@ -106,125 +69,132 @@ class Selector {
             this.#sigil.textContent = '';
         }
     }
-    get input() { return this.#visible; }
-    get classList() { return this.#visible.classList; }
     #selectInput() {
         accept(this);
-        const option = this.options.find(opt =>
-            [opt.dataset.name, opt.value].includes(this.#visible.value));
-        this.#hidden.value = option ? option.dataset.id : this.#visible.value;
-        if (option && this.#visible.value === option.value
+        const option = this.#options.find(opt =>
+            [opt.dataset.name, opt.value].includes(this.input.value));
+        this.#hidden.value = option ? option.dataset.id : this.input.value;
+        if (option && this.input.value === option.value
             && option.dataset.name !== option.value) {
-            this.#visible.value = option.dataset.name;
+            this.input.value = option.dataset.name;
         }
         this.#updateSigil();
-        this.#oninput({ target: this });
+        this.dispatchEvent(new CustomEvent('account-change', { bubbles: true }));
     }
 }
+customElements.define("account-select", AccountSelect, { extends: "td" });
 
-class CurrencyInput {
-    #hidden; #visible; #oninput;
-    constructor([hidden, visible], oninput) {
-        this.#hidden = hidden;
-        this.#visible = visible;
-        this.#oninput = oninput;
-        this.#visible.addEventListener('input', this.#parse.bind(this));
-        this.#visible.addEventListener('blur', () => this.#oninput({ target: this }));
-        this.value = this.value;
+// TODO: Clean these up
+class CurrencyInput extends HTMLTableCellElement {
+    connectedCallback() {
+        this.addEventListener('input', this.#parse.bind(this));
+        whenContentIsReady(this, () => this.value = this.value);
     }
+    get #hidden() { return this.children[0]; }
+    get input() { return this.children[1]; }
+    get value() { return this.#hidden.value; }
     set value(value) {
         this.#hidden.value = value;
         // Ugly!
-        const currency = currencyInput(getPart(this.#hidden)).value;
-        this.#visible.value = value ? formatCurrencyField(value, currency) : "";
+        const currency = getPart(this).currencyInput.value;
+        this.input.value = value ? formatCurrencyField(value, currency) : "";
     }
-    get value() { return this.#hidden.value; }
     #parse() {
         accept(this);
-        const currency = currencyInput(getPart(this.#hidden)).value;
-        this.#hidden.value = this.#visible.value
-            && parseCurrency(this.#visible.value, currency);
-        this.#oninput({ target: this });
+        const currency = getPart(this).currencyInput.value;
+        this.#hidden.value = this.input.value
+            && parseCurrency(this.input.value, currency);
+        this.dispatchEvent(new CustomEvent('currency-input', { bubbles: true }));
     }
-    get classList() { return this.#visible.classList; }
-    get input() { return this.#visible; }
 }
+customElements.define("currency-input", CurrencyInput, { extends: "td" });
+
+class StandaloneCurrencyInput extends HTMLSpanElement {
+    connectedCallback() {
+        this.addEventListener('input', this.#parse.bind(this));
+        whenContentIsReady(this, () => this.value = this.value);
+    }
+    get #hidden() { return this.children[0]; }
+    get input() { return this.children[1]; }
+    get value() { return this.#hidden.value; }
+    get currency() { return this.getAttribute('currency'); }
+    set value(value) {
+        this.#hidden.value = value;
+        this.input.value = value ? formatCurrencyField(value, this.currency) : "";
+    }
+    #parse() {
+        accept(this);
+        this.#hidden.value = this.input.value
+            && parseCurrency(this.input.value, this.currency);
+        this.dispatchEvent(new CustomEvent('currency-input', { bubbles: true }));
+    }
+}
+customElements.define("standalone-currency-input", StandaloneCurrencyInput, { extends: "span" });
 
 function unsuggest(element) {
-    if (element.classList.contains('suggested')) {
+    if (element.input.classList.contains('suggested')) {
         element.value = '';
-        element.classList.remove('suggested');
+        element.input.classList.remove('suggested');
     }
 }
 function suggest(element, value) {
     if (element.value === "" && document.activeElement !== element.input) {
         element.value = value;
-        element.classList.add('suggested');
+        element.input.classList.add('suggested');
         return true;
     }
     return false;
 }
 function accept(element) {
-    element.classList.remove('suggested');
+    element.input.classList.remove('suggested');
 }
-
-function setUpRow(tr) {
-    var [account, category, transferred, moved] = Array.prototype.map.call(tr.children, n => n.children);
-    account = new Selector(account, accountChanged);
-    category = new Selector(category, categoryChanged);
-    if (category.value === account.value && category.value != data.budget)
-        category.classList.add('suggested');
-    transferred = new CurrencyInput(transferred, suggestAmounts);
-    moved = new CurrencyInput(moved, suggestAmounts);
-    transferred.input.disabled = !account.value;
-    moved.input.disabled = !category.value;
-    const row = { account, category, moved, transferred };
-    const part = getPart(tr);
-    if (!(part in window.parts)) window.parts[part] = [];
-    window.parts[part].push(row);
-    updateCurrency(part);
-}
-
-function setUp(element) {
-    if (element.classList.contains('edit-row')) {
-        setUpRow(element);
-    } else {
-        for (const tr of element.querySelectorAll('.edit-row')) {
-            setUpRow(tr);
-        }
+class EditRow extends HTMLTableRowElement {
+    connectedCallback() {
+        setTimeout(() => {
+            const { account, category, transferred, moved } = this;
+            account.addEventListener('account-change', () => accountChanged(this));
+            category.addEventListener('account-change', () => categoryChanged(this));
+            if (category.value === account.value && category.value != data.budget)
+                category.input.classList.add('suggested');
+            this.addEventListener('currency-input', suggestAmounts);
+            this.addEventListener('focusout', suggestAmounts);
+            transferred.input.disabled = !account.value;
+            moved.input.disabled = !category.value;
+            updateCurrency(getPart(this));
+        }, 0);
     }
-    for (const input of element.querySelectorAll('.edit-currency')) {
-        input.addEventListener('input', checkValid);
-    }
-    checkValid();
+    get account() { return this.children[0]; }
+    get category() { return this.children[1]; }
+    get transferred() { return this.children[2]; }
+    get moved() { return this.children[3]; }
 }
+customElements.define("edit-row", EditRow, { extends: "tr" });
 
-function accountChanged({ target }) {
-    const { category, transferred } = findRow(target);
+function accountChanged(row) {
+    const { account, category, transferred } = row
     unsuggest(category);
-    if (!ownAccount(target.value) && !(target.value in data.friends)) {
-        if (target.value in data.budgets) suggest(category, target.value);
-        else if (target.value) suggest(category, target.value);
+    if (!ownAccount(account.value) && !(account.value in data.friends)) {
+        if (account.value in data.budgets) suggest(category, account.value);
+        else if (account.value) suggest(category, account.value);
     }
 
-    transferred.input.disabled = !target.value;
+    transferred.input.disabled = !account.value;
     if (transferred.input.disabled) transferred.value = '';
-    categoryChanged({ target: category });
+    categoryChanged(row);
 }
 
-function categoryChanged({ target }) {
-    const { moved } = findRow(target);
-    moved.input.disabled = !target.value;
+function categoryChanged({ category, moved }) {
+    moved.input.disabled = !category.value;
     if (moved.input.disabled) moved.value = '';
 
-    updateCurrency(getPart(target));
+    updateCurrency(getPart(category));
     suggestAmounts();
 }
 
 function updateCurrency(part) {
     var fixed = null;
     var fixed_account = '';
-    for (const { account, category } of window.parts[part]) {
+    for (const { account, category } of part.rows) {
         for (const selector of [account, category]) {
             const account_currency = data.accounts[selector.value];
             if (fixed && account_currency
@@ -243,7 +213,7 @@ function updateCurrency(part) {
             }
         }
     }
-    const select = currencyInput(part);
+    const select = part.currencyInput;
     if (fixed) {
         select.value = fixed;
         select.setAttribute('readonly', '');
@@ -260,13 +230,13 @@ function updateCurrency(part) {
 
 function suggestSums(options) {
     var result = false;
-    for (const rows of Object.values(window.parts)) {
+    for (const part of editor().parts) {
         var to_category = [];
         var from_categories = 0;
         var category_total = 0;
         var to_account = [];
         var account_total = 0;
-        for (var { account, category, moved, transferred } of rows) {
+        for (var { account, category, moved, transferred } of part.rows) {
             if (category.value) {
                 if (moved.value) {
                     from_categories++;
@@ -302,8 +272,8 @@ function suggestSums(options) {
 
 function suggestRowConsistency(options) {
     var result = false;
-    for (const rows of Object.values(window.parts)) {
-        for (var { account, category, moved, transferred } of rows) {
+    for (const part of editor().parts) {
+        for (var { account, category, moved, transferred } of part.rows) {
             if (!account.value || !category.value)
                 continue;
             if (options?.onlyExternal && category.value !== account.value &&
@@ -319,8 +289,8 @@ function suggestRowConsistency(options) {
 }
 
 function suggestAmounts() {
-    for (const rows of Object.values(window.parts)) {
-        for (var { moved, transferred } of rows) {
+    for (const part of editor().parts) {
+        for (var { moved, transferred } of part.rows) {
             unsuggest(moved);
             unsuggest(transferred);
         }
@@ -360,14 +330,12 @@ function combineDebts(owed) {
 }
 
 function checkValid() {
-    window.valid = true;
-    for (const part of Object.keys(window.parts)) {
-        const rows = window.parts[part];
-
+    let valid = true;
+    for (const part of editor().parts) {
         var category_total = 0;
         var account_total = 0;
         var owed = {};
-        for (var { account, category, moved, transferred } of rows) {
+        for (var { account, category, moved, transferred } of part.rows) {
             account_total = account_total + +transferred.value;
             let budget = ownAccount(account.value)
                 ? data.budget : account.value;
@@ -379,8 +347,8 @@ function checkValid() {
             owed[budget] = (owed[budget] || 0) - +moved.value;
         }
 
-        const currency = currencyInput(part).value;
-        const category_sum = document.getElementById(`category-sum${part}`);
+        const currency = part.currencyInput.value;
+        const category_sum = part.querySelector('.category-sum');
         if (category_total && isFinite(category_total)) {
             category_sum.innerText = formatCurrency(category_total, currency)
                 + ' left to categorize';
@@ -388,7 +356,7 @@ function checkValid() {
         } else {
             category_sum.innerText = '';
         }
-        const account_sum = document.getElementById(`account-sum${part}`);
+        const account_sum = part.querySelector('.account-sum');
         if (account_total && isFinite(account_total)) {
             account_sum.innerText = formatCurrency(account_total, currency)
                 + ' left to account for';
@@ -396,7 +364,7 @@ function checkValid() {
         } else {
             account_sum.innerText = '';
         }
-        const debt = document.getElementById(`debt${part}`);
+        const debt = part.querySelector('.debt');
         debt.innerText =
             combineDebts(owed)
                 .map(([from, to, amount]) =>
@@ -405,9 +373,7 @@ function checkValid() {
                     + `${formatCurrency(amount, currency)}`)
                 .join(', ');
     }
-    document.getElementById("submit-button").disabled = !valid;
-}
-
-function onSubmit(event) {
-    if (!window.valid) event.preventDefault();
+    document.getElementById("submit-button").setCustomValidity(
+        valid ? '' : 'Transaction does not sum to zero'
+    );
 }
