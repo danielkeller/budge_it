@@ -851,15 +851,40 @@ def category_balance(budget: Budget, start: date):
                              entries__part__transaction__date__gte=start,
                              entries__part__transaction__date__lt=end),
                     default=0))
-            .order_by('order', 'group', 'name')
-            )
+            .order_by('order', 'group', 'name'))
 
 
 def budgeting_transaction(budget: Budget, date: date):
     return (Transaction.objects
             .filter(kind=Transaction.Kind.BUDGETING, date=date,
                     parts__categories__budget=budget)
-            .first())
+            .first()
+            ) or Transaction(date=date)
+
+
+def budgeting_categories(budget: Budget, transaction: Transaction) -> list[Category]:
+    assert transaction.date
+
+    # Make sure these exist first
+    for currency, in budget.category_set.values_list('currency').distinct():
+        budget.get_inbox(Category, currency)
+    balances = category_balance(budget, transaction.date)
+
+    if transaction.pk:
+        entries = transaction.parts.get().categoryentry_set.entries()
+    else:
+        entries = {}
+
+    shown = {category for category in balances
+             if category.balance or category.change or category in entries
+             or (not category.is_inbox() and not category.closed)}
+    currencies = {category.currency for category in shown}
+    inboxes = {category for category in balances
+               if category.is_inbox() and category.currency in currencies}
+    shown |= inboxes
+    balances = [category for category in balances if category in shown]
+
+    return balances
 
 
 def prior_budgeting_transaction(budget: Budget, date: date):

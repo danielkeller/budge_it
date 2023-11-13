@@ -1,14 +1,16 @@
+from dataclasses import dataclass
 from collections import defaultdict
-from typing import Any, Dict, Union, Mapping, Optional, Type, TypeVar, Iterable
+from typing import Any, Union, Mapping, Optional, Type, TypeVar, Iterable
 from datetime import date
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from django.forms import ValidationError
+from django.forms import ValidationError, BoundField
 from django.db import transaction
 
 from .models import (Id, Budget, BaseAccount, Account, Category,
-                     TransactionPart, Transaction, AccountLike)
+                     TransactionPart, Transaction, AccountLike,
+                     budgeting_categories)
 from .recurrence import RRule
 
 
@@ -272,6 +274,22 @@ class TransactionForm(FormSetInline(PartFormSet)):
 
 
 class BudgetingForm(forms.ModelForm):
+    @dataclass
+    class Row:
+        category: Category
+        field: BoundField
+
+        @property
+        def total(self):
+            return self.category.balance + self.category.change
+
+        @property
+        def final(self):
+            try:
+                return self.total + int(self.field.value())
+            except (ValueError, TypeError):
+                return self.total
+
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date',)
@@ -280,19 +298,20 @@ class BudgetingForm(forms.ModelForm):
 
     date = forms.DateField(widget=forms.HiddenInput)
 
-    def __init__(self, *args: Any,
-                 categories: Iterable[Category],
-                 instance: Optional[Transaction] = None, **kwargs: Any):
+    def __init__(self, budget: Budget, *args: Any,
+                 instance: Transaction, **kwargs: Any):
         super().__init__(*args, instance=instance, **kwargs)
-        self.categories = categories
-        for category in categories:
+        self.categories = budgeting_categories(budget, instance)
+        for category in self.categories:
             self.fields[str(category.id)] = forms.IntegerField(
                 required=False, widget=forms.HiddenInput(
                     attrs={'form': 'form'}))
-        if instance:
+        if instance.pk:
             for category, amount in (instance.parts.get()
                                      .categoryentry_set.entries().items()):
                 self.initial[str(category.id)] = amount
+        self.rows = [BudgetingForm.Row(category, self[str(category.id)])
+                     for category in self.categories]
 
     def clean(self):
         if any(self.errors):

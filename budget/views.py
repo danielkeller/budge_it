@@ -1,26 +1,22 @@
-from dataclasses import dataclass
-from typing import Optional, Any, cast, Callable
+from typing import Optional, Any, Callable
 from datetime import date, timedelta
-from urllib.parse import urlparse
 
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import render
-from django.template.loader import render_to_string
 from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
                          HttpResponseBadRequest, Http404, QueryDict)
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
-from django.urls import reverse, resolve
-from django.forms import BoundField
+from django.urls import reverse
 from render_block import render_block_to_string
 import cProfile
 
 from .models import (sum_by, date_range, months_between,
                      BaseAccount, Account, Category, Budget,
                      Transaction, Cleared,
-                     accounts_overview,  category_balance,
-                     Balance, Total, AccountLike, budgeting_transaction,
+                     accounts_overview, budgeting_transaction,
+                     Balance, Total, AccountLike, budgeting_categories,
                      prior_budgeting_transaction)
 from .forms import (TransactionForm,
                     BudgetingForm, rename_form, BudgetForm,
@@ -486,23 +482,6 @@ def edit(request: HttpRequest, budget_id: int,
     return render(request, 'budget/edit.html', context)
 
 
-@dataclass
-class BudgetRow:
-    category: Category
-    field: BoundField
-
-    @property
-    def total(self):
-        return self.category.balance + self.category.change
-
-    @property
-    def final(self):
-        try:
-            return self.total + int(self.field.value())
-        except (ValueError, TypeError):
-            return self.total
-
-
 @login_required
 def budget(request: HttpRequest, budget_id: int, year: int, month: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
@@ -515,53 +494,25 @@ def budget(request: HttpRequest, budget_id: int, year: int, month: int):
     years = range(min_date.year, max_date.year + 2)
     months = months_between(date(year, 1, 1), date(year, 12, 31))
 
-    end_date = (budget_date + timedelta(days=31)
-                ).replace(day=1) - timedelta(days=1)
-
-    # Make sure these exist first
-    for currency, in budget.category_set.values_list('currency').distinct():
-        budget.get_inbox(Category, currency)
-
-    # Factor out into models.py?
-    balances = category_balance(budget, budget_date)
     transaction = budgeting_transaction(budget, budget_date)
-    if transaction:
-        entries = transaction.parts.get().categoryentry_set.entries()
-    else:
-        entries = {}
-
-    shown = {category for category in balances
-             if category.balance or category.change or category in entries
-             or (not category.is_inbox() and not category.closed)}
-    currencies = {category.currency for category in shown}
-    inboxes = {category for category in balances
-               if category.is_inbox() and category.currency in currencies}
-    shown |= inboxes
 
     initial = {'date': budget_date}
     if request.method == 'POST':
-        form = BudgetingForm(categories=shown, instance=transaction,
-                             data=request.POST)
+        form = BudgetingForm(budget, instance=transaction, data=request.POST)
         if form.is_valid():
             with atomic():
                 form.save_entries(budget)
             return HttpResponseRedirect(
                 request.GET.get('back', request.get_full_path()))
     else:
-        form = BudgetingForm(categories=shown, instance=transaction,
-                             initial=initial)
-    rows = [BudgetRow(category, form[str(category.id)])
-            for category in balances if category in shown]
+        form = BudgetingForm(budget, instance=transaction, initial=initial)
 
     prior = prior_budgeting_transaction(budget, budget_date)
 
-    data = {'inboxes': [inbox.id for inbox in inboxes]}
-    context = {'rows': rows, 'form': form, 'budget': budget,
+    context = {'form': form, 'budget': budget,
                'current_year': year, 'current_month': month,
-               'budget_date': budget_date, 'end_date': end_date,
                'years': years, 'months': months,
-               'prior': prior,
-               'data': data}
+               'prior': prior}
     return render(request, 'budget/budget.html', context)
 
 
