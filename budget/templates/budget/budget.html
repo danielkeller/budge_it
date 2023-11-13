@@ -50,6 +50,9 @@
                 </div>
             </div>
         </form>
-        {% include 'budget/partials/budget.html' %}
+        <form id="form" method="post" is="budget-form">
+            {% include 'budget/partials/budget.html' %}
+            {% csrf_token %}
+        </form>
     </main>
 </body>

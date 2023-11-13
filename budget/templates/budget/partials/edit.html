@@ -11,6 +11,13 @@
     </div>
 </div>
 <div class="scroll edit">
+    {% if transaction.kind == 'B' %}
+    <form id="form" is="budget-form" autocomplete="off"
+        hx-post=""
+        hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
+    {% include 'budget/partials/budget.html' %}
+    </form>
+    {% else %}
     <form id="form" is="transaction-editor" autocomplete="off"
         hx-post=""
         hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
@@ -130,6 +137,7 @@
         {{ form.formset.management_form.MAX_NUM_FORMS }}
         {% csrf_token %}
     </form>
+    {% endif %}
 
     {{ form.errors|default:"" }}
     {{ form.formset.non_form_errors|default:"" }}

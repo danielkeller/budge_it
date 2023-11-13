@@ -302,6 +302,7 @@ class BudgetingForm(forms.ModelForm):
                  instance: Transaction, **kwargs: Any):
         super().__init__(*args, instance=instance, **kwargs)
         self.categories = budgeting_categories(budget, instance)
+        self.budget = budget
         for category in self.categories:
             self.fields[str(category.id)] = forms.IntegerField(
                 required=False, widget=forms.HiddenInput(
@@ -323,7 +324,8 @@ class BudgetingForm(forms.ModelForm):
             raise ValidationError("Amounts do not sum to zero")
         return self.cleaned_data
 
-    def save_entries(self, budget: Budget):
+    @transaction.atomic
+    def save(self):
         self.instance.kind = Transaction.Kind.BUDGETING
         super().save(commit=True)
         entries = {}
@@ -331,7 +333,11 @@ class BudgetingForm(forms.ModelForm):
             entries[category] = self.cleaned_data[str(category.id)] or 0
         part, _ = (TransactionPart.objects
                    .get_or_create(transaction=self.instance))
-        part.set_entries(budget, {}, entries)
+        # TODO: Factor this out with the transaction form
+        part = part.set_entries(self.budget, {}, entries)
+        if not part:
+            self.instance.delete()
+        return self.instance
 
 
 class BudgetForm(forms.ModelForm):

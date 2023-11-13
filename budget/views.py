@@ -125,8 +125,12 @@ def all(request: HttpRequest, budget_id: int,
         return response
 
     transaction = _get_allowed_transaction_or_404(budget, transaction_id)
+    # I think the prefix isn't needed
+    if transaction and transaction.kind == Transaction.Kind.BUDGETING:
+        form = BudgetingForm(budget, prefix="tx", instance=transaction)
+    else:
+        form = TransactionForm(budget, prefix="tx", instance=transaction)
 
-    form = TransactionForm(budget, prefix="tx", instance=transaction)
     context = {'budget': budget, 'transaction': transaction, 'form': form}
 
     if request.headers.get('HX-Target') == 'transaction':
@@ -164,10 +168,17 @@ def quick_save(request: HttpRequest, budget: Budget, account_id: str | int | Non
 
 def save(request: HttpRequest, budget: Budget, transaction_id: str | int | None):
     transaction = _get_allowed_transaction_or_404(budget, transaction_id)
-    form = TransactionForm(budget, prefix="tx", instance=transaction,
-                           data=request.POST)
-    if not form.is_valid():
-        raise ValueError(form.errors, form.formset.non_form_errors())
+
+    if transaction and transaction.kind == Transaction.Kind.BUDGETING:
+        form = BudgetingForm(budget, prefix="tx",
+                             instance=transaction, data=request.POST)
+        if not form.is_valid():
+            raise ValueError(form.errors)
+    else:
+        form = TransactionForm(budget, prefix="tx",
+                               instance=transaction, data=request.POST)
+        if not form.is_valid():
+            raise ValueError(form.errors, form.formset.non_form_errors())
     saved = form.save()
     if saved.id:
         budget.initial_currency = saved.first_currency()
@@ -496,16 +507,15 @@ def budget(request: HttpRequest, budget_id: int, year: int, month: int):
 
     transaction = budgeting_transaction(budget, budget_date)
 
-    initial = {'date': budget_date}
     if request.method == 'POST':
         form = BudgetingForm(budget, instance=transaction, data=request.POST)
         if form.is_valid():
             with atomic():
-                form.save_entries(budget)
+                form.save()
             return HttpResponseRedirect(
                 request.GET.get('back', request.get_full_path()))
     else:
-        form = BudgetingForm(budget, instance=transaction, initial=initial)
+        form = BudgetingForm(budget, instance=transaction)
 
     prior = prior_budgeting_transaction(budget, budget_date)
 
