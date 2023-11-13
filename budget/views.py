@@ -1,5 +1,5 @@
-from typing import Optional, Any, Callable
-from datetime import date, timedelta
+from typing import Any, Callable
+from datetime import date
 
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import render
@@ -16,12 +16,11 @@ from .models import (sum_by, date_range, months_between,
                      BaseAccount, Account, Category, Budget,
                      Transaction, Cleared,
                      accounts_overview, budgeting_transaction,
-                     Balance, Total, AccountLike, budgeting_categories,
+                     Balance, Total, AccountLike,
                      prior_budgeting_transaction)
-from .forms import (TransactionForm,
-                    BudgetingForm, rename_form, BudgetForm,
-                    OnTheGoForm, QuickAddForm,
-                    ReorderingFormSet, AccountManagementFormSet,
+from .forms import (QuickAddForm, TransactionForm,
+                    BudgetingForm, BudgetForm,
+                    AccountManagementFormSet,
                     CategoryManagementFormSet, CurrencyManagementFormSet)
 
 
@@ -226,76 +225,6 @@ def _edit_context(budget: Budget):
 
 
 @login_required
-def overview(request: HttpRequest, budget_id: int):
-    budget = _get_allowed_budget_or_404(request, budget_id)
-    accounts, categories, debts = accounts_overview(budget)
-    totals = sum_by((category.currency, category.balance)
-                    for category in categories)
-    formset = ReorderingFormSet(queryset=categories)
-    context = {'accounts': accounts, 'categories': categories, 'debts': debts,
-               'today': date.today(),
-               'totals': totals, 'formset': formset, 'budget': budget}
-    return render(request, 'budget/overview.html', context)
-
-
-@login_required
-def reorder(request: HttpRequest, budget_id: int):
-    if request.method != 'POST':
-        return HttpResponseBadRequest('Wrong method')
-    budget = _get_allowed_budget_or_404(request, budget_id)
-    formset = ReorderingFormSet(queryset=budget.category_set.all(),
-                                data=request.POST)
-    if formset.is_valid():
-        formset.save()
-    else:
-        raise ValueError(formset.errors())
-    return HttpResponseRedirect(budget.get_absolute_url())
-
-
-@login_required
-def onthego(request: HttpRequest, budget_id: int):
-    budget = _get_allowed_budget_or_404(request, budget_id)
-    if request.method == 'POST':
-        form = OnTheGoForm(budget=budget, data=request.POST)
-        if form.is_valid():
-            transaction = form.save()
-            return HttpResponseRedirect(reverse('otg', args=(budget_id,))
-                                        + f'?confirm={transaction.id}')
-    else:
-        form = OnTheGoForm(budget=budget)
-    context = {'budget': budget, 'form': form}
-    return render(request, 'budget/onthego.html', context)
-
-
-@login_required
-def balance(request: HttpRequest, currency: str, budget_id_1: int, budget_id_2: int):
-    budget = _get_allowed_budget_or_404(request, budget_id_1)
-    # FIXME: This leaks the existence of budget ids
-    other = get_object_or_404(Budget, id=budget_id_2)
-    account = Balance(budget, other, currency)
-    context = {'entries': account.transactions(), 'account': account,
-               'form': None}
-    return render(request, 'budget/account.html', context)
-
-
-# @profileit
-@login_required
-def account(request: HttpRequest, account_id: int):
-    account = _get_allowed_account_or_404(request, account_id)
-    if request.method == 'POST':
-        form = rename_form(instance=account, data=request.POST)
-        if form and form.is_valid():
-            form.save()
-        return HttpResponseRedirect(request.get_full_path())
-    form = rename_form(instance=account)
-    data = {'budget': account.budget_id}
-    entries, balance = account.transactions()
-    context = {'entries': entries, 'account': account, 'balance': balance,
-               'form': form, 'data': data}
-    return render(request, 'budget/account.html', context)
-
-
-@login_required
 def clear(request: HttpRequest, account_id: int, transaction_id: int):
     if request.method != 'POST':
         return HttpResponseBadRequest('Wrong method')
@@ -417,7 +346,7 @@ def part_form(request: HttpRequest, budget_id: int, number: int):
                'part': form.formset.forms[number], 'part_index': number,
                'form': form}
     return HttpResponse(render_block_to_string(
-        'budget/edit.html', 'edit-part', context, request))
+        'budget/partials/edit.html', 'edit-part', context, request))
 
 
 def row_form(request: HttpRequest, budget_id: int,
@@ -433,65 +362,7 @@ def row_form(request: HttpRequest, budget_id: int,
                'row': part.formset.forms[number],
                'part': part, 'part_index': part_index}
     return HttpResponse(render_block_to_string(
-        'budget/edit.html', 'edit-row', context, request))
-
-
-@login_required
-def edit(request: HttpRequest, budget_id: int,
-         transaction_id: Optional[int] = None):
-    budget = _get_allowed_budget_or_404(request, budget_id)
-    budget = budget.main_budget()
-    if transaction_id == None:
-        transaction = None
-    else:
-        transaction = Transaction.objects.get_for(budget, transaction_id)
-        if not transaction:
-            raise Http404()
-
-    if transaction and transaction.kind == Transaction.Kind.BUDGETING:
-        return HttpResponseRedirect(reverse(
-            'budget',
-            args=(budget_id, transaction.date.year, transaction.date.month)))
-
-    if request.method == 'POST':
-        form = TransactionForm(budget, prefix="tx", instance=transaction,
-                               data=request.POST)
-        if form.is_valid():
-            instance: Transaction = form.save()
-            if instance.id:
-                budget.initial_currency = instance.first_currency()
-                budget.save()
-            if 'back' in request.GET:
-                if instance.id:
-                    back = f"{request.GET['back']}?t={instance.id}"
-                else:
-                    back = f"{request.GET['back']}"
-            else:
-                back = '/'
-            return HttpResponseRedirect(back)
-    else:
-        form = TransactionForm(budget, prefix="tx", instance=transaction)
-
-    friends = dict(budget.friends.values_list('id', 'name'))
-    payees = dict(Budget.objects.filter(payee_of=budget.owner())
-                                .values_list('id', 'name'))
-    # Closed?
-    accounts = budget.account_set.exclude(name='')
-    categories = budget.category_set.exclude(name='')
-    data = {
-        'budget': budget.id,
-        'transaction': transaction_id,
-        'accounts': (dict(accounts.values_list('id', 'currency'))
-                     | dict(categories.values_list('id', 'currency'))),
-        'budgets': {budget.id: budget.name, **friends, **payees},
-        'friends': friends,
-    }
-    context = {'form': form,
-               'budget': budget, 'friends': friends, 'payees': payees,
-               'accounts': accounts, 'categories': categories,
-               'transaction_id': transaction_id,
-               'data': data}
-    return render(request, 'budget/edit.html', context)
+        'budget/partials/edit.html', 'edit-row', context, request))
 
 
 @login_required
