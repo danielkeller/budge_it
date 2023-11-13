@@ -1,5 +1,6 @@
 * {
     box-sizing: border-box;
+    gap: var(--line-height);
 }
 
 @media (prefers-color-scheme: light) {
@@ -8,8 +9,6 @@
         --alt-canvas: #e0f0eb;
         --inactive-selected: rgb(200, 200, 200);
         --line: #888;
-        --field-highlight: rgb(255, 254, 239);
-        --canvas-highlight: rgb(255, 249, 173);
     }
 }
 
@@ -19,8 +18,6 @@
         --inactive-selected: rgb(100, 100, 100);
         --alt-canvas: #1e4438;
         --line: #888;
-        --field-highlight: rgb(60, 56, 0);
-        --canvas-highlight: rgb(96, 89, 0);
     }
 }
 
@@ -35,59 +32,59 @@ html {
     font-family: Avenir, 'Avenir Next LT Pro', Montserrat, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
 }
 
-pre {
-    margin: 0;
-}
-
 body {
     margin: 0 auto;
-    display: flex;
-    flex-direction: column;
     height: 100vh;
     overflow: hidden;
     padding: var(--line-height);
-    gap: var(--line-height);
 }
 
-body.popup {
-    width: max-content;
-}
-
-.all {
+.column,
+.popup {
     display: grid;
-    grid: minmax(0, 1fr) / max-content 1fr;
-    gap: var(--line-height);
+    grid: minmax(0, max-content) / auto;
+}
+
+.popup {
+    width: max-content;
 }
 
 #datas {
     display: none;
 }
 
+.all {
+    display: grid;
+    grid: minmax(0, 1fr) / max-content 1fr;
+}
+
 #account {
     display: grid;
     grid: minmax(0, 1fr) / 1fr max-content;
-    gap: var(--line-height);
 }
 
 .scroll {
     overflow-y: auto;
 }
 
-.column {
-    display: grid;
-    gap: var(--line-height);
-    grid: minmax(0, max-content) / auto;
-}
-
 .controls,
 .tools {
     display: flex;
-    gap: var(--line-height);
 }
 
 .tools {
     margin-left: auto;
     flex-wrap: wrap;
+}
+
+.edit,
+edit-part {
+    display: flex;
+    flex-direction: column;
+}
+
+form {
+    display: contents;
 }
 
 button,
@@ -169,40 +166,11 @@ th {
     padding: 0 var(--td-hpad);
 }
 
-main.overview {
+main.manage {
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    gap: var(--line-height);
-    overflow-y: auto;
-}
-
-@media (max-width: 500px) {
-    main.overview {
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-    }
-}
-
-main.manage,
-main.edit {
-    display: flex;
-    gap: var(--line-height);
     flex-direction: column;
     align-items: center;
     overflow-y: auto;
-}
-
-main.otg {
-    overflow: visible;
-}
-
-.edit,
-edit-part {
-    display: flex;
-    gap: var(--line-height);
-    flex-direction: column;
 }
 
 [draggable=true] {
@@ -236,19 +204,6 @@ tbody.droppable>:last-child>.tdinput>* {
 
 .dragging button {
     cursor: grabbing;
-}
-
-.account {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--line-height);
-}
-
-@media (max-width: 900px) {
-    .account {
-        grid-template-columns: 1fr;
-        grid-template-rows: 1fr 1fr;
-    }
 }
 
 entry-list .checked>* {
@@ -336,34 +291,9 @@ entry-list:focus .checked>* {
     }
 }
 
-.longtext {
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-    max-width: var(--cell-width);
-}
-
 .is_inbox {
     color: GrayText;
     font-style: italic;
-}
-
-.transaction-details {
-    overflow-y: auto;
-}
-
-.transaction-details>:not(.checked) {
-    display: none;
-}
-
-.transaction-details>div {
-    display: flex;
-    flex-direction: column;
-    gap: var(--line-height);
-}
-
-.transaction-details table {
-    width: 100%;
 }
 
 /* TODO: Set input widths like this*/
@@ -402,10 +332,6 @@ entry-list:focus .checked>* {
 
 .disclosure:checked+label+* {
     display: initial;
-}
-
-form {
-    display: contents;
 }
 
 edit-part>div:empty {
@@ -461,6 +387,8 @@ hr {
     outline: 2px solid red;
 }
 
+/* editor */
+
 .date-table {
     align-self: flex-start;
 }
@@ -512,13 +440,14 @@ hr {
     display: flex;
     width: 100%;
     align-items: flex-start;
-    gap: var(--line-height);
 }
 
 .note {
     width: 50px;
     flex: 1 1;
 }
+
+/* budgeting */
 
 .datepicker {
     width: max-content;
@@ -529,6 +458,7 @@ hr {
 .months,
 .years {
     display: flex;
+    gap: 0;
 }
 
 .years>input {
@@ -569,14 +499,4 @@ hr {
     font-weight: bold;
     text-decoration: inherit;
     color: inherit;
-}
-
-.newaccount {
-    float: right;
-}
-
-.newaccount::before {
-    content: '←';
-    position: absolute;
-    margin-left: calc(var(--td-hpad) + var(--td-border));
 }
