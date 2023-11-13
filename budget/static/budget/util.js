@@ -149,15 +149,15 @@ class EntryList extends HTMLElement {
             this.select(items[0], 'kbd');
         }
     }
-    // This almost works for the accounts list
     scrollIntoView() {
         if (!this.checked) return;
         const rowRect = this.checked.children[0].getBoundingClientRect();
         const viewRect = this.getBoundingClientRect();
-        const headerRect = this.querySelector('.th,th').getBoundingClientRect();
+        const sticky = this.querySelector('.sticky');
         const border = 1; // Not nice but w/e
-        if (rowRect.top < headerRect.bottom) {
-            this.scrollTop += rowRect.top - headerRect.bottom - border;
+        const visibleTop = sticky ? sticky.getBoundingClientRect().bottom : viewRect.top;
+        if (rowRect.top < visibleTop) {
+            this.scrollTop += rowRect.top - visibleTop - border;
         } else if (rowRect.bottom > viewRect.bottom) {
             this.scrollTop += rowRect.bottom - viewRect.bottom + border;
         }
