@@ -6,37 +6,33 @@
     class="scroll"
     name="account"
     {% if not account %}autofocus{% endif %}
-    value="{{ account.id|default:"" }}"
     hx-trigger="kbdselect,mouseselect delay:100ms"
     hx-get="{% url 'all' budget.id %}"
     hx-target="#account">
     <table id="categories">
-        <tbody data-group="">
-            <tr data-category="1">
-                <th>Category</th>
-                <th class="t5">Balance</th>
-            </tr>
-            {% for category in categories %}
-            {% ifchanged category.group %}
-        </tbody>
-        <tbody data-group="{{category.group}}">
-            <tr class="{% cycle 'a' 'b' as rowcolor %}" data-category="1">
-                <th colspan="2">{{ category.group|default:"&nbsp;" }}</th>
-            </tr>
-            {% endifchanged %}
-            <tr class="{% cycle rowcolor %}" data-form="{{forloop.counter0}}" data-category="1" data-value="{{category.id}}">
-                <td>{{ category.name|default:"Inbox" }}</td>
-                <td class="number">
-                    <long-currency currency="{{ category.currency }}" value="{{ category.balance | default:0 }}"></long-currency>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-        {% for currency, total in totals.items %}
-        <tr class="{% cycle rowcolor %}" data-value="all-{{ currency }}">
+        <tr>
+            <th>Category</th>
+            <th class="t5">Balance</th>
+        </tr>
+        {% for row in categories %}
+        {% ifchanged row.group %}
+        <tr class="{% cycle 'a' 'b' as rowcolor %}">
+            <th colspan="2">{{ row.group|default:"&nbsp;" }}</th>
+        </tr>
+        {% endifchanged %}
+        <tr class="{% cycle rowcolor %} {% if row.id == account.id %}checked{% endif %}"
+        data-value="{{row.id}}">
+            <td>{{ row.name|default:"Inbox" }}</td>
+            <td class="number">
+                <long-currency currency="{{ row.currency }}" value="{{ row.balance | default:0 }}"></long-currency>
+            </td>
+        </tr>
+        {% endfor %}
+        {% for row in totals %}
+        <tr class="{% cycle rowcolor %} {% if row.id == account.id %}checked{% endif %}" data-value="{{ row.id }}">
             <td>Total</td>
             <td class="number">
-                <long-currency currency="{{ currency }}" value="{{ total }}"></long-currency>
+                <long-currency currency="{{ row.currency }}" value="{{ row.balance }}"></long-currency>
             </td>
         </tr>
         {% endfor %}
@@ -45,25 +41,25 @@
             <th>Account</th>
             <th class="t5">Balance</th>
         </tr>
-        {% for account in accounts %}
-        <tr class="{% cycle 'a' 'b' as rowcolor %}" data-value="{{account.id}}">
-            <td>{{ account.name|default:"Inbox" }}</td>
-            <td class="number"> <long-currency currency="{{ account.currency }}" value="{{ account.balance | default:0 }}"></long-currency></td>
+        {% for row in accounts %}
+        <tr class="{% cycle 'a' 'b' as rowcolor %} {% if row.id == account.id %}checked{% endif %}" data-value="{{row.id}}">
+            <td>{{ row.name|default:"Inbox" }}</td>
+            <td class="number"> <long-currency currency="{{ row.currency }}" value="{{ row.balance | default:0 }}"></long-currency></td>
         </tr>
         {% endfor %}
-        {% for debt in debts %}
-        <tr class="{% cycle rowcolor %}" data-value="owed-{{ debt.currency }}-{{ debt.id }}">
-            <td>Owed by {{ debt }}</td>
+        {% for row in debts %}
+        <tr class="{% cycle rowcolor %} {% if row.id == account.id %}checked{% endif %}" data-value="{{ row.id }}">
+            <td>Owed by {{ row.other }}</td>
             <td class="number">
-                <long-currency currency="{{ debt.currency }}" value="{{ debt.balance }}"></long-currency>
+                <long-currency currency="{{ row.currency }}" value="{{ row.other.balance }}"></long-currency>
             </td>
         </tr>
         {% endfor %}
-        {% for currency, total in totals.items %}
-        <tr class="{% cycle rowcolor %}" data-value="all-{{ currency }}">
+        {% for row in totals %}
+        <tr class="{% cycle rowcolor %}" data-value="{{ row.id }}">
             <td>Total</td>
             <td class="number">
-                <long-currency currency="{{ currency }}" value="{{ total }}"></long-currency>
+                <long-currency currency="{{ row.currency }}" value="{{ row.balance }}"></long-currency>
             </td>
         </tr>
         {% endfor %}

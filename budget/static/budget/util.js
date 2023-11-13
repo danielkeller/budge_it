@@ -1,4 +1,5 @@
 "use strict";
+// TODO: Calling a file 'util' is a bad idea.
 
 function currencyDecimals(currency) {
     const currencyRe = /.*\.([0-9])|.*/;
@@ -83,7 +84,7 @@ class LongCurrency extends ShortCurrency {
 customElements.define('short-currency', ShortCurrency);
 customElements.define('long-currency', LongCurrency);
 
-class ListView extends HTMLElement {
+class EntryList extends HTMLElement {
     connectedCallback() {
         this.setAttribute('tabindex', 0);
         this.addEventListener('mousedown', ({ target }) => {
@@ -107,18 +108,18 @@ class ListView extends HTMLElement {
         });
         this.addEventListener('htmx:afterSwap', () => {
             // Content changed
-            this.value = this.getAttribute('value');
+            this.scrollIntoView();
         })
         // Wait for htmx to do its thing
-        setTimeout(() => this.value = this.getAttribute('value'), 0);
+        setTimeout(() => this.scrollIntoView(), 0);
     }
     get name() { return this.getAttribute('name'); }
     get checked() { return this.querySelector('.checked'); }
     set checked(row) {
         const prev = this.checked;
-        this.setAttribute('value', row && row.dataset.value);
         if (prev) prev.classList.remove('checked');
         if (row) row.classList.add('checked');
+        this.scrollIntoView();
     }
     get value() { return this.checked?.dataset.value; }
     set value(value) {
@@ -148,13 +149,10 @@ class ListView extends HTMLElement {
             this.select(items[0], 'kbd');
         }
     }
-}
-class EntryList extends ListView {
-    get checked() { return super.checked; }
-    set checked(row) {
-        super.checked = row;
-        if (!row) return;
-        const rowRect = row.children[0].getBoundingClientRect();
+    // This almost works for the accounts list
+    scrollIntoView() {
+        if (!this.checked) return;
+        const rowRect = this.checked.children[0].getBoundingClientRect();
         const viewRect = this.getBoundingClientRect();
         const headerRect = this.querySelector('.th,th').getBoundingClientRect();
         const border = 1; // Not nice but w/e

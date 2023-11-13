@@ -82,7 +82,8 @@ def _get_account_like_or_404(request: HttpRequest, budget: Budget,
             return Total(budget, name.removeprefix('all-'))
         if name.startswith('owed-'):
             _, currency, other = name.split('-')
-            return Balance(budget, int(other), currency)
+            # Maybe
+            return Balance(budget, Budget(id=int(other)), currency)
     return _get_allowed_account_or_404(request, name)
 
 
@@ -147,9 +148,7 @@ def all(request: HttpRequest, budget_id: int,
     if request.headers.get('HX-Target') == 'account':
         return fix_url(render(request, 'budget/partials/account.html', context))
 
-    accounts, categories, debts = accounts_overview(budget)
-    totals = sum_by((category.currency, category.balance)
-                    for category in categories)
+    accounts, categories, debts, totals = accounts_overview(budget)
     context |= {'accounts': accounts, 'categories': categories,
                 'debts': debts, 'totals': totals,
                 'today': date.today(),

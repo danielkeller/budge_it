@@ -16,7 +16,6 @@
     <entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
         {% if hx.event != 'kbdselect' %}autofocus{% endif %}
         name="transaction"
-        value="{{ transaction.id|default:"" }}"
         hx-trigger="kbdselect,mouseselect delay:100ms"
         hx-get="{% url 'all' budget.id account.id %}"
         hx-target="#transaction">
@@ -46,42 +45,42 @@
         </form>
         {% endif %}
     {% spaceless %}
-    {% for transaction in entries %}
-        <div class="{% cycle 'a' 'b' as rowcolor %} {{transaction.is_inbox|yesno:"is_inbox," }}"
-            data-value="{{transaction.id}}">
-            <span class="td">{{transaction.date|date:"SHORT_DATE_FORMAT"}}
-                {% if transaction.recurrence %}🔁{% endif %}
+    {% for row in entries %}
+        <div class="{% cycle 'a' 'b' as rowcolor %} {{row.is_inbox|yesno:"is_inbox," }} {% if transaction.id == row.id %}checked{% endif %}"
+            data-value="{{row.id}}">
+            <span class="td">{{row.date|date:"SHORT_DATE_FORMAT"}}
+                {% if row.recurrence %}🔁{% endif %}
             </span>
 
-            <span class="td ellipsis">{{transaction|transaction_description:account}}</span>
+            <span class="td ellipsis">{{row|transaction_description:account}}</span>
 
-            <short-currency class="td number" currency="{{ account.currency }}" value="{{ transaction.change }}"></short-currency>
+            <short-currency class="td number" currency="{{ account.currency }}" value="{{ row.change }}"></short-currency>
 
-            {% if transaction.is_inbox %}
+            {% if row.is_inbox %}
             <span class="td">
-                <button hx-post="{% url 'add_to_account' account.id transaction.id%}"
+                <button hx-post="{% url 'add_to_account' account.id row.id%}"
                     hx-swap="none" hx-select-oob="#transaction,#entries,#categories"
                     hx-target="this">
                     Move here</button>
             </span>
             {% else %}
-            <short-currency class="td number" value="{{transaction.running_sum}}" currency="{{ account.currency }}" id="total-{{transaction.id}}"></short-currency>
+            <short-currency class="td number" value="{{row.running_sum}}" currency="{{ account.currency }}" id="total-{{row.id}}"></short-currency>
             {% endif %}
 
             {% if account.clearable %}
-            {% if transaction.is_inbox %}
+            {% if row.is_inbox %}
             <span class="td"></span>
             {% else %}
-            <span class="td" id="cleared-{{transaction.id}}">
-                {% if transaction.reconciled %}
+            <span class="td" id="cleared-{{row.id}}">
+                {% if row.reconciled %}
                 🔒
                 {% else %}
                 <input type="checkbox"
                     name="clear"
-                    hx-post="{% url 'clear' account.id transaction.id %}"
+                    hx-post="{% url 'clear' account.id row.id %}"
                     hx-swap="none settle:0"
                     hx-on:dblclick="event.stopPropagation()"
-                    {% if not transaction.uncleared %}checked{% endif %}>
+                    {% if not row.uncleared %}checked{% endif %}>
                 {% endif %}
             </span>
             {% endif %}

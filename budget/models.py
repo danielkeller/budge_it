@@ -266,13 +266,13 @@ class Category(BaseAccount):
 class Balance:
     """A fake account representing the balance between two budgets."""
     budget: Budget
-    other: int
+    other: Budget
     currency: str
 
     def get_absolute_url(self):
         return reverse('balance', kwargs={'currency': self.currency,
                                           'budget_id_1': self.budget.id,
-                                          'budget_id_2': self.other})
+                                          'budget_id_2': self.other.id})
 
     @property
     def name(self):
@@ -281,19 +281,19 @@ class Balance:
     @property
     def id(self):
         # Templates/urls refer to it this way
-        return f'owed-{self.currency}-{self.other}'
+        return f'owed-{self.currency}-{self.other.id}'
 
     def transactions(self) -> tuple[list['Transaction'], int]:
         gets = (CategoryEntry.objects
                 .filter(part__transaction=OuterRef('pk'),
                         source__currency=self.currency,
-                        source__budget=self.other, sink__budget=self.budget)
+                        source__budget=self.other.id, sink__budget=self.budget)
                 .values('part__transaction')
                 .values(sum=Sum('amount')))
         has = (AccountEntry.objects
                .filter(part__transaction=OuterRef('pk'),
                        source__currency=self.currency,
-                       source__budget=self.other, sink__budget=self.budget)
+                       source__budget=self.other.id, sink__budget=self.budget)
                .values('part__transaction')
                .values(sum=Sum('amount')))
         # Does it make sense to exclude transactions that don't alter the balance?
@@ -318,6 +318,7 @@ class Total:
     """A fake account representing everything in a currency."""
     budget: Budget
     currency: str
+    balance: int | None = None
 
     @property
     def name(self):
@@ -826,14 +827,18 @@ def accounts_overview(budget: Budget):
                    sink__budget=budget)
            .values('source__budget')
            .values(sum=sum_amount))
-    debts = chain.from_iterable(
-        Budget.objects
-        .annotate(currency=Value(currency),
-                  balance=Coalesce(Subquery(gets), 0)
-                  - Coalesce(Subquery(has), 0))
-        .exclude(balance=0)
-        for currency, in currencies)
-    return (accounts, categories, debts)
+    debts = [Balance(budget, other, currency)
+             for currency, in currencies
+             for other in Budget.objects
+             .annotate(currency=Value(currency),
+                       balance=Coalesce(Subquery(gets), 0)
+                       - Coalesce(Subquery(has), 0))
+             .exclude(balance=0)]
+    totals = [Total(budget, currency, total)
+              for currency, total
+              in sum_by((category.currency, category.balance)
+                        for category in categories).items()]
+    return (accounts, categories, debts, totals)
 
 
 def category_balance(budget: Budget, start: date):
