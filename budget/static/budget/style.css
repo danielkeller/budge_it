@@ -73,9 +73,7 @@ body.popup {
     overflow-y: auto;
 }
 
-#overview,
-#entries,
-#transaction {
+.column {
     display: grid;
     gap: var(--line-height);
     grid: minmax(0, max-content) / auto;

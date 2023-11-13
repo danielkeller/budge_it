@@ -7,3 +7,4 @@ pyvenv.cfg
 *.sqlite3
 *.sqlite3-shm
 *.DS_Store
+htmx.js

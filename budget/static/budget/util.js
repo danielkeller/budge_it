@@ -106,7 +106,7 @@ class EntryList extends HTMLElement {
                 this.prev();
             }
         });
-        this.addEventListener('htmx:afterSwap', () => {
+        this.addEventListener('htmx:load', () => {
             // Content changed
             this.scrollIntoView();
         })

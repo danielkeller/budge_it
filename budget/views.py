@@ -112,6 +112,7 @@ def all(request: HttpRequest, budget_id: int,
     account_id = account_id or request.GET.get('account')
     transaction_id = transaction_id or request.GET.get('transaction')
 
+    # FIXME: This breaks the other forms that refresh 'all'
     if request.method == 'PUT':
         # A bit of a hack to use the method like this
         transaction_id = quick_save(request, budget, account_id)

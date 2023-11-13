@@ -1,5 +1,5 @@
 {% load budget %}
-<div id="entries">
+<div class="column">
     <div class="controls">
         <div class="tools">
             {% if account.clearable %}
@@ -18,7 +18,8 @@
         name="transaction"
         hx-trigger="kbdselect,mouseselect delay:100ms"
         hx-get="{% url 'all' budget.id account.id %}"
-        hx-target="#transaction">
+        hx-target="#transaction"
+        id="entries">
         {% block list-contents %}
         <div>
             <span class="th">Date</span>
@@ -28,7 +29,7 @@
             {% if account.clearable %}<span class="th">☑️</span>{% endif %}
         </div>
         {% if quick_add %}
-        <form hx-put="{% url 'all' budget.id account.id %}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries,#categories">
+        <form hx-put="{% url 'all' budget.id account.id %}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories">
             <span class="td tdinput">{{ quick_add.date }}</span>
             <span class="td tdinput">{{ quick_add.note }}</span>
             <span class="td tdinput" is="standalone-currency-input" currency="{{ account.currency }}">
@@ -59,7 +60,7 @@
             {% if row.is_inbox %}
             <span class="td">
                 <button hx-post="{% url 'add_to_account' account.id row.id%}"
-                    hx-swap="none" hx-select-oob="#transaction,#entries,#categories"
+                    hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories"
                     hx-target="this">
                     Move here</button>
             </span>
@@ -91,7 +92,7 @@
         {% endblock %}
     </entry-list>
 </div>
-<div id="transaction" class="editor">
+<div id="transaction" class="editor column">
     {% if transaction.id %}
     {% include 'budget/partials/edit.html' %}
     {% endif %}

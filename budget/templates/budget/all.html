@@ -44,7 +44,7 @@
         {{ edit.data|json_script:"data" }}
         <script id="data">window.data = JSON.parse(document.getElementById('data').textContent);</script>
     </div>
-    <div id="overview">
+    <div id="overview" class="column">
         {% include 'budget/partials/overview.html' %}
     </div>
     <div id="account">
