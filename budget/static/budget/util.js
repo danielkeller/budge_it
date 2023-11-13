@@ -105,6 +105,10 @@ class ListView extends HTMLElement {
                 this.prev();
             }
         });
+        this.addEventListener('htmx:afterSwap', () => {
+            // Content changed
+            this.value = this.getAttribute('value');
+        })
         // Wait for htmx to do its thing
         setTimeout(() => this.value = this.getAttribute('value'), 0);
     }
@@ -112,6 +116,7 @@ class ListView extends HTMLElement {
     get checked() { return this.querySelector('.checked'); }
     set checked(row) {
         const prev = this.checked;
+        this.setAttribute('value', row && row.dataset.value);
         if (prev) prev.classList.remove('checked');
         if (row) row.classList.add('checked');
     }
