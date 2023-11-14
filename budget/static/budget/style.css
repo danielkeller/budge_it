@@ -237,7 +237,8 @@ entry-list:focus .checked>* {
     grid-column: span 2;
 }
 
-.grid>* {
+.grid>*,
+.grid>*>* {
     display: contents;
 }
 

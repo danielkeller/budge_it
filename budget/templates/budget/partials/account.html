@@ -18,8 +18,8 @@
         name="transaction"
         hx-trigger="kbdselect,mouseselect delay:100ms"
         hx-get="{% url 'all' budget.id account.id %}"
-        hx-target="#transaction"
-        id="entries">
+        hx-target="#transaction">
+    <div id="entries">
         {% block list-contents %}
         <div>
             <span class="th sticky">Date</span>
@@ -89,6 +89,7 @@
         {% endfor %}
         {% endspaceless %}
         {% endblock %}
+    </div>
     </entry-list>
 </div>
 <div id="transaction" class="editor column">{% if transaction.id %}
