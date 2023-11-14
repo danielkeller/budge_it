@@ -194,6 +194,11 @@ class BaseAccount(Id):
             field, amount = 'parts__accounts', 'parts__accountentry_set__amount'
         else:
             field, amount = 'parts__categories', 'parts__categoryentry_set__amount'
+        if self.clearable:
+            reconciled = Max('cleared__reconciled',
+                             filter=Q(cleared__account=self))
+        else:
+            reconciled = Value(False)
 
         if not self.is_inbox():
             inbox = self.budget.get_inbox(type(self), self.currency).id
@@ -204,19 +209,15 @@ class BaseAccount(Id):
               .filter(Q(**{field: self}) |
                       (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
               .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
-              .prefetch_related('cleared')
+              .annotate(reconciled=reconciled)
               .order_by('date', '-kind', 'id'))
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
         total = 0
         for transaction in qs:
-            reconciled = next((cleared.reconciled
-                               for cleared in transaction.cleared.all()
-                               if cleared.account == self), None)
-            setattr(transaction, 'reconciled', reconciled)
             if getattr(transaction, 'account') == inbox:
                 setattr(transaction, 'is_inbox', True)
-            elif self.clearable and reconciled is None:
+            elif self.clearable and transaction.reconciled is None:
                 setattr(transaction, 'uncleared', True)
             else:
                 total += getattr(transaction, 'change')
@@ -581,18 +582,18 @@ class Transaction(models.Model):
             part.set_flows(*from_part.flows())
         return transaction
 
-    @atomic
     def do_recurrence(self):
         today = date.today()
         if not self.recurrence or not self.date or self.date > today:
             return False
-        for copy in self.recurrence.iterate(self.date):
-            if copy <= today:
-                self.copy_to(copy)
-            else:
-                self.date = copy
-                self.save()
-                return True
+        with atomic():
+            for copy in self.recurrence.iterate(self.date):
+                if copy <= today:
+                    self.copy_to(copy)
+                else:
+                    self.date = copy
+                    self.save()
+                    return True
         raise RuntimeError("unreachable")
 
 

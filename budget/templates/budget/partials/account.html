@@ -80,7 +80,6 @@
                     name="clear"
                     hx-post="{% url 'clear' account.id row.id %}"
                     hx-swap="none settle:0"
-                    hx-on:dblclick="event.stopPropagation()"
                     {% if not row.uncleared %}checked{% endif %}>
                 {% endif %}
             </span>
@@ -92,8 +91,6 @@
         {% endblock %}
     </entry-list>
 </div>
-<div id="transaction" class="editor column">
-    {% if transaction.id %}
+<div id="transaction" class="editor column">{% if transaction.id %}
     {% include 'budget/partials/edit.html' %}
-    {% endif %}
-</div>
+    {% endif %}</div>
