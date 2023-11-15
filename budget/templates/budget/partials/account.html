@@ -1,96 +1,94 @@
 {% load budget %}
-<div class="column">
-    <div class="controls">
-        <a class="backbutton" href="{% url 'all' budget.id %}" hx-boost>Back</a>
-        <div class="tools">
-            {% if account.clearable %}
-            <div>
-                <button hx-post="{% url 'reconcile' account.id %}" hx-swap="none">Reconcile</button> balance of
-                <long-currency id="balance" currency="{{ account.currency }}" value="{{ balance }}"></long-currency>
-            </div>
-            {% endif %}
-            <button type="button"
-                hx-on:click="document.querySelector('entry-list.transactions').select(null)">
-                New Transaction</button>
-        </div>
-    </div>
-    <entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
-        {% if hx.event != 'kbdselect' %}autofocus{% endif %}
-        name="transaction"
-        hx-trigger="kbdselect,mouseselect delay:100ms"
-        hx-get="{% url 'all' budget.id account.id %}"
-        hx-target="#transaction">
-    <div id="entries">
-        {% block list-contents %}
+<div class="controls">
+    <a class="backbutton" href="{% url 'all' budget.id %}" hx-boost>Back</a>
+    <div class="tools">
+        {% if account.clearable %}
         <div>
-            <span class="th sticky">Date</span>
-            <span class="th">Transaction</span>
-            <span class="th">{{ account.currency }}</span>
-            <span class="th">Total</span>
-            {% if account.clearable %}<span class="th">☑️</span>{% endif %}
+            <button hx-post="{% url 'reconcile' account.id %}" hx-swap="none">Reconcile</button> balance of
+            <long-currency id="balance" currency="{{ account.currency }}" value="{{ balance }}"></long-currency>
         </div>
-        {% if quick_add %}
-        <form hx-put="{% url 'all' budget.id account.id %}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories">
-            <span class="td tdinput">{{ quick_add.date }}</span>
-            <span class="td tdinput">{{ quick_add.note }}</span>
-            <span class="td tdinput" is="standalone-currency-input" currency="{{ account.currency }}">
-                {{ quick_add.amount }}
-                <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*" size="8">
-            </span>
-            {{ quick_add.is_split }}<label for="id_qa-is_split" class="td"> Split</label>
-            <span class="td" style="grid-column: 1 / -1;">
-                Split between: {% for split in quick_add.split %}
-                {{ split }}{% if not forloop.last %}, {% endif %}
-                {% endfor %}
-            </span>
-            <button style="display: none;"></button>
-        </form>
         {% endif %}
-    {% spaceless %}
-    {% for row in entries %}
-        <div class="{% cycle 'a' 'b' as rowcolor %} {{row.is_inbox|yesno:"is_inbox," }} {% if transaction.id == row.id %}checked{% endif %}"
-            data-value="{{row.id}}">
-            <span class="td">{{row.date|date:"SHORT_DATE_FORMAT"}}
-                {% if row.recurrence %}🔁{% endif %}
-            </span>
-
-            <span class="td ellipsis">{{row|transaction_description:account}}</span>
-
-            <short-currency class="td number" currency="{{ account.currency }}" value="{{ row.change }}"></short-currency>
-
-            {% if row.is_inbox %}
-            <span class="td">
-                <button hx-post="{% url 'add_to_account' account.id row.id%}"
-                    hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories"
-                    hx-target="this">
-                    Move here</button>
-            </span>
-            {% else %}
-            <short-currency class="td number" value="{{row.running_sum}}" currency="{{ account.currency }}" id="total-{{row.id}}"></short-currency>
-            {% endif %}
-
-            {% if account.clearable %}
-            {% if row.is_inbox %}
-            <span class="td"></span>
-            {% else %}
-            <span class="td" id="cleared-{{row.id}}">
-                {% if row.reconciled %}
-                🔒
-                {% else %}
-                <input type="checkbox"
-                    name="clear"
-                    hx-post="{% url 'clear' account.id row.id %}"
-                    hx-swap="none settle:0"
-                    {% if not row.uncleared %}checked{% endif %}>
-                {% endif %}
-            </span>
-            {% endif %}
-            {% endif %}
-        </div>
-        {% endfor %}
-        {% endspaceless %}
-        {% endblock %}
+        <button type="button"
+            hx-on:click="document.querySelector('entry-list.transactions').select(null)">
+            New Transaction</button>
     </div>
-    </entry-list>
 </div>
+<entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
+    {% if hx.event != 'kbdselect' %}autofocus{% endif %}
+    name="transaction"
+    hx-trigger="kbdselect,mouseselect delay:100ms"
+    hx-get="{% url 'all' budget.id account.id %}"
+    hx-target="#transaction">
+<div id="entries">
+    {% block list-contents %}
+    <div>
+        <span class="th sticky">Date</span>
+        <span class="th">Transaction</span>
+        <span class="th">{{ account.currency }}</span>
+        <span class="th">Total</span>
+        {% if account.clearable %}<span class="th">☑️</span>{% endif %}
+    </div>
+    {% if quick_add %}
+    <form hx-put="{% url 'all' budget.id account.id %}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories">
+        <span class="td tdinput">{{ quick_add.date }}</span>
+        <span class="td tdinput">{{ quick_add.note }}</span>
+        <span class="td tdinput" is="standalone-currency-input" currency="{{ account.currency }}">
+            {{ quick_add.amount }}
+            <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*" size="8">
+        </span>
+        {{ quick_add.is_split }}<label for="id_qa-is_split" class="td"> Split</label>
+        <span class="td" style="grid-column: 1 / -1;">
+            Split between: {% for split in quick_add.split %}
+            {{ split }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        </span>
+        <button style="display: none;"></button>
+    </form>
+    {% endif %}
+{% spaceless %}
+{% for row in entries %}
+    <div class="{% cycle 'a' 'b' as rowcolor %} {{row.is_inbox|yesno:"is_inbox," }} {% if transaction.id == row.id %}checked{% endif %}"
+        data-value="{{row.id}}">
+        <span class="td">{{row.date|date:"SHORT_DATE_FORMAT"}}
+            {% if row.recurrence %}🔁{% endif %}
+        </span>
+
+        <span class="td ellipsis">{{row|transaction_description:account}}</span>
+
+        <short-currency class="td number" currency="{{ account.currency }}" value="{{ row.change }}"></short-currency>
+
+        {% if row.is_inbox %}
+        <span class="td">
+            <button hx-post="{% url 'add_to_account' account.id row.id%}"
+                hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories"
+                hx-target="this">
+                Move here</button>
+        </span>
+        {% else %}
+        <short-currency class="td number" value="{{row.running_sum}}" currency="{{ account.currency }}" id="total-{{row.id}}"></short-currency>
+        {% endif %}
+
+        {% if account.clearable %}
+        {% if row.is_inbox %}
+        <span class="td"></span>
+        {% else %}
+        <span class="td" id="cleared-{{row.id}}">
+            {% if row.reconciled %}
+            🔒
+            {% else %}
+            <input type="checkbox"
+                name="clear"
+                hx-post="{% url 'clear' account.id row.id %}"
+                hx-swap="none settle:0"
+                {% if not row.uncleared %}checked{% endif %}>
+            {% endif %}
+        </span>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endspaceless %}
+    {% endblock %}
+</div>
+</entry-list>
 {% if hx.target == 'account' %}<div id="transaction" class="editor column"></div>{% endif %}
