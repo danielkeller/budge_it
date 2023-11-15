@@ -11,7 +11,7 @@
     <script src="{% static 'budget/util.js' %}"></script>
     <script src="{% static 'budget/editor.js' %}"></script>
     <script src="{% static 'budget/budget.js' %}"></script>
-    <script src="{% static 'budget/htmx.js' %}" defer></script>
+    <script src="{% static 'budget/htmx.min.js' %}" defer></script>
 </head>
 
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-ext="event-header" hx-history="false" class="all">
