@@ -35,7 +35,7 @@
             <span class="td tdinput">{{ quick_add.note }}</span>
             <span class="td tdinput" is="standalone-currency-input" currency="{{ account.currency }}">
                 {{ quick_add.amount }}
-                <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*">
+                <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*" size="8">
             </span>
             {{ quick_add.is_split }}<label for="id_qa-is_split" class="td"> Split</label>
             <span class="td" style="grid-column: 1 / -1;">
@@ -93,10 +93,4 @@
     </div>
     </entry-list>
 </div>
-{% spaceless %}
-<div id="transaction" class="editor column">
-    {% if transaction.id %}
-    {% include 'budget/partials/edit.html' %}
-    {% endif %}
-</div>
-{% endspaceless %}
+{% if hx.target == 'account' %}<div id="transaction" class="editor column"></div>{% endif %}

@@ -8,7 +8,8 @@
     {% if not account %}autofocus{% endif %}
     hx-trigger="kbdselect,mouseselect delay:100ms"
     hx-get="{% url 'all' budget.id %}"
-    hx-target="#account">
+    hx-target="#account"
+    hx-select-oob="#transaction">
     <table id="categories">
         <tr>
             <th>Category</th>
