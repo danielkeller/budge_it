@@ -175,4 +175,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    /*class DummyRequest extends XMLHttpRequest {
+        get status() { return 200; }
+    }
+    htmx.defineExtension('null-request', {
+        onEvent: function (name, event) {
+            if (name === 'htmx:beforeRequest') {
+                event.preventDefault();
+                let onload = event.detail.xhr.onload;
+                event.detail.xhr = new DummyRequest();
+                onload();
+            }
+        }
+    });*/
 })

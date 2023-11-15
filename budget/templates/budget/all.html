@@ -11,10 +11,10 @@
     <script src="{% static 'budget/util.js' %}"></script>
     <script src="{% static 'budget/editor.js' %}"></script>
     <script src="{% static 'budget/budget.js' %}"></script>
-    <script src="{% static 'budget/htmx.min.js' %}" defer></script>
+    <script src="{% static 'budget/htmx.js' %}" defer></script>
 </head>
 
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-ext="event-header" class="all">
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-ext="event-header" hx-history="false" class="all">
     <div id="datas">
         <datalist id="account-list">
             <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
@@ -46,9 +46,11 @@
     <div id="overview" class="column">
         {% include 'budget/partials/overview.html' %}
     </div>
+{% spaceless %}
     <div id="account">
         {% if account %}
         {% include 'budget/partials/account.html' %}
         {% endif %}
     </div>
+{% endspaceless %}
 </body>

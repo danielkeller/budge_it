@@ -1,6 +1,7 @@
 {% load budget %}
 <div class="column">
     <div class="controls">
+        <a class="backbutton" href="{% url 'all' budget.id %}" hx-boost>Back</a>
         <div class="tools">
             {% if account.clearable %}
             <div>
@@ -92,6 +93,10 @@
     </div>
     </entry-list>
 </div>
-<div id="transaction" class="editor column">{% if transaction.id %}
+{% spaceless %}
+<div id="transaction" class="editor column">
+    {% if transaction.id %}
     {% include 'budget/partials/edit.html' %}
-    {% endif %}</div>
+    {% endif %}
+</div>
+{% endspaceless %}

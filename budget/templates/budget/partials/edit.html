@@ -1,4 +1,5 @@
 <div class="controls">
+    <a class="backbutton" href="{% url 'all' budget.id account_id %}" hx-get="{% url 'all' budget.id account_id %}" hx-target="#account">Back</a>
     <div class="tools">
         {% if transaction.id %}
         <button type="button" hx-delete=""

@@ -1,5 +1,6 @@
 from typing import Any, Callable
 from datetime import date
+from urllib.parse import urlparse
 
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import render
@@ -8,11 +9,11 @@ from django.http import (HttpRequest, HttpResponse, HttpResponseRedirect,
 from django.shortcuts import get_object_or_404
 from django.db.transaction import atomic
 from django.contrib.auth.decorators import login_required
-from django.urls import reverse
+from django.urls import reverse, resolve
 from render_block import render_block_to_string
 import cProfile
 
-from .models import (sum_by, date_range, months_between,
+from .models import (date_range, months_between,
                      BaseAccount, Account, Category, Budget,
                      Transaction, Cleared,
                      accounts_overview, budgeting_transaction,
@@ -131,7 +132,14 @@ def all_view(request: HttpRequest, budget: Budget,
              account_id: str | int | None = None,
              transaction_id: str | int | None = None):
     def fix_url(response: HttpResponse):
-        response['HX-Replace-Url'] = reverse(
+        action = 'HX-Replace-Url'
+        if 'HX-Current-URL' in request.headers:
+            # Going deeper?
+            params = resolve(urlparse(request.headers['HX-Current-URL']).path)
+            if (account_id and 'account_id' not in params.kwargs
+                    or transaction_id and 'transaction_id' not in params.kwargs):
+                action = 'HX-Push-Url'
+        response[action] = reverse(
             'all', args=[arg for arg in (
                 budget.id, account_id, transaction_id) if arg])
         return response
@@ -143,7 +151,8 @@ def all_view(request: HttpRequest, budget: Budget,
     else:
         form = TransactionForm(budget, prefix="tx", instance=transaction)
 
-    context = {'budget': budget, 'transaction': transaction, 'form': form}
+    context = {'budget': budget, 'account_id': account_id,
+               'transaction': transaction, 'form': form}
 
     if request.headers.get('HX-Target') == 'transaction':
         return fix_url(render(request, 'budget/partials/edit.html', context))
