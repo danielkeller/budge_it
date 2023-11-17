@@ -31,26 +31,24 @@
     </div>
 
     <main class="manage">
-        <form id="datepicker" is="date-picker">
-            <div class="datepicker">
-                <div class="years">
-                    {% for year in years %}
-                    <input type="radio" name="year" id="year{{ year }}" value="{{ year }}"
-                        {% if year == current_year %}checked{% endif %}>
-                    <label for="year{{ year }}">{{ year }}</label>
-                    {% endfor %}
-                </div>
-                <div class="months">
-                    {% for month in months %}
-                    <a href="{% url 'budget' budget.id month.year month.month %}"
-                        {% if month.month == current_month %}class="current" {% endif %}>
-                        {{ month|date:"M" }}
-                    </a>
-                    {% endfor %}
-                </div>
+        <date-picker>
+            <form class="years">
+                {% for year in years %}
+                <input type="radio" name="year" id="year{{ year }}" value="{{ year }}"
+                    {% if year == current_year %}checked{% endif %}>
+                <label for="year{{ year }}">{{ year }}</label>
+                {% endfor %}
+            </form>
+            <div class="months">
+                {% for month in months %}
+                <a href="{% url 'budget' budget.id month.year month.month %}"
+                    {% if month.month == current_month %}class="current" {% endif %}>
+                    {{ month|date:"M" }}
+                </a>
+                {% endfor %}
             </div>
-        </form>
-        <form id="form" method="post" is="budget-form">
+        </date-picker>
+        <form id="form" method="post">
             {% include 'budget/partials/budget.html' %}
             {% csrf_token %}
         </form>

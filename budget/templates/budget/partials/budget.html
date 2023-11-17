@@ -1,5 +1,6 @@
 {% load budget %}
 
+<budget-form>
 <table id="table">
     <tr>
         <th>Category</th>
@@ -25,13 +26,13 @@
         </td>
         <td class="tdinput">
             {% if row.category.name == '' %}
-            <span is="standalone-currency-input" currency="{{ row.category.currency }}" data-budget-inbox>
+            <currency-input currency="{{ row.category.currency }}" data-budget-inbox>
                 {{ row.field }}<input class="suggested number" readonly>
-            </span>
+            </currency-input>
             {% else %}
-            <span is="standalone-currency-input" currency="{{ row.category.currency }}" data-budget-category>
+            <currency-input currency="{{ row.category.currency }}" data-budget-category>
                 {{ row.field }}<input class="number">
-            </span>
+            </currency-input>
             {% endif %}
         </td>
         <td class="number">
@@ -43,5 +44,6 @@
     </tr>
     {% endfor %}
 </table>
+</budget-form>
 {{ form.date }}
 {{ form.errors|default:"" }}

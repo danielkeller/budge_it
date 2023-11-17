@@ -205,7 +205,7 @@ th {
     padding: 0 var(--td-hpad);
 }
 
-main.manage {
+.manage {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -424,19 +424,23 @@ hr {
 
 /* editor */
 
+transaction-editor {
+    display: contents;
+}
+
 .date-table {
     align-self: flex-start;
 }
 
-[is="date-repeat"]~.repeat {
+.repeat {
     display: none;
 }
 
-[is="date-repeat"][data-value=R]~.R {
+[data-value=R]~.repeat.R {
     display: table-row;
 }
 
-[is="date-repeat"][data-value=C]~.C {
+[data-value=C]~.repeat.C {
     display: table-row;
 }
 
@@ -484,7 +488,7 @@ hr {
 
 /* budgeting */
 
-.datepicker {
+date-picker {
     width: max-content;
     border: var(--td-border) solid var(--line);
     align-self: center;

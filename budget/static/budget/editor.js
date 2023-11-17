@@ -4,7 +4,7 @@ function ownAccount(value) {
     return value == data.budget || value in data.accounts;
 }
 
-class Editor extends HTMLFormElement {
+class Editor extends HTMLElement {
     connectedCallback() {
         this.addEventListener('input', ({ target }) => {
             if (target.classList.contains('edit-currency')) checkValid();
@@ -13,20 +13,21 @@ class Editor extends HTMLFormElement {
     }
     get parts() { return this.querySelectorAll('edit-part'); }
 }
-customElements.define("transaction-editor", Editor, { extends: "form" });
+customElements.define("transaction-editor", Editor);
 
 function editor() {
-    return document.querySelector('[is="transaction-editor"]');
+    return document.querySelector('transaction-editor');
 }
 
-class DateRepeat extends HTMLTableRowElement {
+class DateRepeat extends HTMLElement {
     connectedCallback() {
         this.addEventListener('change', ({ target }) => {
-            this.dataset.value = target.value;
+            if (target.name === 'tx-repeat')
+                target.closest('tr').dataset.value = target.value;
         })
     }
 }
-customElements.define("date-repeat", DateRepeat, { extends: "tr" });
+customElements.define("date-repeat", DateRepeat);
 
 class EditPart extends HTMLElement {
     get currencyInput() { return this.querySelector(`.part-currency`); }
@@ -38,7 +39,7 @@ function getPart(element) {
     return element.closest('edit-part');
 }
 
-class AccountSelect extends HTMLTableCellElement {
+class AccountSelect extends HTMLElement {
     connectedCallback() {
         this.addEventListener('input', this.#selectInput.bind(this));
         // This is a hack and also doesn't work very well (in FF at least).
@@ -82,37 +83,19 @@ class AccountSelect extends HTMLTableCellElement {
         this.dispatchEvent(new CustomEvent('account-change', { bubbles: true }));
     }
 }
-customElements.define("account-select", AccountSelect, { extends: "td" });
+customElements.define("account-select", AccountSelect);
 
-// TODO: Clean these up
-class CurrencyInput extends HTMLTableCellElement {
+// TODO: Htmx can submit the values of custom elements
+class CurrencyInput extends HTMLElement {
     connectedCallback() {
-        this.addEventListener('input', this.#parse.bind(this));
+        this.addEventListener('input', this.#oninput.bind(this));
         whenContentIsReady(this, () => this.value = this.value);
     }
-    get #hidden() { return this.children[0]; }
-    get input() { return this.children[1]; }
-    get value() { return this.#hidden.value; }
-    set value(value) {
-        this.#hidden.value = value;
-        // Ugly!
-        const currency = getPart(this).currencyInput.value;
-        this.input.value = value ? formatCurrencyField(value, currency) : "";
-    }
-    #parse() {
-        accept(this);
-        const currency = getPart(this).currencyInput.value;
-        this.#hidden.value = this.input.value
-            && parseCurrency(this.input.value, currency);
-        this.dispatchEvent(new CustomEvent('currency-input', { bubbles: true }));
-    }
-}
-customElements.define("currency-input", CurrencyInput, { extends: "td" });
-
-class StandaloneCurrencyInput extends HTMLSpanElement {
-    connectedCallback() {
-        this.addEventListener('input', this.#parse.bind(this));
-        whenContentIsReady(this, () => this.value = this.value);
+    static observedAttributes = ["currency"];
+    attributeChangedCallback() {
+        if (this.children.length)
+            this.#hidden.value = this.input.value
+                && parseCurrency(this.input.value, this.currency);
     }
     get #hidden() { return this.children[0]; }
     get input() { return this.children[1]; }
@@ -122,14 +105,14 @@ class StandaloneCurrencyInput extends HTMLSpanElement {
         this.#hidden.value = value;
         this.input.value = value ? formatCurrencyField(value, this.currency) : "";
     }
-    #parse() {
+    #oninput() {
         accept(this);
         this.#hidden.value = this.input.value
             && parseCurrency(this.input.value, this.currency);
         this.dispatchEvent(new CustomEvent('currency-input', { bubbles: true }));
     }
 }
-customElements.define("standalone-currency-input", StandaloneCurrencyInput, { extends: "span" });
+customElements.define("currency-input", CurrencyInput);
 
 function unsuggest(element) {
     if (element.input.classList.contains('suggested')) {
@@ -163,10 +146,10 @@ class EditRow extends HTMLTableRowElement {
             updateCurrency(getPart(this));
         }, 0);
     }
-    get account() { return this.children[0]; }
-    get category() { return this.children[1]; }
-    get transferred() { return this.children[2]; }
-    get moved() { return this.children[3]; }
+    get account() { return this.children[0].children[0]; }
+    get category() { return this.children[1].children[0]; }
+    get transferred() { return this.children[2].children[0]; }
+    get moved() { return this.children[3].children[0]; }
 }
 customElements.define("edit-row", EditRow, { extends: "tr" });
 

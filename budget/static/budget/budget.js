@@ -1,6 +1,6 @@
 "use strict";
 
-class BudgetForm extends HTMLFormElement {
+class BudgetForm extends HTMLElement {
     connectedCallback() {
         this.addEventListener('currency-input', ({ target }) => {
             updateFinal(target);
@@ -17,17 +17,17 @@ class BudgetForm extends HTMLFormElement {
         });
     }
 }
-customElements.define("budget-form", BudgetForm, { extends: "form" });
+customElements.define("budget-form", BudgetForm);
 
 function updateFinal(input) {
     const final = input.closest('tr').querySelector('[data-total]');
     final.value = +final.dataset.total + (+input.value || 0);
 }
 
-class DatePicker extends HTMLFormElement {
+class DatePicker extends HTMLElement {
     connectedCallback() {
         this.addEventListener('change', () => {
-            const year = this.year.value;
+            const year = this.querySelector('form').year.value;
             for (const link of this.querySelectorAll(".months>a")) {
                 const href = link.getAttribute('href').replace(/\d{4}/, year);
                 if (href === window.location.pathname) {
@@ -40,4 +40,4 @@ class DatePicker extends HTMLFormElement {
         });
     }
 }
-customElements.define("date-picker", DatePicker, { extends: "form" });
+customElements.define("date-picker", DatePicker);
