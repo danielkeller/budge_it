@@ -57,8 +57,8 @@
                 </tr>
                 {% for row in part.formset %}
                 {% block edit-row %}
-                <tr class="edit-row" is="edit-row">
-                    <td class="tdinput"><account-select>
+                <tr class="edit-row">
+                    <td class="tdinput"><account-select data-account>
                         {{ row.account }}<span></span><input list="account-list"
                             {% if row.row.reconciled %}readonly{% endif %}>
                         </account-select></td>

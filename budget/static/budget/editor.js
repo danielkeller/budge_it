@@ -9,6 +9,21 @@ class Editor extends HTMLElement {
         this.addEventListener('input', ({ target }) => {
             if (target.classList.contains('edit-currency')) checkValid();
         });
+        this.addEventListener('account-change', ({ target }) => {
+            'account' in target.dataset ? accountChanged(target) : categoryChanged(target);
+        });
+        this.addEventListener('currency-input', suggestAmounts);
+        this.addEventListener('focusout', suggestAmounts);
+        setTimeout(() => {
+            for (const part of this.parts) {
+                for (let { account, category, moved, transferred } of part.rows) {
+                    if (category.value === account.value && category.value != data.budget)
+                        category.input.classList.add('suggested');
+                    transferred.input.disabled = !account.value;
+                    moved.input.disabled = !category.value;
+                }
+            }
+        }, 0);
         setTimeout(checkValid, 0);
     }
     get parts() { return this.querySelectorAll('edit-part'); }
@@ -30,13 +45,30 @@ class DateRepeat extends HTMLElement {
 customElements.define("date-repeat", DateRepeat);
 
 class EditPart extends HTMLElement {
+    connectedCallback() {
+        this.addEventListener('change', () => updateCurrency(this));
+        setTimeout(() => {
+            updateCurrency(this);
+        }, 0);
+    }
     get currencyInput() { return this.querySelector(`.part-currency`); }
-    get rows() { return this.querySelectorAll('[is="edit-row"]'); }
+    get rows() { return [...this.querySelectorAll('.edit-row')].map(editRow); }
 }
 customElements.define("edit-part", EditPart);
 
 function getPart(element) {
     return element.closest('edit-part');
+}
+function getRow(element) {
+    return editRow(element.closest('tr'));
+}
+function editRow(tr) {
+    return {
+        account: tr.children[0].children[0],
+        category: tr.children[1].children[0],
+        transferred: tr.children[2].children[0],
+        moved: tr.children[3].children[0]
+    };
 }
 
 class AccountSelect extends HTMLElement {
@@ -93,9 +125,8 @@ class CurrencyInput extends HTMLElement {
     }
     static observedAttributes = ["currency"];
     attributeChangedCallback() {
-        if (this.children.length)
-            this.#hidden.value = this.input.value
-                && parseCurrency(this.input.value, this.currency);
+        if (this.input && this.input.value)
+            this.#hidden.value = parseCurrency(this.input.value, this.currency);
     }
     get #hidden() { return this.children[0]; }
     get input() { return this.children[1]; }
@@ -131,30 +162,9 @@ function suggest(element, value) {
 function accept(element) {
     element.input.classList.remove('suggested');
 }
-class EditRow extends HTMLTableRowElement {
-    connectedCallback() {
-        setTimeout(() => {
-            const { account, category, transferred, moved } = this;
-            account.addEventListener('account-change', () => accountChanged(this));
-            category.addEventListener('account-change', () => categoryChanged(this));
-            if (category.value === account.value && category.value != data.budget)
-                category.input.classList.add('suggested');
-            this.addEventListener('currency-input', suggestAmounts);
-            this.addEventListener('focusout', suggestAmounts);
-            transferred.input.disabled = !account.value;
-            moved.input.disabled = !category.value;
-            updateCurrency(getPart(this));
-        }, 0);
-    }
-    get account() { return this.children[0].children[0]; }
-    get category() { return this.children[1].children[0]; }
-    get transferred() { return this.children[2].children[0]; }
-    get moved() { return this.children[3].children[0]; }
-}
-customElements.define("edit-row", EditRow, { extends: "tr" });
 
-function accountChanged(row) {
-    const { account, category, transferred } = row
+function accountChanged(target) {
+    const { account, category, transferred } = getRow(target);
     unsuggest(category);
     if (!ownAccount(account.value) && !(account.value in data.friends)) {
         if (account.value in data.budgets) suggest(category, account.value);
@@ -163,10 +173,11 @@ function accountChanged(row) {
 
     transferred.input.disabled = !account.value;
     if (transferred.input.disabled) transferred.value = '';
-    categoryChanged(row);
+    categoryChanged(target);
 }
 
-function categoryChanged({ category, moved }) {
+function categoryChanged(target) {
+    const { category, moved } = getRow(target);
     moved.input.disabled = !category.value;
     if (moved.input.disabled) moved.value = '';
 
@@ -209,6 +220,10 @@ function updateCurrency(part) {
             option.disabled = false;
         }
     }
+    for (let input of part.querySelectorAll('currency-input'))
+        input.setAttribute('currency', select.value);
+
+    checkValid();
 }
 
 function suggestSums(options) {
