@@ -81,9 +81,10 @@ def _get_account_like_or_404(request: HttpRequest, budget: Budget,
         if name.startswith('all-'):
             return Total(budget, name.removeprefix('all-'))
         if name.startswith('owed-'):
-            _, currency, other = name.split('-')
-            # Maybe
-            return Balance(budget, Budget(id=int(other)), currency)
+            _, currency, other_id = name.split('-')
+            other = Budget.objects.filter(
+                id=other_id).first() or Budget(id=int(other_id))
+            return Balance(budget, other, currency)
     return _get_allowed_account_or_404(request, name)
 
 

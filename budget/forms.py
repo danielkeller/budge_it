@@ -487,12 +487,23 @@ class QuickAddForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.account = account
         budget = account.budget
-        self.fields['split'].choices = (
+
+        choices = (
             [(budget.id, 'Yourself')]
             + list(budget.friends.values_list('id', 'name')))
-        initial_split = budget.initial_split or str(budget.id)
-        self.fields['split'].initial = initial_split.split(',')
-        self.fields['is_split'].initial = initial_split != str(budget.id)
+
+        initial_split = []
+        if budget.initial_split:
+            initial_split = list(map(int, budget.initial_split.split(',')))
+        if isinstance(account, Balance):
+            if account.other.id not in initial_split:
+                initial_split.append(account.other.id)
+            if not any(id == account.other.id for id, _ in choices):
+                choices.append((account.other.id, account.other.name))
+
+        self.fields['split'].choices = choices
+        self.fields['split'].initial = initial_split
+        self.fields['is_split'].initial = bool(initial_split)
 
     @transaction.atomic
     def save(self):
@@ -509,9 +520,10 @@ class QuickAddForm(forms.Form):
 
         if self.cleaned_data['is_split']:
             split: list[Budget] = self.cleaned_data['split']
+            budget.initial_split = ','.join(str(friend.id) for friend in split)
         else:
             split = [budget]
-        budget.initial_split = ','.join(str(friend.id) for friend in split)
+            budget.initial_split = ''
         budget.save()
 
         amount = self.cleaned_data['amount']
