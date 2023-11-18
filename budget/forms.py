@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from django.forms import ValidationError, BoundField
 from django.db import transaction
 
-from .models import (Id, Budget, BaseAccount, Account, Category,
+from .models import (Id, Budget, BaseAccount, Account, Category, Balance,
                      TransactionPart, Transaction, AccountLike,
                      budgeting_categories)
 from .recurrence import RRule
@@ -525,6 +525,8 @@ class QuickAddForm(forms.Form):
             own_account = self.account
         elif isinstance(self.account, Category):
             own_category = self.account
+        elif isinstance(self.account, Balance):
+            amount = -amount
 
         accounts = {own_account: amount,
                     payee.get_inbox(Account, currency): -amount}
