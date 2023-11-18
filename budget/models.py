@@ -285,25 +285,28 @@ class Balance:
         return f'owed-{self.currency}-{self.other.id}'
 
     def transactions(self) -> tuple[list['Transaction'], int]:
-        gets = (CategoryEntry.objects
-                .filter(part__transaction=OuterRef('pk'),
-                        source__currency=self.currency,
-                        source__budget=self.other.id, sink__budget=self.budget)
-                .values('part__transaction')
+        category_entries = (CategoryEntry.objects
+                            .filter(part__transaction=OuterRef('pk'),
+                                    source__currency=self.currency))
+        account_entries = (AccountEntry.objects
+                           .filter(part__transaction=OuterRef('pk'),
+                                   source__currency=self.currency))
+        gets = (category_entries
+                .filter(source__budget=self.other.id, sink__budget=self.budget)
+                .values('part__transaction')  # Group by the right thing
                 .values(sum=Sum('amount')))
-        has = (AccountEntry.objects
-               .filter(part__transaction=OuterRef('pk'),
-                       source__currency=self.currency,
-                       source__budget=self.other.id, sink__budget=self.budget)
+        has = (account_entries
+               .filter(source__budget=self.other.id, sink__budget=self.budget)
                .values('part__transaction')
                .values(sum=Sum('amount')))
-        # Does it make sense to exclude transactions that don't alter the balance?
-        # In general transactions that do and don't will be on different payees.
         qs = (Transaction.objects
               .filter_for(self.budget)
+              .filter(Exists(category_entries.filter(sink__budget=self.budget)) &
+                      Exists(category_entries.filter(sink__budget=self.other.id)) |
+                      Exists(account_entries.filter(sink__budget=self.budget)) &
+                      Exists(account_entries.filter(sink__budget=self.other.id)))
               .annotate(change=Coalesce(Subquery(gets), 0)
                         - Coalesce(Subquery(has), 0))
-              .exclude(change=0)
               .order_by('date', '-kind', 'id'))
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
