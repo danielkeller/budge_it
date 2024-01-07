@@ -417,9 +417,9 @@ class BaseAccountManagementFormSet(forms.BaseInlineFormSet):
                 entries = (Transaction.objects
                            .filter(parts__accounts=instance)
                            .distinct())
-                instance.cleared.set(entries)
+                instance.cleared_transaction.set(entries)
             else:
-                instance.cleared.clear()
+                instance.cleared_transaction.clear()
         return instance
 
 

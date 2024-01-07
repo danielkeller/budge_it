@@ -11,7 +11,7 @@ from django.db import models
 from django import forms
 from django.db.transaction import atomic
 from django.db.models import (Q, F, Prefetch, Subquery, OuterRef, Value,
-                              Min, Max, Sum, Exists,
+                              Min, Max, Sum, Exists, FilteredRelation,
                               prefetch_related_objects)
 from django.db.models.functions import Coalesce
 from django.urls import reverse
@@ -194,11 +194,6 @@ class BaseAccount(Id):
             field, amount = 'parts__accounts', 'parts__accountentry_set__amount'
         else:
             field, amount = 'parts__categories', 'parts__categoryentry_set__amount'
-        if self.clearable:
-            reconciled = Max('cleared__reconciled',
-                             filter=Q(cleared__account=self))
-        else:
-            reconciled = Value(False)
 
         if not self.is_inbox():
             inbox = self.budget.get_inbox(type(self), self.currency).id
@@ -209,7 +204,9 @@ class BaseAccount(Id):
               .filter(Q(**{field: self}) |
                       (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
               .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
-              .annotate(reconciled=reconciled)
+              .annotate(cleared_self=FilteredRelation('cleared',
+                                                      condition=Q(cleared__account_id=self.id)),
+                        reconciled=F('cleared_self__reconciled'))
               .order_by('date', '-kind', 'id'))
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
@@ -236,6 +233,7 @@ class Account(BaseAccount):
 
     clearable = models.BooleanField(default=False)  # type: ignore
     cleared: 'models.manager.RelatedManager[Cleared]'
+    cleared_transaction: 'models.ManyToManyField[Transaction, Cleared]'
 
     def kind(self):
         return 'account'
