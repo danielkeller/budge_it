@@ -34,33 +34,40 @@ admin.site.register(Account)
 admin.site.register(Category)
 
 
-class AccountPartInline(admin.TabularInline):  # type: ignore
-    model = AccountPart
+class AccountEntryInline(admin.TabularInline):  # type: ignore
+    model = AccountEntry
     raw_id_fields = ['source', 'sink']
 
 
-class CategoryPartInline(admin.TabularInline):  # type: ignore
-    model = CategoryPart
+class CategoryEntryInline(admin.TabularInline):  # type: ignore
+    model = CategoryEntry
     raw_id_fields = ['source', 'sink']
 
 
-class AccountNoteInline(admin.TabularInline):  # type: ignore
-    model = AccountNote
-    raw_id_fields = ['account']
+class TransactionPartAdmin(admin.ModelAdmin):  # type: ignore
+    fields = ['note']
+    inlines = [
+        AccountEntryInline,
+        CategoryEntryInline,
+    ]
 
 
-class CategoryNoteInline(admin.TabularInline):  # type: ignore
-    model = CategoryNote
+admin.site.register(TransactionPart, TransactionPartAdmin)
+
+
+class TransactionPartInline(admin.TabularInline):  # type: ignore
+    model = TransactionPart
+    fields = ['note']
+    show_change_link = True
+
+
+class ClearedInline(admin.TabularInline):  # type: ignore
+    model = Cleared
     raw_id_fields = ['account']
 
 
 class TransactionAdmin(admin.ModelAdmin):  # type: ignore
-    inlines = [
-        AccountPartInline,
-        CategoryPartInline,
-        AccountNoteInline,
-        CategoryNoteInline,
-    ]
+    inlines = [ClearedInline, TransactionPartInline]
 
 
 admin.site.register(Transaction, TransactionAdmin)

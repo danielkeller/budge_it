@@ -1,357 +1,249 @@
 "use strict";
 
-addEventListener("DOMContentLoaded", function () {
-    window.data = JSON.parse(document.getElementById('data').textContent);
-    window.valid = true;
-    window.rows = [];
-    window.tbody = document.getElementById("parts").children[0];
-    window.adder_row = document.getElementById("adder-row");
-    window.new_row_template = document.getElementById("new-row-t")
-        .content.firstElementChild
-    window.category_sum = document.getElementById("category-sum");
-    window.account_sum = document.getElementById("account-sum");
-    window.debt = document.getElementById("debt");
-    window.account_options = Array.from(
-        document.getElementById("account-list").options)
-        .map(option => [option.value, option.dataset.id]);
-    window.category_options = Array.from(
-        document.getElementById("category-list").options)
-        .map(option => [option.value, option.dataset.id]);
-
-    document.getElementById('addrow').addEventListener('click', addRow);
-    document.getElementById('cancel').addEventListener('click', cancel);
-    document.forms[0].addEventListener('submit', onSubmit);
-    document.addEventListener("keydown", key);
-    setUpRows();
-    checkValid();
-});
-
-function key(event) {
-    if (event.key === "Escape") {
-        // The default behavior of "esc" is to stop page load
-        // event.preventDefault();
-        // cancel();
-    } else if (event.key === "Enter") {
-        if (document.activeElement.type !== "button"
-            && document.activeElement.type !== "submit")
-            if (valid) document.forms[0].submit();
-    }
-}
-
-function cancel() {
-    const back = new URLSearchParams(window.location.search).get('back');
-    if (back)
-        window.location.href = back;
-    else
-        history.back();
-}
-
-function findRow(input) {
-    return rows.findIndex(
-        ({ account, category, moved, transferred }) =>
-            [account, category, moved, transferred].includes(input));
-}
-
 function ownAccount(value) {
-    return value == data.budget
-        || value in data.accounts || value in data.categories;
+    return value == data.budget || value in data.accounts;
 }
 
-class Selector {
-    #visible; #hidden; #sigil; #options; #oninput;
-    constructor([hidden, sigil, visible], options, oninput) {
-        this.#visible = visible;
-        this.#sigil = sigil;
-        this.#hidden = hidden;
-        this.#options = options;
-        this.#oninput = oninput;
-        visible.addEventListener('input', this.#selectInput.bind(this));
-        this.value = this.value;
+class Editor extends HTMLElement {
+    connectedCallback() {
+        this.addEventListener('input', ({ target }) => {
+            if (target.classList.contains('edit-currency')) checkValid();
+        });
+        this.addEventListener('account-change', ({ target }) => {
+            'account' in target.dataset ? accountChanged(target) : categoryChanged(target);
+        });
+        this.addEventListener('currency-input', suggestAmounts);
+        this.addEventListener('focusout', suggestAmounts);
+        setTimeout(() => {
+            for (const part of this.parts) {
+                for (let { account, category, moved, transferred } of part.rows) {
+                    if (category.value === account.value && category.value != data.budget)
+                        category.input.classList.add('suggested');
+                    transferred.input.disabled = !account.value;
+                    moved.input.disabled = !category.value;
+                }
+            }
+        }, 0);
+        setTimeout(checkValid, 0);
     }
+    get parts() { return this.querySelectorAll('edit-part'); }
+}
+customElements.define("transaction-editor", Editor);
+
+function editor() {
+    return document.querySelector('transaction-editor');
+}
+
+class DateRepeat extends HTMLElement {
+    connectedCallback() {
+        this.addEventListener('change', ({ target }) => {
+            if (target.name === 'tx-repeat')
+                target.closest('tr').dataset.value = target.value;
+        })
+    }
+}
+customElements.define("date-repeat", DateRepeat);
+
+class EditPart extends HTMLElement {
+    connectedCallback() {
+        this.addEventListener('change', () => updateCurrency(this));
+        setTimeout(() => {
+            updateCurrency(this);
+        }, 0);
+    }
+    get currencyInput() { return this.querySelector(`.part-currency`); }
+    get rows() { return [...this.querySelectorAll('.edit-row')].map(editRow); }
+}
+customElements.define("edit-part", EditPart);
+
+function getPart(element) {
+    return element.closest('edit-part');
+}
+function getRow(element) {
+    return editRow(element.closest('tr'));
+}
+function editRow(tr) {
+    return {
+        account: tr.children[0].children[0],
+        category: tr.children[1].children[0],
+        transferred: tr.children[2].children[0],
+        moved: tr.children[3].children[0]
+    };
+}
+
+class AccountSelect extends HTMLElement {
+    connectedCallback() {
+        this.addEventListener('input', this.#selectInput.bind(this));
+        // This is a hack and also doesn't work very well (in FF at least).
+        this.addEventListener('focusout', () => this.input.reportValidity());
+        setTimeout(() => this.value = this.value, 0);
+    }
+    get #hidden() { return this.children[0]; }
+    get #sigil() { return this.children[1]; }
+    get input() { return this.children[2]; }
+    get value() { return this.#hidden.value; }
     set value(value) {
         value = String(value);
         this.#hidden.value = value;
-        const option = this.#options.find(([_, optvalue]) => optvalue === value);
-        this.#visible.value = option ? option[0] : value;
+        const option = this.#options.find(opt => opt.dataset.id === value);
+        this.input.value = option ? option.dataset.name : value;
+        this.#updateSigil();
     }
-    get value() { return this.#hidden.value; }
-    set name(name) { this.#hidden.name = name; }
-    unsuggest() {
-        if (this.classList.contains('suggested')) {
-            this.value = '';
-            this.classList.remove('suggested');
-        }
-    }
-    suggest(value) {
-        if (this.value === "" && document.activeElement !== this.#visible) {
-            this.value = value;
-            this.classList.add('suggested');
-            return true;
-        }
-        return false;
-    }
-    accept() {
-        this.classList.remove('suggested');
-    }
-    set sigil(value) {
-        if (value) {
+    get #options() { return Array.from(this.input.list.options); }
+    #updateSigil() {
+        const sigil = ownAccount(this.value) ? '👤'
+            : this.value in data.friends ? '👥'
+                : null;
+        if (sigil) {
             this.#sigil.classList.add('sigil');
-            this.#sigil.textContent = '👤';
+            this.#sigil.textContent = sigil;
         } else {
             this.#sigil.classList.remove('sigil');
             this.#sigil.textContent = '';
         }
     }
-    get classList() { return this.#visible.classList; }
-    focus(args) { this.#visible.focus(args); }
     #selectInput() {
-        const option = this.#options.find(([name, _]) => name === this.#visible.value);
-        this.#hidden.value = option ? option[1] : this.#visible.value;
-        this.#oninput({ target: this })
+        accept(this);
+        const option = this.#options.find(opt =>
+            [opt.dataset.name, opt.value].includes(this.input.value));
+        this.#hidden.value = option ? option.dataset.id : this.input.value;
+        if (option && this.input.value === option.value
+            && option.dataset.name !== option.value) {
+            this.input.value = option.dataset.name;
+        }
+        this.#updateSigil();
+        this.dispatchEvent(new CustomEvent('account-change', { bubbles: true }));
     }
 }
+customElements.define("account-select", AccountSelect);
 
-class CurrencyInput {
-    #currency; #amount; #span; #input; #currencyFixed;
-    #currencySuggested; #amountSuggested;
-    constructor([currency, amount, span, input], currencyFixed) {
-        this.#currency = currency;
-        this.#amount = amount;
-        this.#currencySuggested = false;
-        this.#amountSuggested = false;
-        this.#span = span;
-        this.#input = input;
-        this.#currencyFixed = currencyFixed;
-        this.#refresh();
-        this.#input.addEventListener('input', this.#parse.bind(this));
+// TODO: Htmx can submit the values of custom elements
+class CurrencyInput extends HTMLElement {
+    connectedCallback() {
+        this.addEventListener('input', this.#oninput.bind(this));
+        whenContentIsReady(this, () => this.value = this.value);
     }
-    #refresh() {
-        const value = this.#amount.value
-            ? formatCurrencyField(this.#amount.value, this.#currency.value)
-            : "";
-        if (this.#currencyFixed) {
-            this.#span.innerText = this.#currency.value;
-            this.#span.className = "suggested currency";
-            this.#input.value = value;
-        } else {
-            this.#span.innerText = "";
-            this.#span.className = "";
-            this.#input.value = this.#currency.value + " " + value;
-        }
-        if (this.#amountSuggested || this.#currencySuggested) {
-            this.classList.add('suggested');
-        } else {
-            this.classList.remove('suggested');
-        }
+    static observedAttributes = ["currency"];
+    attributeChangedCallback() {
+        if (this.input && this.input.value)
+            this.#hidden.value = parseCurrency(this.input.value, this.currency);
     }
-    static #re = /\s*(\p{L}*(?:\.[0-9])?)\s*(.*)\s*/u;
-    #parse() {
-        if (this.#currencyFixed) {
-            this.#amount.value = this.#input.value
-                && parseCurrency(this.#input.value, this.#currency.value);
-        } else {
-            let [, currency, amount] = this.#input.value.match(CurrencyInput.#re);
-            this.#currency.value = currency;
-            this.#amount.value = amount && parseCurrency(amount, currency);
-        }
+    get #hidden() { return this.children[0]; }
+    get input() { return this.children[1]; }
+    get value() { return this.#hidden.value; }
+    get currency() { return this.getAttribute('currency'); }
+    set value(value) {
+        this.#hidden.value = value;
+        this.input.value = value ? formatCurrencyField(value, this.currency) : "";
     }
-    clear() { this.#amount.value = this.#currency.value = ""; this.#refresh(); }
-    set value(value) { this.#amount.value = value; this.#refresh(); }
-    get value() { return this.#amount.value; }
-    set currency(value) { this.#currency.value = value; this.#refresh(); }
-    get currency() { return this.#currency.value; }
-    set currencyFixed(value) {
-        this.#currencyFixed = value;
-        if (value) this.#currencySuggested = false;
-        this.#refresh();
-    }
-    get currencyFixed() { return this.#currencyFixed; }
-    get classList() { return this.#input.classList; }
-    unsuggest() {
-        if (this.#amountSuggested) {
-            this.#amountSuggested = false;
-            this.value = '';
-        }
-        if (this.#currencySuggested) {
-            this.#currencySuggested = false;
-            this.currency = '';
-        }
-    }
-    suggest(value) {
-        if (this.value === "" && document.activeElement !== this.#input) {
-            this.#amountSuggested = true;
-            this.value = value;
-            return true;
-        }
-        return false;
-    }
-    suggestCurrency(value) {
-        if (this.currency === "" && document.activeElement !== this.#input) {
-            this.#currencySuggested = true;
-            this.currency = value;
-            return true;
-        }
-        return false;
-    }
-    accept() {
-        this.#amountSuggested = this.#currencySuggested = false;
-        this.classList.remove('suggested');
-    }
-
-    addEventListener(event, func) {
-        this.#input.addEventListener(event, e => func({ target: this }));
-    }
-    set disabled(value) { this.#input.disabled = value; }
-    set name(value) {
-        this.#amount.name = value;
-        this.#currency.name = value + "_currency";
+    #oninput() {
+        accept(this);
+        this.#hidden.value = this.input.value
+            && parseCurrency(this.input.value, this.currency);
+        this.dispatchEvent(new CustomEvent('currency-input', { bubbles: true }));
     }
 }
+customElements.define("currency-input", CurrencyInput);
 
-function setUpRow(tr) {
-    var [account, category, transferred, moved] =
-        Array.prototype.map.call(tr.children, n => n.children);
-    account = new Selector(account, account_options, accountChanged);
-    category = new Selector(category, category_options, categoryChanged);
-    if (category.value === account.value)
-        category.classList.add('suggested');
-    account.sigil = ownAccount(account.value);
-    category.sigil = ownAccount(category.value);
-    transferred = new CurrencyInput(transferred, account.value in data.accounts);
-    moved = new CurrencyInput(moved, category.value in data.categories);
-    transferred.disabled = !account.value;
-    moved.disabled = !category.value;
-    transferred.addEventListener('input', amountChanged);
-    transferred.addEventListener('blur', suggestAmounts);
-    moved.addEventListener('input', amountChanged);
-    moved.addEventListener('blur', suggestAmounts);
-    const row = { account, category, moved, transferred };
-    rows.push(row);
-    return row;
-}
-
-function setUpRows() {
-    const real_rows = Array.prototype.slice.call(tbody.children, 1, -1);
-    for (var tr of real_rows) {
-        setUpRow(tr);
+function unsuggest(element) {
+    if (element.input.classList.contains('suggested')) {
+        element.value = '';
+        element.input.classList.remove('suggested');
     }
 }
-
-function addRow(event) {
-    var tr = new_row_template.cloneNode(true);
-    var [account, category, transferred, moved] = tr.children;
-    const n = rows.length;
-    account.children[0].name = `tx-${n}-account`;
-    category.children[0].name = `tx-${n}-category`;
-    transferred.children[0].name = `tx-${n}-transferred_currency`;
-    transferred.children[1].name = `tx-${n}-transferred`;
-    moved.children[0].name = `tx-${n}-moved_currency`;
-    moved.children[1].name = `tx-${n}-moved`;
-    tbody.insertBefore(tr, adder_row);
-    setUpRow(tr);
-    document.forms[0].elements["tx-TOTAL_FORMS"].value = rows.length;
-    if (event) {
-        rows[n].account.focus({ focusVisible: true });
+function suggest(element, value) {
+    if (element.value === "" && document.activeElement !== element.input) {
+        element.value = value;
+        element.input.classList.add('suggested');
+        return true;
     }
+    return false;
+}
+function accept(element) {
+    element.input.classList.remove('suggested');
 }
 
-function accountChanged({ target }) {
-    // Enforce uniqueness ?
-    // if (target.value) {
-    //     for (var { account } of rows) {
-    //         if (account !== target && account.value === target.value) {
-    //             account.value = "";
-    //             accountChanged({ target: account });
-    //         }
-    //     }
-    // }
-
-    var { category, transferred, moved } = rows[findRow(target)];
-    category.unsuggest();
-    if (!ownAccount(target.value)) {
-        if (target.value in data.budgets) category.suggest(target.value);
-        else if (target.value) category.suggest(`[${target.value}]`);
+function accountChanged(target) {
+    const { account, category, transferred } = getRow(target);
+    unsuggest(category);
+    if (!ownAccount(account.value) && !(account.value in data.friends)) {
+        if (account.value in data.budgets) suggest(category, account.value);
+        else if (account.value) suggest(category, account.value);
     }
 
-    target.sigil = ownAccount(target.value);
+    transferred.input.disabled = !account.value;
+    if (transferred.input.disabled) transferred.value = '';
+    categoryChanged(target);
+}
 
-    moved.disabled = !category.value;
+function categoryChanged(target) {
+    const { category, moved } = getRow(target);
+    moved.input.disabled = !category.value;
+    if (moved.input.disabled) moved.value = '';
 
-    if (!target.value) transferred.clear();
-    transferred.disabled = !target.value;
-    const currency = data.accounts[target.value];
-    if (currency) transferred.currency = currency;
-    transferred.currencyFixed = !!currency;
-
+    updateCurrency(getPart(category));
     suggestAmounts();
 }
 
-function categoryChanged({ target }) {
-    target.accept();
-
-    // Enforce uniqueness ?
-    // if (target.value) {
-    //     for (var { category } of rows) {
-    //         if (category !== target && category.value === target.value) {
-    //             category.value = "";
-    //             categoryChanged({ target: category });
-    //         }
-    //     }
-    // }
-    target.sigil = ownAccount(target.value);
-
-    var { moved } = rows[findRow(target)];
-    if (!target.value) moved.clear();
-    moved.disabled = !target.value;
-    const currency = data.categories[target.value];
-    if (currency) moved.currency = currency;
-    moved.currencyFixed = !!currency;
-
-    suggestAmounts();
-}
-
-function amountChanged({ target }) {
-    target.accept();
-    suggestAmounts();
-}
-
-function suggestCurrenciesColumn() {
-    const currencies = new Set(rows
-        .filter(({ account }) => account.value)
-        .map(({ transferred }) => transferred.currency)
-        .concat(rows
-            .filter(({ category }) => category.value)
-            .map(({ moved }) => moved.currency)));
-    if (currencies.delete("") && currencies.size === 1) {
-        const currency = currencies.values().next().value;
-        for (var { account, category, moved, transferred } of rows) {
-            if (category.value) moved.suggestCurrency(currency);
-            if (account.value) transferred.suggestCurrency(currency);
+function updateCurrency(part) {
+    var fixed = null;
+    var fixed_account = '';
+    for (const { account, category } of part.rows) {
+        for (const selector of [account, category]) {
+            const account_currency = data.accounts[selector.value];
+            if (fixed && account_currency
+                && data.accounts[selector.value] != fixed) {
+                // TODO: The list breaks reportValidity.
+                // Create separate lists per currency
+                selector.input.setCustomValidity(
+                    `Currency of ${fixed_account} is ${fixed} but currency of `
+                    + `${selector.input.value} is ${account_currency}`);
+            } else {
+                if (!fixed && account_currency) {
+                    fixed = account_currency;
+                    fixed_account = selector.input.value;
+                }
+                selector.input.setCustomValidity('');
+            }
         }
     }
+    const select = part.currencyInput;
+    if (fixed) {
+        select.value = fixed;
+        select.setAttribute('readonly', '');
+        for (const option of select.children) {
+            option.disabled = !option.selected;
+        }
+    } else {
+        select.removeAttribute('readonly');
+        for (const option of select.children) {
+            option.disabled = false;
+        }
+    }
+    for (let input of part.querySelectorAll('currency-input'))
+        input.setAttribute('currency', select.value);
+
+    checkValid();
 }
 
-function suggestSums() {
-    suggestCurrenciesColumn();
+function suggestSums(options) {
     var result = false;
-    const currencies = new Set(
-        rows.flatMap(({ transferred, moved }) =>
-            [transferred.currency, moved.currency]));
-
-    for (const currency of currencies) {
+    for (const part of editor().parts) {
         var to_category = [];
+        var from_categories = 0;
         var category_total = 0;
         var to_account = [];
         var account_total = 0;
-        for (var { account, category, moved, transferred } of rows) {
-            if (category.value && moved.currency === currency) {
+        for (var { account, category, moved, transferred } of part.rows) {
+            if (category.value) {
                 if (moved.value) {
+                    from_categories++;
                     category_total += +moved.value;
                 } else {
                     to_category.push(moved);
                 }
             }
-            if (account.value && transferred.currency === currency) {
+            if (account.value) {
                 if (transferred.value) {
                     account_total += +transferred.value;
                 } else {
@@ -359,48 +251,55 @@ function suggestSums() {
                 }
             }
         }
-        if (isFinite(category_total) && to_category.length === 1) {
-            result |= to_category[0].suggest(category_total ? -category_total : "");
+        const categoryCondition = options?.splitting
+            ? to_category.length && from_categories
+            : to_category.length === 1;
+        if (category_total && isFinite(category_total) && categoryCondition) {
+            const div = Math.floor(category_total / to_category.length);
+            const rem = category_total - div * to_category.length;
+            for (let i = 0; i < to_category.length; ++i)
+                result |= suggest(to_category[i], -div - (i < rem));
         }
-        if (isFinite(account_total) && to_account.length === 1) {
-            result |= to_account[0].suggest(account_total ? -account_total : "");
+        if (account_total && isFinite(account_total) && to_account.length === 1) {
+            result |= suggest(to_account[0], account_total ? -account_total : "");
         }
+
     }
     return result;
 }
 
 function suggestRowConsistency(options) {
     var result = false;
-    for (var { account, category, moved, transferred } of rows) {
-        if (!account.value || !category.value)
-            continue;
-        if (options?.onlyExternal && category.value !== account.value &&
-            category.value !== `[${account.value}]`)
-            continue;
-        if (transferred.currency && !moved.currency)
-            moved.suggestCurrency(transferred.currency);
-        if (moved.currency && !transferred.currency)
-            transferred.suggestCurrency(moved.currency);
-        if (moved.currency !== transferred.currency)
-            continue;
-        if (transferred.value && isFinite(+transferred.value))
-            result |= moved.suggest(transferred.value);
-        if (moved.value && isFinite(+moved.value))
-            result |= transferred.suggest(moved.value);
+    for (const part of editor().parts) {
+        for (var { account, category, moved, transferred } of part.rows) {
+            if (!account.value || !category.value)
+                continue;
+            if (options?.onlyExternal && category.value !== account.value &&
+                category.value !== `[${account.value}]`)
+                continue;
+            if (transferred.value && isFinite(+transferred.value))
+                result |= suggest(moved, transferred.value);
+            if (moved.value && isFinite(+moved.value))
+                result |= suggest(transferred, moved.value);
+        }
     }
     return result;
 }
 
 function suggestAmounts() {
-    for (var { moved, transferred } of rows) {
-        moved.unsuggest();
-        transferred.unsuggest();
+    for (const part of editor().parts) {
+        for (var { moved, transferred } of part.rows) {
+            unsuggest(moved);
+            unsuggest(transferred);
+        }
     }
     // Try to make progress with each one, with this priority
     do {
         do {
-            suggestSums();
-        } while (suggestRowConsistency({ onlyExternal: true }));
+            do {
+                suggestSums();
+            } while (suggestRowConsistency({ onlyExternal: true }));
+        } while (suggestSums({ splitting: true }));
     } while (suggestRowConsistency());
 
     checkValid();
@@ -428,64 +327,51 @@ function combineDebts(owed) {
     return result;
 }
 
-function stripBrackets(value) {
-    if (value.startsWith('[') && value.endsWith(']'))
-        return value.slice(1, -1);
-    return value;
-}
-
 function checkValid() {
-    const currencies = new Set(
-        rows.flatMap(({ transferred, moved }) =>
-            [transferred.currency, moved.currency]));
-
-    var category_totals = [];
-    var account_totals = [];
-    var debts = []
-    valid = true;
-
-    for (const currency of currencies) {
+    let valid = true;
+    for (const part of editor().parts) {
         var category_total = 0;
         var account_total = 0;
         var owed = {};
-        for (var { account, category, moved, transferred } of rows) {
-            if (transferred.currency === currency) {
-                account_total = account_total + +transferred.value;
-                let budget = ownAccount(account.value)
-                    ? data.budget : account.value;
-                owed[budget] = (owed[budget] || 0) + +transferred.value;
+        for (var { account, category, moved, transferred } of part.rows) {
+            account_total = account_total + +transferred.value;
+            let budget = ownAccount(account.value)
+                ? data.budget : account.value;
+            owed[budget] = (owed[budget] || 0) + +transferred.value;
 
-            }
-            if (moved.currency === currency) {
-                category_total = category_total + +moved.value;
-                let budget = ownAccount(category.value)
-                    ? data.budget : stripBrackets(category.value);
-                owed[budget] = (owed[budget] || 0) - +moved.value;
-            }
+            category_total = category_total + +moved.value;
+            budget = ownAccount(category.value)
+                ? data.budget : category.value;
+            owed[budget] = (owed[budget] || 0) - +moved.value;
         }
+
+        const currency = part.currencyInput.value;
+        const category_sum = part.querySelector('.category-sum');
         if (category_total && isFinite(category_total)) {
-            category_totals.push(formatCurrency(category_total, currency));
+            category_sum.innerText = formatCurrency(category_total, currency)
+                + ' left to categorize';
             valid = false;
+        } else {
+            category_sum.innerText = '';
         }
+        const account_sum = part.querySelector('.account-sum');
         if (account_total && isFinite(account_total)) {
-            account_totals.push(formatCurrency(account_total, currency));
+            account_sum.innerText = formatCurrency(account_total, currency)
+                + ' left to account for';
             valid = false;
+        } else {
+            account_sum.innerText = '';
         }
-        debts = debts.concat(
+        const debt = part.querySelector('.debt');
+        debt.innerText =
             combineDebts(owed)
                 .map(([from, to, amount]) =>
                     `${data.budgets[to] || to} owes `
                     + `${data.budgets[from] || from} `
-                    + `${formatCurrency(amount, currency)}`));
+                    + `${formatCurrency(amount, currency)}`)
+                .join(', ');
     }
-    category_sum.innerText = category_totals.length === 0 ? '' :
-        category_totals.join(', ') + ' left to categorize';
-    account_sum.innerText = account_totals.length === 0 ? '' :
-        account_totals.join(', ') + ' left to account for';
-    debt.innerText = debts.join(', ');
-    document.getElementById("submit-button").disabled = !valid;
-}
-
-function onSubmit(event) {
-    if (!valid) event.preventDefault();
+    document.getElementById("submit-button").setCustomValidity(
+        valid ? '' : 'Transaction does not sum to zero'
+    );
 }

@@ -1,41 +1,128 @@
 * {
     box-sizing: border-box;
+    gap: var(--line-height);
 }
 
 @media (prefers-color-scheme: light) {
     html {
         --canvas: rgb(246, 246, 246);
         --alt-canvas: #e0f0eb;
+        --inactive-selected: rgb(200, 200, 200);
+        --line: #888;
     }
 }
 
 @media (prefers-color-scheme: dark) {
     html {
-        --canvas: rgb(50, 50, 50);
+        --canvas: rgb(46, 42, 48);
+        --inactive-selected: rgb(100, 100, 100);
         --alt-canvas: #1e4438;
+        --line: #888;
     }
 }
 
 html {
     color-scheme: light dark;
     background-color: var(--canvas);
-    --line-height: 1.5em;
+    --line-height: 21px;
     --td-border: 1px;
+    --td-hpad: calc(var(--line-height) * 0.2);
     font-size: 14px;
     line-height: var(--line-height);
     font-family: Avenir, 'Avenir Next LT Pro', Montserrat, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
 }
 
 body {
-    margin: 0;
-    margin-bottom: var(--line-height);
+    margin: 0 auto;
+    height: 100vh;
+    overflow: hidden;
+    padding: var(--line-height);
 }
 
-body>div,
-body>form>div,
-table {
-    margin: var(--line-height);
-    margin-bottom: 0;
+.column,
+.popup {
+    display: grid;
+    grid: minmax(0, max-content) / auto;
+}
+
+.popup {
+    width: max-content;
+}
+
+#datas {
+    display: none;
+}
+
+.all {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+}
+
+#account {
+    flex: 1 1 0;
+    container-type: size;
+}
+
+#account:empty,
+#transaction:empty {
+    display: none;
+}
+
+.backbutton {
+    display: none;
+}
+
+@media (max-width: 1100px) {
+    #transaction:not(:empty)~#overview {
+        display: none;
+    }
+
+    #transaction:not(:empty) .backbutton {
+        display: initial;
+    }
+}
+
+@media (max-width: 800px) {
+    #transaction {
+        flex: 1 1 auto;
+    }
+
+    #transaction:not(:empty)+#account {
+        display: none;
+    }
+
+    #account:not(:empty)+#overview {
+        display: none;
+    }
+
+    #account:not(:empty) .backbutton {
+        display: initial;
+    }
+}
+
+.scroll {
+    overflow-y: auto;
+}
+
+.controls,
+.tools {
+    display: flex;
+}
+
+.tools {
+    margin-left: auto;
+    flex-wrap: wrap;
+}
+
+.edit,
+edit-part {
+    display: flex;
+    flex-direction: column;
+}
+
+form {
+    display: contents;
 }
 
 button,
@@ -43,7 +130,9 @@ input {
     font: inherit;
     /* Precisely fit controls into a line of text */
     height: var(--line-height);
+    width: max-content;
     vertical-align: bottom;
+    margin: 0;
 }
 
 td button,
@@ -52,12 +141,18 @@ td input {
     margin: 0;
 }
 
-button {
+td button,
+td [type="submit"] {
+    min-width: max-content;
+}
+
+button,
+[type="submit"] {
     line-height: 0;
 }
 
 table {
-    border-collapse: collapse;
+    border-spacing: var(--td-border);
 }
 
 .t4 {
@@ -80,28 +175,41 @@ table {
     --cell-width: calc(9 * var(--line-height));
 }
 
+.th,
 th {
     user-select: none;
+    font-weight: 700;
+    text-align: center;
 }
 
-tr.a {
+tr.a,
+:not(tr).a>* {
     background-color: var(--alt-canvas);
 }
 
-tr.b {
+tr.b,
+:not(tr).b>* {
     /* make dragging look nicer */
     background-color: var(--canvas);
 }
 
+.td,
+.th,
 td,
 th {
     /* Make each table row take exactly one line */
     --td-line-height: calc(var(--line-height) - var(--td-border));
     line-height: var(--td-line-height);
     width: var(--cell-width);
-    --td-hpad: calc(var(--line-height) * 0.2);
-    border: var(--td-border) solid #888;
+    outline: var(--td-border) solid var(--line);
     padding: 0 var(--td-hpad);
+}
+
+.manage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
 }
 
 [draggable=true] {
@@ -112,84 +220,228 @@ th {
     cursor: grabbing;
 }
 
-.droppable {
+tr.droppable,
+tbody.droppable>:last-child,
+tr.droppable>.tdinput>*,
+tbody.droppable>:last-child>.tdinput>* {
     /* work around chrome bug */
-    border-bottom: 4px solid LinkText;
-    border-bottom: 4px solid AccentColor;
-    border-radius: 1px;
+    box-shadow: inset 0 -2px 0 LinkText;
+    box-shadow: inset 0 -2px 0 AccentColor;
+}
+
+.droppable+tr,
+.droppable+tbody>:first-child,
+.droppable+td>.tdinput>*,
+.droppable+tbody>:first-child>.tdinput>* {
+    box-shadow: inset 0 2px 0 LinkText;
+    box-shadow: inset 0 2px 0 AccentColor;
 }
 
 .groupname {
     text-align: center;
 }
 
-.groupname button {
-    font-weight: bold;
-    cursor: pointer;
-    border: none;
-    background: none;
-    min-width: calc(4 * var(--line-height));
-}
-
 .dragging button {
     cursor: grabbing;
 }
 
-.detail-container {
-    /* Start in the upper right corner of the cell's contents */
-    float: right;
+entry-list .checked>* {
+    background-color: var(--inactive-selected);
+    color: ButtonText;
 }
 
-.line {
-    /* Align to bottom of row */
-    line-height: 1;
-    vertical-align: bottom;
-    font-weight: bold;
+entry-list:focus .checked>* {
+    background-color: SelectedItem;
+    color: SelectedItemText;
 }
 
-.transaction-detail {
-    /* Allow table to fill screen width */
+.grid {
+    align-self: start;
+    max-height: 100%;
+    overflow-y: auto;
+    display: grid;
+    gap: var(--td-border);
+    padding: var(--td-border);
+}
+
+.grid.c5 {
+    grid: auto-flow / max-content 1fr max-content max-content max-content;
+}
+
+.grid.c4 {
+    grid: auto-flow / max-content 1fr max-content max-content;
+}
+
+.c5 .disclosure+label {
+    grid-column: span 2;
+}
+
+.grid>*,
+.grid>*>* {
+    display: contents;
+}
+
+.grid .ellipsis {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.transactions.grid .th {
+    position: sticky;
+    top: 0;
+    background-color: var(--canvas);
+}
+
+@container (max-width: 500px) {
+    .grid.c4 {
+        grid: auto-flow dense / max-content 1fr 1fr;
+    }
+
+    .grid.c4 span:nth-child(4n+1) {
+        grid-row: span 2;
+    }
+
+    .grid.c4 span:nth-child(5n+2) {
+        grid-column: 2 / 4;
+    }
+
+    .grid.c5 {
+        grid: auto-flow dense / max-content 1fr 1fr max-content;
+    }
+
+    .grid.c5 span:nth-child(5n+1) {
+        grid-row: span 2;
+    }
+
+    .grid.c5 span:nth-child(5n+2) {
+        grid-column: 2 / 5;
+    }
+
+    .grid.c5 .is_inbox :nth-child(5n+4) {
+        grid-column: span 2;
+    }
+
+    .grid.c5 .is_inbox :nth-child(5n+5) {
+        display: none;
+    }
+
+    .transactions.grid .th {
+        position: static;
+    }
+}
+
+.is_inbox {
+    color: GrayText;
+    font-style: italic;
+}
+
+.disclosure {
     position: absolute;
-    margin-left: calc(var(--td-hpad) + var(--td-border));
-    display: none;
+    left: -1000px;
 }
 
-.transaction-detail-table {
-    margin: 0 var(--line-height);
-}
-
-tr:focus-within .transaction-detail {
-    display: initial;
-}
-
-form.edit {
-    display: inline;
-}
-
-/* The focus ring is on the same z-index as the input, so if an adjacent input
-   has a background it will cover part of it. Work around this by making enabled
-   inputs transparent and ones with a background on a lower z-index. */
-
-.tdinput {
-    background-color: Field;
-    padding: 0;
-    /* position: relative; */
-    /* Makes position: relative work */
-    /* background-clip: content-box; */
-}
-
-.tdinput input {
-    border: none;
-    padding: 0 calc(2 * var(--td-hpad));
-    width: 100%;
-    background-color: transparent;
+.disclosure:focus-visible+label {
+    outline: 3px solid LinkText;
+    outline: 3px solid AccentColor;
+    border-radius: 2px;
     position: relative;
     z-index: 1;
 }
 
-.tdinput input:disabled {
+.disclosure+label::before {
+    content: '▶';
+    display: inline-block;
+    width: 1em;
+}
+
+.disclosure:checked+label::before {
+    content: '▼';
+    display: inline-block;
+    width: 1em;
+}
+
+.disclosure+label+* {
+    display: none;
+}
+
+.disclosure:checked+label+* {
+    display: initial;
+}
+
+edit-part>div:empty {
+    display: none;
+}
+
+hr {
+    width: 100%;
+    margin: 0;
+    border-style: solid solid none none;
+    align-self: stretch;
+}
+
+.tdinput {
+    padding: 0;
+}
+
+/* The focus ring is on the same z-index as the input, so if an adjacent input
+   has a background it will cover part of it. */
+
+.tdinput :focus-visible {
+    position: relative;
+    z-index: 1;
+}
+
+.tdinput input,
+.tdinput select,
+.tdinput textarea {
+    border: none;
+    width: 100%;
+    vertical-align: bottom;
+    background-color: Field;
+}
+
+.tdinput input,
+.tdinput select {
+    height: var(--td-line-height);
+}
+
+.tdinput input,
+.tdinput textarea {
+    padding: 0 var(--td-hpad);
+    resize: vertical;
+}
+
+.tdinput :disabled,
+.tdinput [readonly] {
     background-color: var(--canvas);
-    z-index: 0;
+    color: GrayText;
+}
+
+:invalid:not(:focus) {
+    outline: 2px solid red;
+}
+
+/* editor */
+
+transaction-editor {
+    display: contents;
+}
+
+.date-table {
+    align-self: flex-start;
+}
+
+.repeat {
+    display: none;
+}
+
+[data-value=R]~.repeat.R {
+    display: table-row;
+}
+
+[data-value=C]~.repeat.C {
+    display: table-row;
 }
 
 .suggested {
@@ -201,10 +453,18 @@ form.edit {
     text-align: right;
 }
 
+.edit-table {
+    position: relative;
+}
+
 .tdinput .currency,
 .tdinput .sigil {
     position: absolute;
     padding-left: var(--td-hpad);
+    z-index: 2;
+    background-color: transparent;
+    /* ??? */
+    width: max-content;
 }
 
 .tdinput .currency+input {
@@ -213,4 +473,69 @@ form.edit {
 
 .tdinput .sigil+input {
     padding-left: calc(var(--td-hpad) + 2ch);
+}
+
+.part-extras {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+}
+
+.note {
+    width: 50px;
+    flex: 1 1;
+}
+
+/* budgeting */
+
+date-picker {
+    width: max-content;
+    border: var(--td-border) solid var(--line);
+    align-self: center;
+}
+
+.months,
+.years {
+    display: flex;
+    gap: 0;
+}
+
+.years>input {
+    position: absolute;
+    left: -100px;
+}
+
+.years {
+    gap: var(--td-border);
+    background-color: var(--line);
+}
+
+.years>label {
+    background-color: var(--canvas);
+}
+
+.years>:not(:checked)+label {
+    border-bottom: var(--td-border) solid var(--line);
+    background-color: var(--alt-canvas);
+}
+
+.years>:focus-visible+label {
+    outline: 3px solid LinkText;
+    outline: 3px solid AccentColor;
+    border-radius: 2px;
+    position: relative;
+    z-index: 1;
+}
+
+.years>label,
+.months>a {
+    flex-grow: 1;
+    padding: 0 var(--td-hpad);
+    text-align: center;
+}
+
+.months>.current {
+    font-weight: bold;
+    text-decoration: inherit;
+    color: inherit;
 }

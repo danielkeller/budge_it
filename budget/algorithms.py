@@ -34,13 +34,13 @@ class Debts(Generic[T]):
         if self.debts[sign(key)]:
             key = next(iter(self.debts[sign(key)].keys()))
             return key, self.pop(key)
-        elif self.debts[0]:
-            return 0, self.pop(0)
         elif self.debts[-sign(key)]:
             key = next(iter(self.debts[-sign(key)].keys()))
             return key, self.pop(key)
+        elif self.debts[0]:
+            return 0, self.pop(0)
         else:
-            raise KeyError(key)
+            raise KeyError(key)  # pragma: no cover
 
     def combine_one(self, amount: int, sink: T) -> dict[tuple[T, T], int]:
         result: dict[tuple[T, T], int] = defaultdict(int)
@@ -49,7 +49,8 @@ class Debts(Generic[T]):
                 raise ValueError("Amounts do not sum to zero")
             if -amount in self.debts[-sign(amount)]:
                 source = self.pop(-amount)
-                return {(source, sink): amount}
+                result[(source, sink)] = amount
+                return result
             other, source = self.pop_by_sign(-amount)
             if other:
                 edge = sign(amount) * min(abs(amount), abs(other))

@@ -1,0 +1,49 @@
+{% load budget %}
+
+<budget-form>
+<table id="table">
+    <tr>
+        <th>Category</th>
+        <th>{{ form.instance.date|date:"M d" }}</th>
+        <th class="t4">Budgeted</th>
+        <th>Spent</th>
+        <th>{{ form.instance.date|end_of_month|date:"M d" }}</th>
+    </tr>
+    {% for row in form.rows %}
+    {% ifchanged row.category.group %}
+    <tr class=" {% cycle 'a' 'b' as rowcolor %}">
+        <th>{{row.category.group|default:"&nbsp;"}}</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+    </tr>
+    {% endifchanged %}
+    <tr class="{% cycle rowcolor %}">
+        <td>{% account_in_budget row.category budget %}</td>
+        <td class="number">
+            <long-currency currency="{{ row.category.currency }}" value="{{ row.category.balance }}"></long-currency>
+        </td>
+        <td class="tdinput">
+            {% if row.category.name == '' %}
+            <currency-input currency="{{ row.category.currency }}" data-budget-inbox>
+                {{ row.field }}<input class="suggested number" readonly>
+            </currency-input>
+            {% else %}
+            <currency-input currency="{{ row.category.currency }}" data-budget-category>
+                {{ row.field }}<input class="number">
+            </currency-input>
+            {% endif %}
+        </td>
+        <td class="number">
+            <short-currency currency="{{ row.category.currency }}" value="{{ row.category.change }}"></short-currency>
+        </td>
+        <td class="number">
+            <short-currency currency="{{ row.category.currency }}" value="{{ row.final }}" data-total="{{ row.total }}"></short-currency>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+</budget-form>
+{{ form.date }}
+{{ form.errors|default:"" }}

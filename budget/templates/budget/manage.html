@@ -1,40 +1,175 @@
 {% load budget static %}
 
 <!DOCTYPE html>
-<link rel="stylesheet" href="{% static 'budget/style.css' %}">
 
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+    <script src="{% static 'budget/manage.js' %}" defer></script>
+    <script src="{% static 'budget/htmx.min.js' %}" defer></script>
+</head>
+<body class="popup">
 <form id="form" method="post">
-    <div>Budget name for others: {{ budget_form.name }}</div>
-    <table>
-        <tr>
-            <th>Category</th>
-            <th>Closed</th>
-        </tr>
-        {% for form in category_formset %}
-        <tr>
-            <td class="tdinput">{{ form.name }}</td>
-            <td>{{ form.closed }}{{form.id_ptr}}</td>
-        </tr>
-        {% endfor %}
-        <tr>
-            <th>Account</th>
-            <th>Closed</th>
-        </tr>
-        {% for form in account_formset %}
-        <tr>
-            <td class="tdinput">{{ form.name }}</td>
-            <td>{{ form.closed }}{{form.id_ptr}}</td>
-        </tr>
-        {% endfor %}
-    </table>
-    {{ category_formset.management_form }}
-    {{ account_formset.management_form }}
-    {% csrf_token %}
+
+    <div class="controls">
+        <div class="navigation">
+            <div><a href="{{ budget.get_absolute_url }}">Back</a></div>
+        </div>
+        <div class="tools">
+            <div><button form="form">Save</button></div>
+        </div>
+    </div>
+
+    <main class="manage">
+        <div>Budget name for others: {{ budget_form.name }}</div>
+        <table>
+            <tbody data-group>
+            <tr>
+                <th colspan=2 class="order">Category</th>
+                <th>Currency</th>
+                <th></th>
+                <th>Closed</th>
+                <th>Delete?</th>
+            </tr>
+            {% for form in category_formset %}
+            {% ifchanged form.group.value %}
+        </tbody>
+        <tbody draggable="true" data-group>
+            <tr>
+                <td class="order">=</td>
+                <th class="tdinput"><input class="groupname" value="{{ form.group.value }}" placeholder="Group" name="groupname" form=""></th>
+                <th colspan="4"></th>
+            </tr>
+            {% endifchanged %}
+            {% block category-form %}
+            <tr draggable="true">
+                <td>={{ form.order }}{{ form.group }}{{ form.id_ptr }}</td>
+                {% if form.instance.pk and form.instance.name == '' %}
+                <td>Inbox</td>
+                <td class="tdinput">{{ form.currency }}</td>
+                <td></td>
+                <td>{{ form.closed }}</td>
+                <td></td>
+                {% else %}
+                <td class="tdinput">{{ form.name }}</td>
+                <td class="tdinput">{{ form.currency }}</td>
+                <td></td>
+                <td>{{ form.closed }}</td>
+                <td>{% if form.instance.pk %}{{ form.DELETE }}{% endif %}</td>
+                {% endif %}
+            </tr>
+            {% endblock %}
+            {% endfor %}
+            {% block new-category %}
+            <tr class="new_row">
+                <td colspan="6">
+                    {{ category_formset.management_form.TOTAL_FORMS }}
+                    {% if category_formset.management_form.TOTAL_FORMS.value < category_formset.management_form.MAX_NUM_FORMS.value %} <button type="button"
+                        hx-get="{% url 'category_form' budget.id category_formset.management_form.TOTAL_FORMS.value %}"
+                        hx-include="previous .groupname"
+                        hx-target="closest .new_row" hx-swap="outerHTML">New Category</button>
+                        {% endif %}
+                        &nbsp;
+                </td>
+            </tr>
+            {% endblock %}
+        </tbody>
+            <tr>
+                <th colspan=2>Account</th>
+                <th>Currency</th>
+                <th>Clearable</th>
+                <th>Closed</th>
+                <th>Delete?</th>
+            </tr>
+            {% for form in account_formset %}
+            {% block account-form %}
+            <tr>
+                <td></td>
+                <td class="tdinput">{{ form.name }}</td>
+                <td class="tdinput">{{ form.currency }}</td>
+                <td>{{ form.clearable }}</td>
+                <td>{{ form.closed }}</td>
+                <td>
+                    {% if form.instance.pk %}{{ form.DELETE }}{% endif %}
+                    {{form.id_ptr}}
+                </td>
+            </tr>
+            {% endblock %}
+            {% endfor %}
+            {% block new-account %}
+            <tr class="new_row">
+                <td colspan="6">
+                    {{ account_formset.management_form.TOTAL_FORMS }}
+                    {% if account_formset.management_form.TOTAL_FORMS.value < account_formset.management_form.MAX_NUM_FORMS.value %} <button type="button"
+                        hx-get="{% url 'account_form' budget.id account_formset.management_form.TOTAL_FORMS.value %}"
+                        hx-target="closest .new_row" hx-swap="outerHTML">New Account</button>
+                        {% endif %}
+                        &nbsp;
+                </td>
+            </tr>
+            {% endblock %}
+        </table>
+        <template id="new-group-t">
+            <tr id="new-group">
+                <td class="order"></td>
+                <th>New Group</th>
+                <td colspan="4"></td>
+            </tr>
+        </template>
+        {{ category_formset.management_form.INITIAL_FORMS }}
+        {{ category_formset.management_form.MIN_NUM_FORMS }}
+        {{ category_formset.management_form.MAX_NUM_FORMS }}
+        {{ account_formset.management_form.INITIAL_FORMS }}
+        {{ account_formset.management_form.MIN_NUM_FORMS }}
+        {{ account_formset.management_form.MAX_NUM_FORMS }}
+        <table>
+            <tr>
+                <th>Currency</th>
+                <th>Delete?</th>
+            </tr>
+            {% for form in currency_formset %}
+            {% block currency-form %}
+            <tr>
+                <td class="tdinput">{{ form.currency }}</td>
+                <td>{{ form.id_ptr }}{{ form.DELETE }}</td>
+            </tr>
+            {% endblock %}
+            {% endfor %}
+            {% block new-currency %}
+            <tr class="new_row">
+                <td colspan="2">
+                    {{ currency_formset.management_form.TOTAL_FORMS }}
+                    {% if currency_formset.management_form.TOTAL_FORMS.value < currency_formset.management_form.MAX_NUM_FORMS.value %} <button type="button"
+                        hx-get="{% url 'currency_form' currency_formset.management_form.TOTAL_FORMS.value %}"
+                        hx-target="closest .new_row" hx-swap="outerHTML">New Currency</button>
+                        {% endif %}
+                        &nbsp;
+                </td>
+            </tr>
+            {% endblock %}
+        </table>
+        {{ currency_formset.management_form.INITIAL_FORMS }}
+        {{ currency_formset.management_form.MIN_NUM_FORMS }}
+        {{ currency_formset.management_form.MAX_NUM_FORMS }}
+        {% csrf_token %}
 </form>
-<div><button form="form">Save</button></div>
 <div>
     {{ category_formset.errors|default:"" }}
     {{ category_formset.non_form_errors }}
     {{ account_formset.errors|default:"" }}
     {{ account_formset.non_form_errors }}
+    {{ currency_formset.errors|default:"" }}
+    {{ currency_formset.non_form_errors }}
 </div>
+</main>
+<datalist id="currencies">
+    <option value="USD">
+    <option value="EUR">
+    <option value="JPY">
+    <option value="GBP">
+    <option value="AUD">
+    <option value="CHF">
+    <option value="CNH">
+    <option value="INR">
+</datalist>
+</body>

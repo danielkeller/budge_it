@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 from pathlib import Path
 from typing import Any
+from os import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,13 +22,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-82i9+7&b3i1%b27+kg#1#@d5az5h#k(z_+p+hyt1tf!0wcc#fk'
+SECRET_KEY = (environ['SECRET_KEY']
+              if 'PROD' in environ
+              else 'django-insecure-82i9+7&b3i1%b27+kg#1#@d5az5h#k(z_+p+hyt1tf!0wcc#fk')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = 'PROD' not in environ
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = (['vm', 'prod',
+                  'vm.tailae290.ts.net', 'prod.tailae290.ts.net', 'localhost',
+                  'budge-it.crabdance.com']
+                 if 'PROD' in environ
+                 else ['*'])
 
+CSRF_TRUSTED_ORIGINS = ['https://vm.tailae290.ts.net',
+                        'https://prod.tailae290.ts.net',
+                        'https://budge-it.crabdance.com']
 
 # Application definition
 
@@ -44,11 +54,13 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'budget.views.post_data',
 ]
 
 ROOT_URLCONF = 'budge_it.urls'
@@ -64,6 +76,7 @@ TEMPLATES: Any = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'budget.views.hx',
             ],
         },
     },
@@ -75,12 +88,24 @@ WSGI_APPLICATION = 'budge_it.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if 'PROD' in environ:
+    dbs = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'budget',
+            'USER': 'budget',
+        }
     }
-}
+else:
+    dbs = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+DATABASES = dbs
+CONN_MAX_AGE = None
 
 
 # Password validation
@@ -109,8 +134,8 @@ LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
 
-USE_I18N = False
-USE_L10N = False
+USE_I18N = True
+USE_L10N = True
 USE_TZ = False
 
 
@@ -118,11 +143,29 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = '/var/www/budget/static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGGING = {
+    'version': 1,
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+        }
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
 
 # LOGGING = {
 #     'version': 1,
