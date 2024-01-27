@@ -2,7 +2,7 @@ from django.db import transaction
 from django.db.models import F, Min, Max, Sum
 from django.db.models.functions import Trunc
 from django.core.management.base import BaseCommand
-from budget.models import (User, Budget, Account, Category, Transaction,
+from budget.models import (User, Budget, Account, Category, Transaction, TransactionPart,
                            CategoryEntry, months_between)
 
 from typing import Any, Iterable, TypeVar, Callable
@@ -38,6 +38,9 @@ class RawTransactionPartRecord:
     @staticmethod
     def from_row(row: 'list[str]') -> 'RawTransactionPartRecord':
         return RawTransactionPartRecord(*row)
+
+    def __str__(self):
+        return f"{self.Date}: {self.Account} - {self.Memo}"
 
 
 @dataclass
@@ -78,7 +81,7 @@ class TargetBudget:
     def category(self, name: str, group: str, currency: str):
         assert name
         return Category.objects.get_or_create(
-            budget=self.budget, name=name, group=group, currency=currency)[0]
+            budget=self.budget, name=name, currency=currency, defaults={'group': group})[0]
 
 
 ynab_currency = "CHF"
@@ -91,11 +94,11 @@ class Command(BaseCommand):
     help = "Import a YNAB budget"
 
     def handle(self, *args: Any, **options: Any):
-        register_filename = "../Swiss Budget as of 2023-05-01 20-59 - Register.csv"
+        register_filename = "YNAB Export - Swiss Budget as of 2024-01-07 12-04/Swiss Budget as of 2024-01-07 12-04 - Register.csv"
         self.process_csv(
             register_filename, RawTransactionPartRecord.from_row, self.process_transactions)
 
-        budget_filename = "../Swiss Budget as of 2023-05-01 20-59 - Budget.csv"
+        budget_filename = "YNAB Export - Swiss Budget as of 2024-01-07 12-04/Swiss Budget as of 2024-01-07 12-04 - Budget.csv"
         self.process_csv(
             budget_filename, RawBudgetEventRecord.from_row, self.process_budget_events)
 
@@ -119,8 +122,8 @@ class Command(BaseCommand):
         for raw_transaction_part in reader:
             if not current_date:
                 current_date = raw_transaction_part.Date
-                print(current_date)
                 day_transaction_parts.append(raw_transaction_part)
+                print(current_date)
             else:
                 if raw_transaction_part.Date == current_date:
                     day_transaction_parts.append(raw_transaction_part)
@@ -129,7 +132,8 @@ class Command(BaseCommand):
 
                     day_transaction_parts.clear()
                     current_date = raw_transaction_part.Date
-                    print(current_date)
+                    if current_date.startswith("01"):
+                        print(current_date)
                     day_transaction_parts.append(raw_transaction_part)
         self.process_day(target_budget, day_transaction_parts)
 
@@ -142,14 +146,31 @@ class Command(BaseCommand):
                 pass
             elif is_transfer(part):
                 transfer_key = get_transfer_key(part)
-                if transfer_key in unmatched_transfers:
-                    other_part_ix = unmatched_transfers[transfer_key].pop()
-                    other_part = day_transaction_parts[other_part_ix]
-                    self.save_transaction(target_budget, [part, other_part])
-                else:
+                if transfer_key in unmatched_transfers:  # Non-split transfer
+                    unmatched_transfers[transfer_key].pop()
+                    self.save_transaction(target_budget, [part])
+                else:  # Some kind of transfer
                     unmatched_transfers[expected_transfer_key(part)].append(ix)
-            else:  # is_singleton(part):
+            else:  # Non-split non-transfer
                 self.save_transaction(target_budget, [part])
+        # unmatched_transfers now contains the non-split sides of all the splits with transfers
+
+        # For no apparent reason, split transactions are represented differently depending on whether
+        # the main payee is a transfer ("split transfer"). If not, each part of the split has its own
+        # entry for both accounts and the main memo is dropped. If so, there is only one entry for
+        # the other account with everything lumped together, and the main memo is on that entry.
+
+        # Regular split with transfer -------------------------------------------------------------
+        # ZKB Current Acct   Holy Cow                      Quality of Life  a        Split (1/3)  x
+        # ZKB Current Acct   Transfer: Dan Tracking        Category 1       b        Split (2/3)  y
+        # ZKB Current Acct   Transfer: Dan Tracking        Category 2       c        Split (3/3)  z
+        # Dan Tracking       Transfer: ZKB Current Acct         -           -b       y
+        # Dan Tracking       Transfer: ZKB Current Acct         -           -c       z
+
+        # Split transfer --------------------------------------------------------------------------
+        # UZH Reimbursement  Transfer: ZKB Current Acct         -           - a - b  main
+        # ZKB Current Acct   Transfer: UZH Reimbursement   Halbtax          a        Split (1/2)  y
+        # ZKB Current Acct   Transfer: UZH Reimbursement   Reimbursements   b        Split (2/2)  z
 
         current_split: list[RawTransactionPartRecord] = []
         current_split_transfers: dict[tuple[str, str], int] = defaultdict(
@@ -163,26 +184,21 @@ class Command(BaseCommand):
             if is_transfer(part):
                 transfer_key = get_transfer_key(part)
                 if transfer_key in unmatched_transfers:
-                    other_part_ix = unmatched_transfers[transfer_key].pop()
-                    other_part = day_transaction_parts[other_part_ix]
-                    current_split.append(other_part)
-                else:
+                    unmatched_transfers[transfer_key].pop()
+                else:  # This is part of a split transfer
                     from_acc, to_acc, amount = transfer_key
                     current_split_transfers[(from_acc, to_acc)] += amount
-                pass
             if is_last_part_in_split(part):
+                # We have all the totals of split transfers, so we should be able to match them
                 for (from_acc, to_acc), amount in current_split_transfers.items():
                     transfer_key = (from_acc, to_acc, amount)
-                    other_part_ix = unmatched_transfers[transfer_key].pop()
-                    other_part = day_transaction_parts[other_part_ix]
-                    current_split.append(other_part)
+                    unmatched_transfers[transfer_key].pop()
                 current_split_transfers.clear()
                 self.save_transaction(target_budget, current_split)  # DOING
                 current_split = []
         assert not current_split
         assert not current_split_transfers
-        for l in unmatched_transfers.values():
-            assert not l
+        assert not any(unmatched_transfers.values()), unmatched_transfers
 
     def save_transaction(self, target_budget: TargetBudget,
                          raw_transaction_parts: 'list[RawTransactionPartRecord]'):
@@ -191,51 +207,67 @@ class Command(BaseCommand):
             first_raw_transaction_part.Date)  # filter for past dates
 
         kind = Transaction.Kind.TRANSACTION
-        description = join_memos(raw_transaction_parts)
-
-        transaction = Transaction(
-            date=date, kind=kind, description=description)
+        transaction = Transaction(date=date, kind=kind)
         transaction.save()
 
-        account_entries: 'dict[Account, int]' = defaultdict(int)
-        category_entries: 'dict[Category, int]' = defaultdict(int)
-        for raw_transaction_part in raw_transaction_parts:
-            raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
-            raw_transaction_part_outflow = -raw_transaction_part_inflow
+        for memo in {cleaned_memo(part) for part in raw_transaction_parts}:
+            account_entries: 'dict[Account, int]' = defaultdict(int)
+            category_entries: 'dict[Category, int]' = defaultdict(int)
+            for raw_transaction_part in raw_transaction_parts:
+                if cleaned_memo(raw_transaction_part) != memo:
+                    continue
 
-            raw_account = raw_transaction_part.Account.removesuffix(
-                " (Original)")
-            account = target_budget.account(raw_account, ynab_currency)
-            account_entries[account] += raw_transaction_part_inflow
+                raw_transaction_part_inflow = raw_transaction_part.TotalInflow()
+                raw_transaction_part_outflow = -raw_transaction_part_inflow
 
-            raw_payee = raw_transaction_part.Payee
+                raw_account = raw_transaction_part.Account.removesuffix(
+                    " (Original)")
+                account = target_budget.account(raw_account, ynab_currency)
+                account_entries[account] += raw_transaction_part_inflow
 
-            if not is_transfer(raw_transaction_part):  # Payment to external payee
-                if not raw_payee:  # payment to an off-budget debt account")
-                    raw_payee = f"Interest: {raw_transaction_part.Account}"
-                raw_category_group_category = raw_transaction_part.CategoryGroupCategory
-                if not raw_category_group_category:  # off-budget account")
-                    raw_category_group_category = f"Off-budget: {raw_account}"
+                # Category unset if: Transfer between regular accts, payment from off-budget acct,
+                # transfer between on- and off-budget (off budget side only). We deliberately ignore
+                # the categories in the third case (that is, off-budget accounts are moved into the
+                # budget).
 
-                payee = target_budget.payee(raw_payee)
-                payee_account = payee.get_hidden(
-                    Account, currency=ynab_currency)
-                account_entries[payee_account] += raw_transaction_part_outflow
+                if is_transfer(raw_transaction_part):
+                    # We only get one side of each transfer
+                    other_side = raw_transaction_part.Payee.removeprefix(
+                        ynab_transfer_prefix).removesuffix(" (Original)")
+                    account = target_budget.account(other_side, ynab_currency)
+                    account_entries[account] += raw_transaction_part_outflow
 
-                raw_category, raw_group = split_category_group_category(
-                    raw_category_group_category)
-                category = target_budget.category(
-                    raw_category, raw_group, ynab_currency)
-                category_entries[category] += raw_transaction_part_inflow
-                payee_category = payee.get_hidden(
-                    Category, currency=ynab_currency)
-                category_entries[payee_category] += raw_transaction_part_outflow
-            assert sum(category_entries.values()) == 0
-        assert sum(account_entries.values()) == 0
-        assert len(account_entries) > 0
-        transaction.set_flows(accounts=account_entries,
-                              categories=category_entries)
-        return None
+                else:  # Payment to external payee
+                    raw_payee = raw_transaction_part.Payee
+
+                    if not raw_payee:  # Interest charge on an off-budget debt account
+                        raw_payee = f"Interest: {raw_transaction_part.Account}"
+                    raw_category_group_category = raw_transaction_part.CategoryGroupCategory
+                    if not raw_category_group_category:  # Payment from/to off-budget account
+                        raw_category_group_category = f"Off-budget: {raw_account}"
+
+                    payee = target_budget.payee(raw_payee)
+                    payee_account = payee.get_inbox(
+                        Account, currency=ynab_currency)
+                    account_entries[payee_account] += raw_transaction_part_outflow
+
+                    raw_category, raw_group = split_category_group_category(
+                        raw_category_group_category)
+                    category = target_budget.category(
+                        raw_category, raw_group, ynab_currency)
+                    category_entries[category] += raw_transaction_part_inflow
+                    payee_category = payee.get_inbox(
+                        Category, currency=ynab_currency)
+                    category_entries[payee_category] += raw_transaction_part_outflow
+                assert sum(category_entries.values()
+                           ) == 0, raw_transaction_part
+            assert sum(account_entries.values()) == 0, raw_transaction_parts[0]
+            assert len(account_entries) > 0, raw_transaction_parts[0]
+            transaction_part = TransactionPart(
+                transaction=transaction, note=memo)
+            transaction_part.save()
+            transaction_part.set_entries(
+                target_budget.budget, account_entries, category_entries)
 
     @transaction.atomic
     def process_budget_events(self, reader: 'Iterable[RawBudgetEventRecord]'):
@@ -281,7 +313,7 @@ class Command(BaseCommand):
         running_sums: dict[Category, int] = defaultdict(int)  # cat -> sum
 
         range = (Transaction.objects
-                 .filter(categories__budget=target_budget.budget)
+                 .filter(parts__categories__budget=target_budget.budget)
                  .aggregate(Max('date'), Min('date')))
         months = list(months_between(range['date__min'] or date.today(),
                                      range['date__max'] or date.today()))
@@ -307,8 +339,10 @@ class Command(BaseCommand):
 
             transaction = Transaction(date=month, kind=kind)
             transaction.save()
-            transaction.set_flows(
-                accounts={}, categories=category_entries)
+            part = TransactionPart(transaction=transaction)
+            part.save()
+            part.set_entries(target_budget.budget,
+                             accounts={}, categories=category_entries)
 
 
 def YNAB_string_to_date(ynab_string: str):
@@ -323,6 +357,10 @@ def join_memos(raw_transaction_parts: 'list[RawTransactionPartRecord]'):
     parts = (re.sub(r"Split \(.*\) ", "", x.Memo)
              for x in raw_transaction_parts)
     return ", ".join({part for part in parts if part})
+
+
+def cleaned_memo(part: RawTransactionPartRecord):
+    return re.sub(r"^Split \(\d+/\d+\) ", "", part.Memo)
 
 
 def is_transfer(raw_transaction_part: RawTransactionPartRecord):
@@ -360,8 +398,8 @@ def get_last_day_of_month(month: date):
 
 def get_category_activity_iterable(category: Category):
     return (CategoryEntry.objects
-            .filter(to=category)
-            .values_list(Trunc(F('transaction__date'), 'month'))
+            .filter(sink=category)
+            .values_list(Trunc(F('part__transaction__date'), 'month'))
             .annotate(total=Sum('amount'))
             .order_by('trunc1'))
 
