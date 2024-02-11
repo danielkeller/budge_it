@@ -1,4 +1,4 @@
-from typing import (Optional, Iterable, TypeVar, Type, Union, Self, Generic,
+from typing import (Optional, Iterable, TypeVar, Type, Union, Generic,
                     Any, ClassVar)
 import functools
 from itertools import chain, islice
@@ -146,9 +146,9 @@ class BaseAccount(Id):
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE)
     budget_id: int  # Sigh
     balance: int
-    source_entries: 'models.Manager[Entry[Self]]'
+    source_entries: 'models.Manager[Entry[BaseAccount]]'
     transactionpart_set: 'models.Manager[TransactionPart]'
-    entries: 'models.Manager[Entry[Self]]'
+    entries: 'models.Manager[Entry[BaseAccount]]'
     currency = models.CharField(max_length=5)
 
     group = models.CharField(max_length=100, blank=True)
@@ -185,7 +185,7 @@ class BaseAccount(Id):
         else:
             return f"{self.budget.name} - {str(self.name)}  ({self.currency})"
 
-    def __lt__(self, other: Self):
+    def __lt__(self, other: 'BaseAccount'):
         """Not actually important"""
         return self.id < other.id
 
