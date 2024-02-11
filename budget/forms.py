@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from collections import defaultdict
-from typing import Any, Union, Mapping, Optional, Type, TypeVar, Iterable
+from typing import Any, Union, Mapping, Optional, Type, TypeVar, cast, Generic
 from datetime import date
 
 from django import forms
@@ -114,30 +114,28 @@ EntryFormSet = forms.formset_factory(
 FormSetT = TypeVar('FormSetT', bound=forms.BaseInlineFormSet)
 
 
-def FormSetInline(formset: Type[FormSetT]):
+class FormSetInline(Generic[FormSetT], forms.ModelForm):
     """Form lifecycle boilerplate to hold a formset as a property."""
-    class FormSetInlineImpl(forms.ModelForm):
-        formset: FormSetT
+    formset: FormSetT
 
-        def __init__(self,
-                     budget: Budget,
-                     renderer: Any = None,
-                     use_required_attribute: Optional[bool] = None,
-                     empty_permitted: bool = False,
-                     initial: Optional[dict[str, Any]] = None,
-                     **kwargs: Any):
-            super().__init__(**kwargs, initial=initial, renderer=renderer,
-                             empty_permitted=empty_permitted,
-                             use_required_attribute=use_required_attribute)
-            self.formset = formset(budget, **kwargs)
+    def __init__(self,
+                 formset: Type[FormSetT],
+                 budget: Budget,
+                 renderer: Any = None,
+                 use_required_attribute: Optional[bool] = None,
+                 empty_permitted: bool = False,
+                 initial: Optional[dict[str, Any]] = None,
+                 **kwargs: Any):
+        super().__init__(**kwargs, initial=initial, renderer=renderer,
+                         empty_permitted=empty_permitted,
+                         use_required_attribute=use_required_attribute)
+        self.formset = formset(budget, **kwargs)
 
-        def is_valid(self):
-            return super().is_valid() and self.formset.is_valid()
+    def is_valid(self):
+        return super().is_valid() and self.formset.is_valid()
 
-        def has_changed(self):
-            return super().has_changed() or self.formset.has_changed()
-
-    return FormSetInlineImpl
+    def has_changed(self):
+        return super().has_changed() or self.formset.has_changed()
 
 
 class BasePartFormSet(forms.BaseInlineFormSet):
@@ -158,7 +156,7 @@ class BasePartFormSet(forms.BaseInlineFormSet):
         return {'budget': self.budget}
 
 
-class PartForm(FormSetInline(EntryFormSet)):
+class PartForm(FormSetInline[EntryFormSet]):
     class Meta:  # type: ignore
         model = TransactionPart
         fields = ('note',)
@@ -180,8 +178,8 @@ class PartForm(FormSetInline(EntryFormSet)):
                      or instance.categoryentry_set.first())
             if entry:
                 initial['currency'] = entry.sink.currency
-        super().__init__(budget, *args, instance=instance, initial=initial,
-                         **kwargs)
+        super().__init__(EntryFormSet, budget, *args,
+                         instance=instance, initial=initial, **kwargs)
         currencies = budget.currencies
         self.fields['currency'].choices = list(zip(currencies, currencies))
         if initial['currency'] not in currencies:
@@ -217,7 +215,7 @@ PartFormSet = forms.inlineformset_factory(
     min_num=1, extra=0, max_num=5)
 
 
-class TransactionForm(FormSetInline(PartFormSet)):
+class TransactionForm(FormSetInline[PartFormSet]):
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date', 'recurrence',)
@@ -250,7 +248,7 @@ class TransactionForm(FormSetInline(PartFormSet)):
         else:
             initial['repeat'] = 'N'
             initial['freq'] = 'MONTHLY'
-        super().__init__(*args, instance=instance, **kwargs)
+        super().__init__(PartFormSet, *args, instance=instance, **kwargs)
         if instance and not instance.recurrence:
             self.fields['repeat'].disabled = True
 
@@ -489,7 +487,7 @@ class QuickAddForm(forms.Form):
         budget = account.budget
 
         choices = (
-            [(budget.id, 'Yourself')]
+            [(budget.id, cast(str, 'Yourself'))]
             + list(budget.friends.values_list('id', 'name')))
 
         initial_split = []
