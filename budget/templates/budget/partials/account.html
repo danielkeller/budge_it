@@ -1,4 +1,4 @@
-{% load budget %}
+{% load budget l10n %}
 <div class="controls">
     <a class="backbutton" href="{% url 'all' budget.id %}" hx-boost>Back</a>
     <div class="tools">
@@ -46,6 +46,7 @@
     </form>
     {% endif %}
 {% spaceless %}
+{% localize off %}
 {% for row in entries %}
     <div class="{% cycle 'a' 'b' as rowcolor %} {{row.is_inbox|yesno:"is_inbox," }} {% if transaction.id == row.id %}checked{% endif %}"
         data-value="{{row.id}}">
@@ -55,7 +56,7 @@
 
         <span class="td ellipsis">{{row|transaction_description:account}}</span>
 
-        <short-currency class="td number" currency="{{ account.currency }}" value="{{ row.change }}"></short-currency>
+        <short-currency class="td number" value="{{row.change}}" currency="{{account.currency}}"></short-currency>
 
         {% if row.is_inbox %}
         <span class="td">
@@ -86,9 +87,10 @@
         {% endif %}
         {% endif %}
     </div>
-    {% endfor %}
-    {% endspaceless %}
-    {% endblock %}
+{% endfor %}
+{% endlocalize %}
+{% endspaceless %}
+{% endblock %}
 </div>
 </entry-list>
 {% if hx.target == 'account' %}<div id="transaction" class="editor column"></div>{% endif %}

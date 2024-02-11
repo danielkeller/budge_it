@@ -723,7 +723,9 @@ class EntryManager(Generic[AccountT], models.Manager['Entry[AccountT]']):
                         | (Q(sink__name="")
                            & Q(sink__budget__in=budget.friends.all())))
         return (self.filter(source_visible, sink_visible)
-                .select_related('sink__budget'))
+                .select_related('sink__budget')
+                .only('part_id', 'amount',
+                      'sink__name', 'sink__budget__name', 'sink__budget__budget_of_id'))
 
     def entries(self) -> dict[AccountT, int]:
         return sum_by((entry.sink, entry.amount) for entry in self.all())

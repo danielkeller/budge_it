@@ -37,6 +37,7 @@ def profileit(func: Any):
 
 
 def hx(request: HttpRequest):
+    # This might not be neccesary, I think django already replaces underscores with hyphens
     class HX:
         def __getitem__(self, key: str):
             return request.headers['HX-' + key.replace('_', '-')]
