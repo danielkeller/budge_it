@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import (Optional, Iterable, TypeVar, Type, Union, Generic,
                     Any, ClassVar)
 import functools
@@ -727,7 +728,7 @@ class EntryManager(Generic[AccountT], models.Manager['Entry[AccountT]']):
                 .only('part_id', 'amount',
                       'sink__name', 'sink__budget__name', 'sink__budget__budget_of_id'))
 
-    def entries(self) -> dict[AccountT, int]:
+    def entries(self) -> defaultdict[AccountT, int]:
         return sum_by((entry.sink, entry.amount) for entry in self.all())
 
     def flows(self) -> dict[tuple[AccountT, AccountT], int]:

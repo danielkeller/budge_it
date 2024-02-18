@@ -69,11 +69,14 @@ class Debts(Generic[T]):
         return result
 
 
-def sum_by(input: Iterable[tuple[T, int]]) -> dict[T, int]:
+def sum_by(input: Iterable[tuple[T, int]]) -> defaultdict[T, int]:
     result: defaultdict[T, int] = defaultdict(int)
     for key, value in input:
         result[key] += value
-    return {key: value for key, value in result.items() if value}
+    for key in list(result.keys()):
+        if not result[key]:
+            del result[key]
+    return result
 
 
 # 'tree' below are child->parent edges, and can also be a forest
