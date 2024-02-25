@@ -62,7 +62,10 @@ class RawBudgetEventRecord:
     Available: str
 
     def TotalBudgeted(self):
-        return int(self.Budgeted.replace('.', ''))
+        # ynab doesn't let you roll negative categories over
+        budget = int(self.Budgeted.replace('.', ''))
+        overspent = -int(self.Available.replace('.', ''))
+        return budget + max(overspent, 0)
 
     @staticmethod
     def from_row(row: 'list[str]') -> 'RawBudgetEventRecord':
@@ -202,9 +205,9 @@ class Command(BaseCommand):
         # Dan Tracking       Transfer: ZKB Current Acct         -           -b       z
 
         # Split transfer --------------------------------------------------------------------------
-        # UZH Reimbursement  Transfer: ZKB Current Acct         -           - a - b  main
         # ZKB Current Acct   Transfer: UZH Reimbursement   Halbtax          a        Split (1/2)  y
         # ZKB Current Acct   Transfer: UZH Reimbursement   Reimbursements   b        Split (2/2)  z
+        # UZH Reimbursement  Transfer: ZKB Current Acct         -           - a - b  main
 
         current_split: list[RawTransactionPartRecord] = []
         other_sides: list[RawTransactionPartRecord] = []
@@ -274,7 +277,6 @@ class Command(BaseCommand):
             transaction_part.set_entries(
                 target_budget.budget, account_entries, category_entries)
 
-    @transaction.atomic
     def process_budget_events(self, target_budget: TargetBudget,
                               reader: 'Iterable[RawBudgetEventRecord]'):
         raw_category_group_category = "Inflow: Ready to Assign"
@@ -291,6 +293,7 @@ class Command(BaseCommand):
         for raw_budget_event in reader:
             process_budget_renames(raw_budget_event)
 
+            # FIXME: Is this correct?
             if raw_budget_event.CategoryGroup == "Credit Card Payments":
                 continue  # TODO this works for me as I have no credit card debt
             amount = raw_budget_event.TotalBudgeted()
@@ -304,29 +307,6 @@ class Command(BaseCommand):
                 raw_category, raw_group, ynab_currency)
             month_budgets[month][category] = amount
 
-        # form budgeting transactions
-        category_month_activities = {  # cat -> month -> activity
-            category: defaultdict(
-                int,
-                {
-                    month:
-                    activity
-                    for month, activity in get_category_activity_iterable(category)}
-            )
-            for category in target_budget.budget.category_set.all()
-        }
-
-        # if there are no transactions in a category, and the total budgeted amount sums to zero, do not create those budgeting events
-        zeroed_categories = [category
-                             for (category, month_activities) in category_month_activities.items()
-                             if sum(month_activities.values()) == 0]
-        for category in zeroed_categories:
-            if not category.entries.exists():
-                del category_month_activities[category]
-                category.delete()
-
-        running_sums: dict[Category, int] = defaultdict(int)  # cat -> sum
-
         range = (Transaction.objects
                  .filter(parts__categories__budget=target_budget.budget)
                  .aggregate(Max('date'), Min('date')))
@@ -335,18 +315,9 @@ class Command(BaseCommand):
         for month in months:
             category_entries: dict[Category, int] = {}
             for category in target_budget.budget.category_set.all():
-                if category.group == import_off_budget_prefix_nocolon:
-                    continue  # this is a new category built by us
-                budgeted = month_budgets[month][category]
-
-                running_sums[category] += budgeted
-                running_sums[category] += category_month_activities[category][month]
-
-                # ynab doesn't let you roll negative categories over
-                if running_sums[category] < 0:
-                    budgeted += -running_sums[category]
-                    running_sums[category] = 0
-                category_entries[category] = budgeted
+                # if category.group == import_off_budget_prefix_nocolon:
+                #     continue  # this is a new category built by us
+                category_entries[category] = month_budgets[month][category]
 
             category_entries[inflow_budget_category] = - \
                 sum(category_entries.values())
@@ -405,18 +376,6 @@ def expected_transfer_key(raw_transaction_part: RawTransactionPartRecord):
     return transfer_key
 
 
-def get_last_day_of_month(month: date):
-    return ((month + timedelta(days=31)).replace(day=1)
-            - timedelta(days=1))
-
-
-def get_category_activity_iterable(category: Category):
-    return (category.entries
-            .values_list(Trunc(F('part__transaction__date'), 'month'))
-            .annotate(total=Sum('amount'))
-            .order_by('trunc1'))
-
-
 def split_category_group_category(raw_category_group_category):
     return [x.strip() for x in raw_category_group_category.split(": ")[::-1]]
 
@@ -443,7 +402,7 @@ def parts_to_entries(raw_transaction_parts: 'list[RawTransactionPartRecord]',
                 raw_payee = f"{interest_prefix}{raw_transaction_part.Account}"
             raw_category_group_category = raw_transaction_part.CategoryGroupCategory
             if not raw_category_group_category:  # Payment from/to off-budget account
-                raw_category_group_category = f"{import_off_budget_prefix}{raw_account}"
+                raw_category_group_category = f"{import_off_budget_prefix}🌐 {raw_account}"
 
             payee = target_budget.payee(raw_payee)
             payee_account = payee.get_inbox(Account, currency=ynab_currency)
@@ -476,6 +435,17 @@ def parts_to_entries(raw_transaction_parts: 'list[RawTransactionPartRecord]',
 
                 category_entries[debt_category] -= raw_transaction_part_inflow
                 category_entries[payments_category] += raw_transaction_part_inflow
+            else:
+                # Hack: Rather than figure out which accounts are on or off budget,
+                # add the same category to all transfers so it cancels out for regular transfers.
+                if not raw_category_group_category:  # Transfer to off-budget account
+                    raw_category_group_category = f"{import_off_budget_prefix}🌐 Off-budget"
+
+                raw_category, raw_group = split_category_group_category(
+                    raw_category_group_category)
+                category = target_budget.category(
+                    raw_category, raw_group, ynab_currency)
+                category_entries[category] += raw_transaction_part_inflow
 
     assert sum(account_entries.values()) == 0, raw_transaction_parts[0]
     assert sum(category_entries.values()) == 0, raw_transaction_parts[0]
@@ -536,8 +506,7 @@ def fix_tracked_debt_transactions(target_budget: TargetBudget, debt_account: str
                 category_parts[external_payee.get_inbox(
                     Category, "CHF")] += alpha
 
-            elif len(external_payees) == 0:  # Transfer
-                assert not category_parts, category_parts
+            elif len(external_payees) == 0 and not category_parts:  # Transfer
                 account_parts[debtor_payee.get_inbox(Account, "CHF")] = account_parts.pop(
                     ynab_off_budget_account)
 
