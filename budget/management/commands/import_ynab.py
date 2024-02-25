@@ -311,25 +311,15 @@ class Command(BaseCommand):
                 raw_category, raw_group, ynab_currency)
             month_budgets[month][category] = amount
 
-        range = (Transaction.objects
-                 .filter(parts__categories__budget=target_budget.budget)
-                 .aggregate(Max('date'), Min('date')))
-        months = list(months_between(range['date__min'] or date.today(),
-                                     range['date__max'] or date.today()))
-        for month in months:
-            category_entries: dict[Category, int] = {}
-            for category in target_budget.budget.category_set.all():
-                category_entries[category] = month_budgets[month][category]
-
-            category_entries[inflow_budget_category] = - \
-                sum(category_entries.values())
+        for month, categories in month_budgets.items():
+            categories[inflow_budget_category] = -sum(categories.values())
 
             transaction = Transaction(date=month, kind=kind)
             transaction.save()
             part = TransactionPart(transaction=transaction)
             part.save()
             part.set_entries(target_budget.budget,
-                             accounts={}, categories=category_entries)
+                             accounts={}, categories=categories)
 
 
 def determine_off_budget(a: RawTransactionPartRecord, b: RawTransactionPartRecord):
