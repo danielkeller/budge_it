@@ -38,6 +38,7 @@ class RawTransactionPartRecord:
     Outflow: str
     Inflow: str
     Cleared: str
+    off_budget: bool = False
 
     def TotalInflow(self):
         return (int(self.Inflow.replace('.', ''))
@@ -45,7 +46,7 @@ class RawTransactionPartRecord:
 
     @staticmethod
     def from_row(row: 'list[str]') -> 'RawTransactionPartRecord':
-        return RawTransactionPartRecord(*row)
+        return RawTransactionPartRecord(*row, off_budget=False)
 
     def __str__(self):
         return f"{self.Date}: {self.Account} - {self.Memo}"
@@ -185,6 +186,7 @@ class Command(BaseCommand):
                 if transfer_key in unmatched_transfers:  # Non-split transfer
                     other_part_ix = unmatched_transfers[transfer_key].pop()
                     other_part = day_transaction_parts[other_part_ix]
+                    determine_off_budget(part, other_part)
                     self.save_transaction(target_budget, [part, other_part])
                 else:  # Some other kind of transfer
                     unmatched_transfers[expected_transfer_key(part)].append(ix)
@@ -225,15 +227,17 @@ class Command(BaseCommand):
                 if transfer_key in unmatched_transfers:
                     other_part_ix = unmatched_transfers[transfer_key].pop()
                     other_part = day_transaction_parts[other_part_ix]
+                    determine_off_budget(part, other_part)
                     current_split.append(other_part)
                 else:  # This is part of a split transfer
                     from_acc, to_acc, amount = transfer_key
                     current_split_transfers[(from_acc, to_acc)] += amount
                     # Make a fake one so that the notes match.
                     other_part = copy.copy(part)
-                    other_part.CategoryGroupCategory = ''
+                    other_part.CategoryGroupCategory = ''  # Is this right?
                     other_part.Account = to_acc
                     other_part.Inflow, other_part.Outflow = part.Outflow, part.Inflow
+                    determine_off_budget(part, other_part)
                     current_split.append(other_part)
             if is_last_part_in_split(part):
                 # We have all the totals of split transfers, so we should be able to match them
@@ -315,8 +319,6 @@ class Command(BaseCommand):
         for month in months:
             category_entries: dict[Category, int] = {}
             for category in target_budget.budget.category_set.all():
-                # if category.group == import_off_budget_prefix_nocolon:
-                #     continue  # this is a new category built by us
                 category_entries[category] = month_budgets[month][category]
 
             category_entries[inflow_budget_category] = - \
@@ -328,6 +330,13 @@ class Command(BaseCommand):
             part.save()
             part.set_entries(target_budget.budget,
                              accounts={}, categories=category_entries)
+
+
+def determine_off_budget(a: RawTransactionPartRecord, b: RawTransactionPartRecord):
+    a.off_budget = bool(
+        b.CategoryGroupCategory and not a.CategoryGroupCategory)
+    b.off_budget = bool(
+        a.CategoryGroupCategory and not b.CategoryGroupCategory)
 
 
 def YNAB_string_to_date(ynab_string: str):
@@ -396,11 +405,11 @@ def parts_to_entries(raw_transaction_parts: 'list[RawTransactionPartRecord]',
         account_entries[account] += raw_transaction_part_inflow
 
         raw_payee = raw_transaction_part.Payee
+        raw_category_group_category = raw_transaction_part.CategoryGroupCategory
 
         if not is_transfer(raw_transaction_part):  # Payment to external payee
             if not raw_payee:   # Interest charge on an off-budget debt account
                 raw_payee = f"{interest_prefix}{raw_transaction_part.Account}"
-            raw_category_group_category = raw_transaction_part.CategoryGroupCategory
             if not raw_category_group_category:  # Payment from/to off-budget account
                 raw_category_group_category = f"{import_off_budget_prefix}🌐 {raw_account}"
 
@@ -436,16 +445,15 @@ def parts_to_entries(raw_transaction_parts: 'list[RawTransactionPartRecord]',
                 category_entries[debt_category] -= raw_transaction_part_inflow
                 category_entries[payments_category] += raw_transaction_part_inflow
             else:
-                # Hack: Rather than figure out which accounts are on or off budget,
-                # add the same category to all transfers so it cancels out for regular transfers.
-                if not raw_category_group_category:  # Transfer to off-budget account
-                    raw_category_group_category = f"{import_off_budget_prefix}🌐 Off-budget"
+                if raw_transaction_part.off_budget:  # Transfer from/to off-budget account
+                    raw_category_group_category = f"{import_off_budget_prefix}🌐 {raw_account}"
 
-                raw_category, raw_group = split_category_group_category(
-                    raw_category_group_category)
-                category = target_budget.category(
-                    raw_category, raw_group, ynab_currency)
-                category_entries[category] += raw_transaction_part_inflow
+                if raw_category_group_category:
+                    raw_category, raw_group = split_category_group_category(
+                        raw_category_group_category)
+                    category = target_budget.category(
+                        raw_category, raw_group, ynab_currency)
+                    category_entries[category] += raw_transaction_part_inflow
 
     assert sum(account_entries.values()) == 0, raw_transaction_parts[0]
     assert sum(category_entries.values()) == 0, raw_transaction_parts[0]
