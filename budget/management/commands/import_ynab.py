@@ -93,7 +93,8 @@ class TargetBudget:
     def category(self, name: str, group: str, currency: str):
         assert name
         return Category.objects.get_or_create(
-            budget=self.budget, name=name, currency=currency, defaults={'group': group})[0]
+            budget=self.budget, name=name, currency=currency,
+            defaults={'group': group, 'order': 999})[0]
 
 
 ynab_currency = "CHF"
@@ -306,16 +307,13 @@ class Command(BaseCommand):
             # FIXME: Is this correct?
             if raw_budget_event.CategoryGroup == "Credit Card Payments":
                 continue  # TODO this works for me as I have no credit card debt
-            amount = raw_budget_event.TotalBudgeted()
-            if not amount:
-                continue
             month = datetime.strptime(raw_budget_event.Month, "%b %Y").date()
             raw_category_group_category = raw_budget_event.CategoryGroupCategory
             raw_category, raw_group = split_category_group_category(
                 raw_category_group_category)
             category = target_budget.category(
                 raw_category, raw_group, ynab_currency)
-            month_budgets[month][category] = amount
+            month_budgets[month][category] = raw_budget_event.TotalBudgeted()
 
         for month, categories in month_budgets.items():
             categories[inflow_budget_category] = -sum(categories.values())
@@ -326,6 +324,10 @@ class Command(BaseCommand):
             part.save()
             part.set_entries(target_budget.budget,
                              accounts={}, categories=categories)
+
+        for order, category in enumerate(list(month_budgets.values())[-1]):
+            category.order = order
+            category.save()
 
 
 def determine_off_budget(a: RawTransactionPartRecord, b: RawTransactionPartRecord):
