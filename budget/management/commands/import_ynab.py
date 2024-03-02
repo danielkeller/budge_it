@@ -4,7 +4,7 @@ from django.db.models.functions import Trunc
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandParser, CommandError
 from budget.models import (User, Budget, Account, Category, Transaction, TransactionPart,
-                           CategoryEntry, months_between)
+                           BaseAccount, AccountT, CategoryEntry, months_between)
 
 from typing import Any, Iterable, TypeVar, Callable
 from collections import defaultdict
@@ -128,10 +128,14 @@ class Command(BaseCommand):
         self.process_transactions(
             target_budget, Command.csv_rows(register_filename, RawTransactionPartRecord.from_row))
 
-        fix_tracked_debt_transactions(target_budget, "Flat splitwise")
-
         self.process_budget_events(
             target_budget, Command.csv_rows(budget_filename, RawBudgetEventRecord.from_row))
+
+        move_to_payee(target_budget, target_budget.account(
+            "Flat splitwise", "CHF"))
+        merge_accounts(target_budget,
+                       target_budget.category("Splitwise", "", "CHF"),
+                       target_budget.category("🌐 Flat splitwise", "", "CHF"))
 
         # delete any accounts with no transactions
         for account in Account.objects.filter(Q(budget__payee_of=user) | Q(budget__budget_of=user), entries=None):
@@ -155,7 +159,8 @@ class Command(BaseCommand):
         day_transaction_parts: list[RawTransactionPartRecord] = []
 
         for raw_transaction_part in reader:
-            process_transaction_renames(raw_transaction_part)
+            # FIXME
+            # process_transaction_renames(raw_transaction_part)
 
             if not current_date:
                 current_date = raw_transaction_part.Date
@@ -295,7 +300,8 @@ class Command(BaseCommand):
 
         # parse csv
         for raw_budget_event in reader:
-            process_budget_renames(raw_budget_event)
+            # FIXME
+            # process_budget_renames(raw_budget_event)
 
             # FIXME: Is this correct?
             if raw_budget_event.CategoryGroup == "Credit Card Payments":
@@ -466,48 +472,22 @@ def process_budget_renames(raw_budget_event: RawBudgetEventRecord):
     if raw_category_group_category in renames.keys():
         raw_budget_event.CategoryGroupCategory = renames[raw_category_group_category]
 
-# magic *(*) algorithm
+
+def move_to_payee(target_budget: TargetBudget, account: BaseAccount):
+    account.budget = target_budget.payee(account.name)
+    account.name = ''
+    account.save()
+    for entry in account.entries.all():
+        accounts, categories = entry.part.entries()
+        entry.part.set_entries(target_budget.budget, accounts, categories)
 
 
-def fix_tracked_debt_transactions(target_budget: TargetBudget, debt_account: str):
-    ynab_off_budget_account = target_budget.account(debt_account, "CHF")
-    tracked_debt_transactions = Transaction.objects.filter(
-        parts__accounts=ynab_off_budget_account)
-
-    debtor_payee = target_budget.payee(debt_account)
-
-    for tracked_debt_transaction in tracked_debt_transactions:
-        def real_payee_in(part: TransactionPart):
-            accounts, categories = part.entries()
-            return ({a.budget for a in accounts if a.is_inbox()}
-                    & {c.budget for c in categories if c.is_inbox()}
-                    ) - {target_budget.budget}
-
-        external_payees = {budget
-                           for part in tracked_debt_transaction.parts.all()
-                           for budget in real_payee_in(part)}
-
-        for part in tracked_debt_transaction.parts.all():
-            account_parts, category_parts = part.entries()
-
-            if ynab_off_budget_account not in account_parts:
-                continue
-
-            if len(external_payees) == 1:  # Payment
-                external_payee = next(iter(external_payees))
-                alpha = account_parts.pop(ynab_off_budget_account)
-                account_parts[external_payee.get_inbox(
-                    Account, "CHF")] += alpha
-
-                category_parts[debtor_payee.get_inbox(
-                    Category, "CHF")] -= alpha
-                category_parts[external_payee.get_inbox(
-                    Category, "CHF")] += alpha
-
-            elif len(external_payees) == 0 and not category_parts:  # Transfer
-                account_parts[debtor_payee.get_inbox(Account, "CHF")] = account_parts.pop(
-                    ynab_off_budget_account)
-
-            part.set_entries(target_budget.budget,
-                             accounts=account_parts,
-                             categories=category_parts)
+def merge_accounts(target_budget: TargetBudget, a: AccountT, b: AccountT):
+    assert a.budget == b.budget
+    entries = a.entries.all()
+    a.entries.update(sink=b)
+    a.source_entries.update(source=b)
+    a.delete()
+    for entry in entries:
+        accounts, categories = entry.part.entries()
+        entry.part.set_entries(target_budget.budget, accounts, categories)
