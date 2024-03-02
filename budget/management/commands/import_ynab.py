@@ -62,11 +62,13 @@ class RawBudgetEventRecord:
     Activity: str
     Available: str
 
+    def Assigned(self):
+        return int(self.Budgeted.replace('.', ''))
+
     def TotalBudgeted(self):
         # ynab doesn't let you roll negative categories over
-        budget = int(self.Budgeted.replace('.', ''))
         overspent = -int(self.Available.replace('.', ''))
-        return budget + max(overspent, 0)
+        return self.Assigned() + max(overspent, 0)
 
     @staticmethod
     def from_row(row: 'list[str]') -> 'RawBudgetEventRecord':
@@ -135,8 +137,8 @@ class Command(BaseCommand):
         move_to_payee(target_budget, target_budget.account(
             "Flat splitwise", "CHF"))
         merge_accounts(target_budget,
-                       target_budget.category("Splitwise", "", "CHF"),
-                       target_budget.category("🌐 Flat splitwise", "", "CHF"))
+                       target_budget.category("🌐 Flat splitwise", "", "CHF"),
+                       target_budget.category("Splitwise", "", "CHF"))
 
         # delete any accounts with no transactions
         for account in Account.objects.filter(Q(budget__payee_of=user) | Q(budget__budget_of=user), entries=None):
@@ -296,8 +298,8 @@ class Command(BaseCommand):
             raw_category, raw_group, ynab_currency)
         kind = Transaction.Kind.BUDGETING
 
-        month_budgets: dict[date, dict[Category, int]] = defaultdict(
-            lambda: defaultdict(int))  # month -> cat -> budgeted_amount
+        month_budgets: dict[date, dict[Category, RawBudgetEventRecord]] = defaultdict(
+            dict)  # month -> cat -> budgeted_amount
 
         # parse csv
         for raw_budget_event in reader:
@@ -313,9 +315,19 @@ class Command(BaseCommand):
                 raw_category_group_category)
             category = target_budget.category(
                 raw_category, raw_group, ynab_currency)
-            month_budgets[month][category] = raw_budget_event.TotalBudgeted()
+            month_budgets[month][category] = raw_budget_event
 
-        for month, categories in month_budgets.items():
+        final_month = list(month_budgets)[-1]
+
+        for month, events in month_budgets.items():
+            if month == final_month:
+                # You can be overspend in the current month
+                categories = {category: events[category].Assigned()
+                              for category in events}
+            else:
+                categories = {category: events[category].TotalBudgeted()
+                              for category in events}
+
             categories[inflow_budget_category] = -sum(categories.values())
 
             transaction = Transaction(date=month, kind=kind)
@@ -325,7 +337,7 @@ class Command(BaseCommand):
             part.set_entries(target_budget.budget,
                              accounts={}, categories=categories)
 
-        for order, category in enumerate(list(month_budgets.values())[-1]):
+        for order, category in enumerate(month_budgets[final_month]):
             category.order = order
             category.save()
 
