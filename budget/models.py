@@ -284,34 +284,27 @@ class Balance:
         return f'owed-{self.currency}-{self.other.id}'
 
     def transactions(self) -> tuple[list['Transaction'], int]:
-        category_entries = (CategoryEntry.objects
-                            .filter(part__transaction=OuterRef('pk'),
-                                    source__currency=self.currency))
-        account_entries = (AccountEntry.objects
-                           .filter(part__transaction=OuterRef('pk'),
-                                   source__currency=self.currency))
-        gets = (category_entries
-                .filter(source__budget=self.other.id, sink__budget=self.budget)
-                .values('part__transaction')  # Group by the right thing
-                .values(sum=Sum('amount')))
-        has = (account_entries
-               .filter(source__budget=self.other.id, sink__budget=self.budget)
-               .values('part__transaction')
-               .values(sum=Sum('amount')))
+        has = dict(AccountEntry.objects
+                   .filter(sink__budget=self.budget.id, source__budget_id=self.other.id,
+                           sink__currency=self.currency)
+                   .values('part__transaction')
+                   .values_list('part__transaction', Sum('amount')))
+        gets = dict(CategoryEntry.objects
+                    .filter(sink__budget=self.budget.id, source__budget_id=self.other.id,
+                            sink__currency=self.currency)
+                    .values('part__transaction')
+                    .values_list('part__transaction', Sum('amount')))
         qs = (Transaction.objects
               .filter_for(self.budget)
-              .filter(Exists(category_entries.filter(sink__budget=self.budget)) &
-                      Exists(category_entries.filter(sink__budget=self.other.id)) |
-                      Exists(account_entries.filter(sink__budget=self.budget)) &
-                      Exists(account_entries.filter(sink__budget=self.other.id)))
-              .annotate(change=Coalesce(Subquery(gets), 0)
-                        - Coalesce(Subquery(has), 0))
+              .filter(id__in=gets.keys() | has.keys())
               .order_by('date', '-kind', 'id'))
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
         total = 0
         for transaction in qs:
-            total += getattr(transaction, 'change')
+            change = gets.get(transaction.id, 0) - has.get(transaction.id, 0)
+            total += change
+            setattr(transaction, 'change', change)
             setattr(transaction, 'running_sum', total)
         return list(reversed(qs)), total
 
@@ -631,6 +624,8 @@ class TransactionPart(models.Model):
     def empty(self) -> bool:
         return (not self.accountentry_set.all() and
                 not self.categoryentry_set.all())
+
+    # Maybe we need a re-double-entrify function...
 
     def entries(self):
         return (self.accountentry_set.entries(), self.categoryentry_set.entries())
