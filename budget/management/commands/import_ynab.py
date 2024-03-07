@@ -279,6 +279,13 @@ class Command(BaseCommand):
             grouped_parts.setdefault(
                 cleaned_memo(raw_part), []).append(raw_part)
 
+        # Merge parts if there's only one actual memo
+        if len(grouped_parts) == 2:
+            one, other = grouped_parts
+            if not one or not other:
+                grouped_parts = {
+                    one or other: grouped_parts[one] + grouped_parts[other]}
+
         for memo, raw_parts in grouped_parts.items():
             transaction_part = TransactionPart(
                 transaction=transaction, note=memo)
