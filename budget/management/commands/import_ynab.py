@@ -124,9 +124,9 @@ class Command(BaseCommand):
         else:
             raise CommandError(f"No single budget file in {directory[0]}")
 
-        user = User.objects.get(username="admin")
+        user = User.objects.get(username="chloe")
         target_budget = TargetBudget(Budget.objects.get_or_create(
-            name="ynabimport", budget_of=user)[0])
+            name="Chloe", budget_of=user)[0])
 
         self.process_transactions(
             target_budget, Command.csv_rows(register_filename, RawTransactionPartRecord.from_row))
@@ -345,6 +345,7 @@ class Command(BaseCommand):
             part.set_entries(target_budget.budget,
                              accounts={}, categories=categories)
 
+        # This mixes them with the current ordering lol.
         for order, category in enumerate(month_budgets[final_month]):
             category.order = order
             category.save()
