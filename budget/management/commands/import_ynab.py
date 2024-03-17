@@ -134,17 +134,18 @@ class Command(BaseCommand):
         self.process_budget_events(
             target_budget, Command.csv_rows(budget_filename, RawBudgetEventRecord.from_row))
 
-        move_to_payee(target_budget, target_budget.account(
-            "Flat splitwise", "CHF"))
+        splitwise_account = target_budget.account("Flat splitwise", "CHF")
+        splitwise_account_category = target_budget.category(
+            "🌐 Flat splitwise", "", "CHF")
+        splitwise_category = target_budget.category("Splitwise", "", "CHF")
+        convert_account_to_category(target_budget,
+                                    splitwise_account, splitwise_category)
         merge_accounts(target_budget,
-                       target_budget.category("🌐 Flat splitwise", "", "CHF"),
-                       target_budget.category("Splitwise", "", "CHF"))
+                       splitwise_account_category, splitwise_category)
 
         # delete any accounts with no transactions
         for account in Account.objects.filter(Q(budget__payee_of=user) | Q(budget__budget_of=user), entries=None):
             account.delete()
-
-        # TODO order categories?
 
         # assert not AccountNote.objects.exclude(transaction__accounts = F('account'))
         # assert not CategoryNote.objects.exclude(transaction__categories = F('account'))
@@ -503,12 +504,28 @@ def move_to_payee(target_budget: TargetBudget, account: BaseAccount):
         entry.part.set_entries(target_budget.budget, accounts, categories)
 
 
-def merge_accounts(target_budget: TargetBudget, a: AccountT, b: AccountT):
-    assert a.budget == b.budget
-    entries = a.entries.all()
-    a.entries.update(sink=b)
-    a.source_entries.update(source=b)
-    a.delete()
+def merge_accounts(target_budget: TargetBudget, out_of: AccountT, into: AccountT):
+    assert out_of.budget == into.budget
+    entries = out_of.entries.all()
+    out_of.entries.update(sink=into)
+    out_of.source_entries.update(source=into)
+    out_of.delete()
     for entry in entries:
         accounts, categories = entry.part.entries()
+        entry.part.set_entries(target_budget.budget, accounts, categories)
+
+
+def convert_account_to_category(target_budget: TargetBudget, account: Account, category: Category):
+    """Magic *(*) algorithm"""
+    assert account.budget == category.budget
+    for entry in account.entries.all():
+        accounts, categories = entry.part.entries()
+        payees = {account.budget for account in accounts
+                  if account.budget != target_budget.budget}
+        payee = payees.pop() if len(payees) == 1 else target_budget.payee('Payee')
+
+        amount = accounts.pop(account)
+        accounts[payee.get_inbox(Account, account.currency)] += amount
+        categories[payee.get_inbox(Category, account.currency)] += amount
+        categories[category] -= amount
         entry.part.set_entries(target_budget.budget, accounts, categories)
