@@ -524,7 +524,7 @@ class QuickAddForm(forms.Form):
             budget.initial_split = ''
         budget.save()
 
-        amount = self.cleaned_data['amount']
+        amount = -self.cleaned_data['amount']
         payee = Budget.objects.get_or_create(
             name="Payee", payee_of_id=budget.owner())[0]
 
@@ -535,8 +535,6 @@ class QuickAddForm(forms.Form):
             own_account = self.account
         elif isinstance(self.account, Category):
             own_category = self.account
-        elif isinstance(self.account, Balance):
-            amount = -amount
 
         accounts = {own_account: amount,
                     payee.get_inbox(Account, currency): -amount}
