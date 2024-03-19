@@ -33,6 +33,7 @@
         <span class="td tdinput">{{ quick_add.date }}</span>
         <span class="td tdinput">{{ quick_add.note }}</span>
         <currency-input class="td tdinput" currency="{{ account.currency }}">
+            <span class="sigil">-</span>
             {{ quick_add.amount }}
             <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*" size="8">
         </currency-input>
