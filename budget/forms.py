@@ -212,7 +212,7 @@ class PartForm(FormSetInline[EntryFormSet]):
 PartFormSet = forms.inlineformset_factory(
     Transaction, TransactionPart,
     form=PartForm, formset=BasePartFormSet,
-    min_num=1, extra=0, max_num=5)
+    min_num=1, extra=0, max_num=15)
 
 
 class TransactionForm(FormSetInline[PartFormSet]):
