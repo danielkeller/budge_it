@@ -1,6 +1,9 @@
 {% load budget l10n %}
 <div class="controls">
     <div>{{ account.name|default:"Inbox" }}</div>
+    <div>
+        Balance: <long-currency id="balance" currency="{{ account.currency }}" value="{{ balance }}"></long-currency>
+    </div>
     <a class="backbutton" href="{% url 'all' budget.id %}" hx-boost>Back</a>
     <div class="tools">
         {% if account.clearable %}
