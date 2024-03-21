@@ -190,7 +190,7 @@ class BaseAccount(Id):
         """Not actually important"""
         return self.id < other.id
 
-    def transactions(self) -> tuple[list['Transaction'], int]:
+    def transactions(self) -> tuple[list['Transaction'], int, int]:
         if isinstance(self, Account):  # gross
             field, amount = 'parts__accounts', 'parts__accountentry_set__amount'
         else:
@@ -211,16 +211,19 @@ class BaseAccount(Id):
               .order_by('date', '-kind', 'id'))
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
-        total = 0
+        balance, cleared = 0, 0
         for transaction in qs:
             if getattr(transaction, 'account') == inbox:
                 setattr(transaction, 'is_inbox', True)
             elif self.clearable and transaction.reconciled is None:
                 setattr(transaction, 'uncleared', True)
             else:
-                total += getattr(transaction, 'change')
-                setattr(transaction, 'running_sum', total)
-        return list(reversed(qs)), total
+                cleared += getattr(transaction, 'change')
+                setattr(transaction, 'running_sum', cleared)
+            if (not hasattr(transaction, 'is_inbox')
+                    and transaction.date and transaction.date <= date.today()):
+                balance += getattr(transaction, 'change')
+        return list(reversed(qs)), balance, cleared
 
 
 AccountT = TypeVar('AccountT', bound=BaseAccount)
@@ -283,7 +286,7 @@ class Balance:
         # Templates/urls refer to it this way
         return f'owed-{self.currency}-{self.other.id}'
 
-    def transactions(self) -> tuple[list['Transaction'], int]:
+    def transactions(self) -> tuple[list['Transaction'], int, int]:
         has = dict(AccountEntry.objects
                    .filter(sink__budget=self.budget.id, source__budget_id=self.other.id,
                            sink__currency=self.currency)
@@ -300,13 +303,15 @@ class Balance:
               .order_by('date', '-kind', 'id'))
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
-        total = 0
+        total, balance = 0, 0
         for transaction in qs:
             change = gets.get(transaction.id, 0) - has.get(transaction.id, 0)
             total += change
             setattr(transaction, 'change', change)
             setattr(transaction, 'running_sum', total)
-        return list(reversed(qs)), total
+            if transaction.date and transaction.date <= date.today():
+                balance += getattr(transaction, 'change')
+        return list(reversed(qs)), balance, 0
 
 
 @dataclass
@@ -325,7 +330,7 @@ class Total:
         # Templates/urls refer to it this way
         return 'all-' + self.currency
 
-    def transactions(self) -> tuple[Iterable['Transaction'], int]:
+    def transactions(self) -> tuple[Iterable['Transaction'], int, int]:
         # TODO: Do we want to include budgets and transfers here?
         qs = (Transaction.objects
               .filter_for(self.budget)
@@ -336,11 +341,13 @@ class Total:
               .order_by('date', '-kind', 'id'))
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
-        total = 0
+        total, balance = 0, 0
         for transaction in qs:
             total += getattr(transaction, 'change')
             setattr(transaction, 'running_sum', total)
-        return list(reversed(qs)), total
+            if transaction.date and transaction.date <= date.today():
+                balance += getattr(transaction, 'change')
+        return list(reversed(qs)), balance, 0
 
 
 AccountLike = Account | Category | Total | Balance

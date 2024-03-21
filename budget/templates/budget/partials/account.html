@@ -7,7 +7,7 @@
         {% if account.clearable %}
         <div>
             <button hx-post="{% url 'reconcile' account.id %}" hx-swap="none">Reconcile</button> balance of
-            <long-currency id="balance" currency="{{ account.currency }}" value="{{ balance }}"></long-currency>
+            <long-currency id="balance" currency="{{ account.currency }}" value="{{ cleared }}"></long-currency>
         </div>
         {% endif %}
         <button type="button"

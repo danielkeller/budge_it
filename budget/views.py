@@ -161,9 +161,10 @@ def all_view(request: HttpRequest, budget: Budget,
 
     if account_id:
         account = _get_account_like_or_404(request, budget, account_id)
-        entries, balance = account.transactions()
+        entries, balance, cleared = account.transactions()
         quick_add = QuickAddForm(account, prefix="qa")
-        context |= {'account': account, 'entries': entries, 'balance': balance,
+        context |= {'account': account, 'entries': entries,
+                    'balance': balance, 'cleared': cleared,
                     'quick_add': quick_add}
 
     if request.headers.get('HX-Target') == 'account':
