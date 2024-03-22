@@ -250,8 +250,9 @@ def clear(request: HttpRequest, account_id: int, transaction_id: int):
         transaction.cleared_account.add(account)
     else:
         transaction.cleared_account.remove(account)
-    entries, balance = account.transactions()
-    context = {'entries': entries, 'balance': balance, 'account': account}
+    entries, balance, cleared = account.transactions()
+    context = {'account': account, 'entries': entries,
+               'balance': balance, 'cleared': cleared}
     return render(request, 'budget/partials/account_sums.html', context)
 
 
@@ -263,8 +264,9 @@ def reconcile(request: HttpRequest, account_id: int):
     if not isinstance(account, Account) or not account.clearable:
         return HttpResponseBadRequest('Wrong kind of account')
     Cleared.objects.filter(account=account).update(reconciled=True)
-    entries, balance = account.transactions()
-    context = {'entries': entries, 'balance': balance, 'account': account}
+    entries, balance, cleared = account.transactions()
+    context = {'account': account, 'entries': entries,
+               'balance': balance, 'cleared': cleared}
     return render(request, 'budget/partials/account_sums.html', context)
 
 
