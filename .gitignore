@@ -5,6 +5,7 @@ pyvenv.cfg
 .vscode
 .coverage
 *.sqlite3
+*.sqlite3.*
 *.sqlite3-shm
 *.DS_Store
 htmx.js
