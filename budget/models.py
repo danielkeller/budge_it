@@ -220,6 +220,8 @@ class BaseAccount(Id):
             else:
                 total += getattr(transaction, 'change')
                 setattr(transaction, 'running_sum', total)
+            if transaction.date > date.today():
+                setattr(transaction, 'is_future', True)
         return list(reversed(qs)), total
 
 
@@ -813,6 +815,7 @@ def accounts_overview(budget: Budget):
                   .select_related('budget'))
     currencies = {*budget.account_set.values_list('currency').distinct(),
                   *budget.category_set.values_list('currency').distinct()}
+
     past = Q(part__transaction__date__lte=date.today())
     sum_amount = Sum('amount', filter=past, default=0)
     gets = (CategoryEntry.objects

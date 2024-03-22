@@ -49,7 +49,7 @@
 {% spaceless %}
 {% localize off %}
 {% for row in entries %}
-    <div class="{% cycle 'a' 'b' as rowcolor %} {{row.is_inbox|yesno:"is_inbox," }} {% if transaction.id == row.id %}checked{% endif %}"
+    <div class="{% cycle 'a' 'b' as rowcolor %} {{row.is_inbox|yesno:"is_inbox," }} {% if transaction.id == row.id %}checked{% endif %} {{row.is_future|yesno:"is_future," }}"
         data-value="{{row.id}}">
         <span class="td">{{row.date|date:"SHORT_DATE_FORMAT"}}
             {% if row.recurrence %}🔁{% endif %}

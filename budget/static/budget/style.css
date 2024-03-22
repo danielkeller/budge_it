@@ -255,6 +255,12 @@ entry-list:focus .checked>* {
     color: SelectedItemText;
 }
 
+entry-list .is_future>* {
+    color: GrayText;
+    font-style: italic;
+}
+
+
 .grid {
     align-self: start;
     max-height: 100%;
