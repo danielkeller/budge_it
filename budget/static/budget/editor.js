@@ -128,8 +128,8 @@ class CurrencyInput extends HTMLElement {
         if (this.input && this.input.value)
             this.#hidden.value = parseCurrency(this.input.value, this.currency);
     }
-    get #hidden() { return this.children[0]; }
-    get input() { return this.children[1]; }
+    get #hidden() { return this.querySelectorAll("input")[0]; }
+    get input() { return this.querySelectorAll("input")[1]; }
     get value() { return this.#hidden.value; }
     get currency() { return this.getAttribute('currency'); }
     set value(value) {
