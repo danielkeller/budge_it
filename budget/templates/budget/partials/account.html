@@ -73,7 +73,7 @@
         {% endif %}
 
         {% if account.clearable %}
-        {% if row.is_inbox or row.is_future %}
+        {% if row.is_inbox %}
         <span class="td"></span>
         {% else %}
         <span class="td" id="cleared-{{row.id}}">
