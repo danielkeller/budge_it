@@ -27,8 +27,8 @@
         <span class="th sticky">Date</span>
         <span class="th">Transaction</span>
         <span class="th">{{ account.currency }}</span>
-        <span class="th">Total</span>
         {% if account.clearable %}<span class="th">☑️</span>{% endif %}
+        <span class="th">Total</span>
     </div>
     {% if quick_add %}
     <form hx-put="{% url 'all' budget.id account.id %}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories">
@@ -61,17 +61,6 @@
 
         <short-currency class="td number" value="{{row.change}}" currency="{{account.currency}}"></short-currency>
 
-        {% if row.is_inbox %}
-        <span class="td">
-            <button hx-post="{% url 'add_to_account' account.id row.id%}"
-                hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories"
-                hx-target="this">
-                Move here</button>
-        </span>
-        {% else %}
-        <short-currency class="td number" value="{{row.running_sum}}" currency="{{ account.currency }}" id="total-{{row.id}}"></short-currency>
-        {% endif %}
-
         {% if account.clearable %}
         {% if row.is_inbox %}
         <span class="td"></span>
@@ -88,6 +77,17 @@
             {% endif %}
         </span>
         {% endif %}
+        {% endif %}
+
+        {% if row.is_inbox %}
+        <span class="td">
+            <button hx-post="{% url 'add_to_account' account.id row.id%}"
+                hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories"
+                hx-target="this">
+                Move here</button>
+        </span>
+        {% else %}
+        <short-currency class="td number" value="{{row.running_sum}}" currency="{{ account.currency }}" id="total-{{row.id}}"></short-currency>
         {% endif %}
     </div>
 {% endfor %}

@@ -313,7 +313,7 @@ entry-list .is_future>* {
     }
 
     .grid.c5 {
-        grid: auto-flow dense / max-content 1fr 1fr max-content;
+        grid: auto-flow dense / max-content 1fr max-content 1fr;
     }
 
     .grid.c5 span:nth-child(5n+1) {
