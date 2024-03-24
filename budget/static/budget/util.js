@@ -88,6 +88,8 @@ class EntryList extends HTMLElement {
     connectedCallback() {
         this.setAttribute('tabindex', 0);
         this.addEventListener('mousedown', ({ target }) => {
+            if (target.tagName === "BUTTON" || target.tagName === "INPUT")
+                return;
             const row = target.closest('[data-value]');
             if (row && this.checked !== row) this.select(row);
         });

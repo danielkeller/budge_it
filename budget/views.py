@@ -110,7 +110,7 @@ def all(request: HttpRequest, budget_id: int,
 
     budget = _get_allowed_budget_or_404(request, budget_id)
     if request.method == 'PUT':
-        # A bit of a hack to use the method like this
+        # A bit of a hack to use the method like this. TODO: Use update_all_view approach.
         transaction_id = quick_save(request, budget, account_id)
     elif request.method == 'POST':
         transaction_id = save(request, budget, transaction_id)
@@ -118,6 +118,8 @@ def all(request: HttpRequest, budget_id: int,
         transaction_id = delete(budget, transaction_id)
 
     return all_view(request, budget, account_id, transaction_id)
+
+# TODO: The hx-select-oob on these is getting a little out of hand
 
 
 @require_http_methods(['POST'])
@@ -127,7 +129,38 @@ def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
         account.budget, transaction_id)
     assert transaction
     transaction.change_inbox_to(account)
-    return all_view(request, account.budget, account_id, transaction_id)
+    return update_all_view(request, account.budget)
+
+
+@require_http_methods(['POST'])
+def clear(request: HttpRequest, account_id: int, transaction_id: int):
+    account = _get_allowed_account_or_404(request, account_id)
+    if not isinstance(account, Account) or not account.clearable:
+        return HttpResponseBadRequest('Wrong kind of account')
+    transaction = Transaction.objects.get_for(
+        account.budget, transaction_id)
+    if not transaction:
+        raise Http404()
+    if 'clear' in request.POST:
+        transaction.cleared_account.add(account)
+    else:
+        transaction.cleared_account.remove(account)
+    return update_all_view(request, account.budget)
+
+
+@require_http_methods(['POST'])
+def reconcile(request: HttpRequest, account_id: int):
+    account = _get_allowed_account_or_404(request, account_id)
+    if not isinstance(account, Account) or not account.clearable:
+        return HttpResponseBadRequest('Wrong kind of account')
+    Cleared.objects.filter(account=account).update(reconciled=True)
+    return update_all_view(request, account.budget)
+
+
+def update_all_view(request: HttpRequest, budget: Budget):
+    params = resolve(urlparse(request.headers['HX-Current-URL']).path)
+    params.kwargs.pop('budget_id')
+    return all_view(request, budget, **params.kwargs)
 
 
 def all_view(request: HttpRequest, budget: Budget,
@@ -233,41 +266,6 @@ def _edit_context(budget: Budget):
     return {'friends': friends, 'payees': payees,
             'accounts': accounts, 'categories': categories,
             'data': data}
-
-
-@login_required
-def clear(request: HttpRequest, account_id: int, transaction_id: int):
-    if request.method != 'POST':
-        return HttpResponseBadRequest('Wrong method')
-    account = _get_allowed_account_or_404(request, account_id)
-    if not isinstance(account, Account) or not account.clearable:
-        return HttpResponseBadRequest('Wrong kind of account')
-    transaction = Transaction.objects.get_for(
-        account.budget, transaction_id)
-    if not transaction:
-        raise Http404()
-    if 'clear' in request.POST:
-        transaction.cleared_account.add(account)
-    else:
-        transaction.cleared_account.remove(account)
-    entries, balance, cleared = account.transactions()
-    context = {'account': account, 'entries': entries,
-               'balance': balance, 'cleared': cleared}
-    return render(request, 'budget/partials/account_sums.html', context)
-
-
-@login_required
-def reconcile(request: HttpRequest, account_id: int):
-    if request.method != 'POST':
-        return HttpResponseBadRequest('Wrong method')
-    account = _get_allowed_account_or_404(request, account_id)
-    if not isinstance(account, Account) or not account.clearable:
-        return HttpResponseBadRequest('Wrong kind of account')
-    Cleared.objects.filter(account=account).update(reconciled=True)
-    entries, balance, cleared = account.transactions()
-    context = {'account': account, 'entries': entries,
-               'balance': balance, 'cleared': cleared}
-    return render(request, 'budget/partials/account_sums.html', context)
 
 
 def account_form(request: HttpRequest, budget_id: int, number: int):
