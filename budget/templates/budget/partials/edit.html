@@ -3,7 +3,8 @@
     <div class="tools">
         {% if transaction.id %}
         <button type="button" hx-delete=""
-            hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#datas">
+            hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#datas"
+	    hx-confirm="Delete this transaction?">
             Delete Transaction</button>
         {% endif %}
         <button id="submit-button" form="form">
