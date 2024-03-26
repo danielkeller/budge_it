@@ -63,7 +63,7 @@ class Budget(Id):
     friends = models.ManyToManyField(
         'self', through='BudgetFriends', blank=True)
 
-    initial_currency = models.CharField(max_length=5, blank=True)
+    initial_currency = models.CharField(max_length=16, blank=True)
     initial_split = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
@@ -150,7 +150,7 @@ class BaseAccount(Id):
     source_entries: 'models.Manager[Entry[BaseAccount]]'
     transactionpart_set: 'models.Manager[TransactionPart]'
     entries: 'models.Manager[Entry[BaseAccount]]'
-    currency = models.CharField(max_length=5)
+    currency = models.CharField(max_length=16)
 
     group = models.CharField(max_length=100, blank=True)
     order = models.IntegerField(default=0)
