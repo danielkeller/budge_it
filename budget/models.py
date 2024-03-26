@@ -817,6 +817,7 @@ def accounts_overview(budget: Budget):
                   .filter(budget=budget)
                   .annotate(balance=sum_entries)
                   .exclude(closed=True, balance=0)
+                  .exclude(Q(name='') & Q(entries__isnull=True))
                   .order_by('order', 'group', 'name')
                   .select_related('budget'))
     currencies = {*budget.account_set.values_list('currency').distinct(),
