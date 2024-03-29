@@ -1,12 +1,11 @@
-{% load budget l10n %}
 <div class="controls">
-    <div><b>{{ account.name|default:"Inbox" }}</b>:
+    <div><b>{{ account.name or "Inbox" }}</b>:
         <long-currency id="balance" currency="{{ account.currency }}" value="{{ balance }}"></long-currency></div>
-    <a class="backbutton" href="{% url 'all' budget.id %}" hx-boost>Back</a>
+    <a class="backbutton" href="{{ url('all', budget.id) }}" hx-boost>Back</a>
     <div class="tools">
         {% if account.clearable %}
         <div>
-            <button hx-post="{% url 'reconcile' account.id %}" hx-swap="none" hx-target="this"
+            <button hx-post="{{ url('reconcile', account.id) }}" hx-swap="none" hx-target="this"
             hx-select-oob="#transaction,#entries:innerHTML,#categories"
             >Reconcile</button> balance of
             <long-currency id="cleared-balance" currency="{{ account.currency }}" value="{{ cleared }}"></long-currency>
@@ -21,10 +20,10 @@
     {% if hx.event != 'kbdselect' %}autofocus{% endif %}
     name="transaction"
     hx-trigger="kbdselect,mouseselect delay:100ms"
-    hx-get="{% url 'all' budget.id account.id %}"
+    hx-get="{{ url('all', budget.id, account.id) }}"
     hx-target="#transaction">
 <div id="entries">
-    {% block list-contents %}
+    {% block list_contents %}
     <div>
         <span class="th sticky">Date</span>
         <span class="th">Transaction</span>
@@ -33,7 +32,7 @@
         <span class="th">Total</span>
     </div>
     {% if quick_add %}
-    <form hx-put="{% url 'all' budget.id account.id %}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#balance,#cleared-balance">
+    <form hx-put="{{ url('all', budget.id, account.id) }}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#balance,#cleared-balance">
         <span class="td tdinput">{{ quick_add.date }}</span>
         <span class="td tdinput">{{ quick_add.note }}</span>
         <currency-input class="td tdinput" currency="{{ account.currency }}">
@@ -44,22 +43,20 @@
         {{ quick_add.is_split }}<label for="id_qa-is_split" class="td"> Split</label>
         <span class="td" style="grid-column: 1 / -1;">
             Split between: {% for split in quick_add.split %}
-            {{ split }}{% if not forloop.last %}, {% endif %}
+            {{ split }}{% if not loop.last %}, {% endif %}
             {% endfor %}
         </span>
         <button style="display: none;"></button>
     </form>
     {% endif %}
-{% spaceless %}
-{% localize off %}
 {% for row in entries %}
-    <div class="{% cycle 'a' 'b' as rowcolor %} {{row.is_inbox|yesno:"is_inbox," }} {% if transaction.id == row.id %}checked{% endif %} {{row.is_future|yesno:"is_future," }}"
+    <div class="{{ loop.cycle('a', 'b') }} {{"is_inbox" if row.is_inbox else ""}} {% if transaction.id == row.id %}checked{% endif %} {{"is_future" if row.is_future else "" }}"
         data-value="{{row.id}}">
-        <span class="td">{{row.date|date:"SHORT_DATE_FORMAT"}}
+        <span class="td">{{row.date}}
             {% if row.recurrence %}🔁{% endif %}
         </span>
 
-        <span class="td ellipsis">{{row.description}}</span>
+        <span class="td ellipsis">{{ row.description }}</span>
 
         <short-currency class="td number" value="{{row.change}}" currency="{{account.currency}}"></short-currency>
 
@@ -73,7 +70,7 @@
             {% else %}
             <input type="checkbox"
                 name="clear"
-                hx-post="{% url 'clear' account.id row.id %}"
+                hx-post="{{ url('clear', account.id, row.id) }}"
                 hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#balance,#cleared-balance"
                 hx-target="this"
                 {% if not row.uncleared %}checked{% endif %}>
@@ -84,7 +81,7 @@
 
         {% if row.is_inbox %}
         <span class="td">
-            <button hx-post="{% url 'add_to_account' account.id row.id%}"
+            <button hx-post="{{ url('add_to_account', account.id, row.id) }}"
                 hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#balance,#cleared-balance"
                 hx-target="this">
                 Move here</button>
@@ -94,8 +91,6 @@
         {% endif %}
     </div>
 {% endfor %}
-{% endlocalize %}
-{% endspaceless %}
 {% endblock %}
 </div>
 </entry-list>

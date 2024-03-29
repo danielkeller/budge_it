@@ -278,8 +278,8 @@ def account_form(request: HttpRequest, budget_id: int, number: int):
                'account_formset': formset, 'form': formset.forms[number]}
     return HttpResponse(
         render_block_to_string('budget/manage.html',
-                               'account-form', context, request)
-        + render_block_to_string('budget/manage.html', 'new-account', context, request))
+                               'account_form', context, request)
+        + render_block_to_string('budget/manage.html', 'new_account', context, request))
 
 
 def category_form(request: HttpRequest, budget_id: int, number: int):
@@ -293,8 +293,8 @@ def category_form(request: HttpRequest, budget_id: int, number: int):
                'category_formset': formset, 'form': formset.forms[number]}
     return HttpResponse(
         render_block_to_string('budget/manage.html',
-                               'category-form', context, request)
-        + render_block_to_string('budget/manage.html', 'new-category', context, request))
+                               'category_form', context, request)
+        + render_block_to_string('budget/manage.html', 'new_category', context, request))
 
 
 def currency_form(request: HttpRequest, number: int):
@@ -303,8 +303,8 @@ def currency_form(request: HttpRequest, number: int):
     context = {'currency_formset': formset, 'form': formset.forms[number]}
     return HttpResponse(
         render_block_to_string('budget/manage.html',
-                               'currency-form', context, request)
-        + render_block_to_string('budget/manage.html', 'new-currency', context, request))
+                               'currency_form', context, request)
+        + render_block_to_string('budget/manage.html', 'new_currency', context, request))
 
 
 def manage_accounts(request: HttpRequest, budget_id: int):
@@ -357,7 +357,7 @@ def part_form(request: HttpRequest, budget_id: int, number: int):
                'part': form.formset.forms[number], 'part_index': number,
                'form': form}
     return HttpResponse(render_block_to_string(
-        'budget/partials/edit.html', 'edit-part', context, request))
+        'budget/partials/edit.html', 'edit_part', context, request))
 
 
 def row_form(request: HttpRequest, budget_id: int,
@@ -373,7 +373,7 @@ def row_form(request: HttpRequest, budget_id: int,
                'row': part.formset.forms[number],
                'part': part, 'part_index': part_index}
     return HttpResponse(render_block_to_string(
-        'budget/partials/edit.html', 'edit-row', context, request))
+        'budget/partials/edit.html', 'edit_row', context, request))
 
 
 @login_required

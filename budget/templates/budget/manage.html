@@ -1,19 +1,17 @@
-{% load budget static %}
-
 <!DOCTYPE html>
 
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="{% static 'budget/style.css' %}">
-    <script src="{% static 'budget/manage.js' %}" defer></script>
-    <script src="{% static 'budget/htmx.min.js' %}" defer></script>
+    <link rel="stylesheet" href="{{ static('budget/style.css') }}">
+    <script src="{{ static('budget/manage.js') }}" defer></script>
+    <script src="{{ static('budget/htmx.min.js') }}" defer></script>
 </head>
 <body class="popup">
 <form id="form" method="post">
 
     <div class="controls">
         <div class="navigation">
-            <div><a href="{{ budget.get_absolute_url }}">Back</a></div>
+            <div><a href="{{ budget.get_absolute_url() }}">Back</a></div>
         </div>
         <div class="tools">
             <div><button form="form">Save</button></div>
@@ -31,17 +29,19 @@
                 <th>Closed</th>
                 <th>Delete?</th>
             </tr>
+            {% set ns = namespace(lastgroup="") %}
             {% for form in category_formset %}
-            {% ifchanged form.group.value %}
-        </tbody>
+            {% if form.group.value() != ns.lastgroup %}
+            {% set ns.lastgroup = form.group.value() %}
+    </tbody>
         <tbody draggable="true" data-group>
             <tr>
                 <td class="order">=</td>
-                <th class="tdinput"><input class="groupname" value="{{ form.group.value }}" placeholder="Group" name="groupname" form=""></th>
+                <th class="tdinput"><input class="groupname" value="{{ form.group.value() }}" placeholder="Group" name="groupname" form=""></th>
                 <th colspan="4"></th>
             </tr>
-            {% endifchanged %}
-            {% block category-form %}
+            {% endif %}
+            {% block category_form scoped %}
             <tr draggable="true">
                 <td>={{ form.order }}{{ form.group }}{{ form.id_ptr }}</td>
                 {% if form.instance.pk and form.instance.name == '' %}
@@ -60,12 +60,12 @@
             </tr>
             {% endblock %}
             {% endfor %}
-            {% block new-category %}
+            {% block new_category scoped %}
             <tr class="new_row">
                 <td colspan="6">
                     {{ category_formset.management_form.TOTAL_FORMS }}
-                    {% if category_formset.management_form.TOTAL_FORMS.value < category_formset.management_form.MAX_NUM_FORMS.value %} <button type="button"
-                        hx-get="{% url 'category_form' budget.id category_formset.management_form.TOTAL_FORMS.value %}"
+                    {% if category_formset.management_form.TOTAL_FORMS.value() < category_formset.management_form.MAX_NUM_FORMS.value() %} <button type="button"
+                        hx-get="{{ url('category_form', budget.id, category_formset.management_form.TOTAL_FORMS.value()) }}"
                         hx-include="previous .groupname"
                         hx-target="closest .new_row" hx-swap="outerHTML">New Category</button>
                         {% endif %}
@@ -82,7 +82,7 @@
                 <th>Delete?</th>
             </tr>
             {% for form in account_formset %}
-            {% block account-form %}
+            {% block account_form scoped %}
             <tr>
                 <td></td>
                 <td class="tdinput">{{ form.name }}</td>
@@ -96,12 +96,12 @@
             </tr>
             {% endblock %}
             {% endfor %}
-            {% block new-account %}
+            {% block new_account scoped %}
             <tr class="new_row">
                 <td colspan="6">
                     {{ account_formset.management_form.TOTAL_FORMS }}
-                    {% if account_formset.management_form.TOTAL_FORMS.value < account_formset.management_form.MAX_NUM_FORMS.value %} <button type="button"
-                        hx-get="{% url 'account_form' budget.id account_formset.management_form.TOTAL_FORMS.value %}"
+                    {% if account_formset.management_form.TOTAL_FORMS.value() < account_formset.management_form.MAX_NUM_FORMS.value() %} <button type="button"
+                        hx-get="{{ url('account_form', budget.id, account_formset.management_form.TOTAL_FORMS.value()) }}"
                         hx-target="closest .new_row" hx-swap="outerHTML">New Account</button>
                         {% endif %}
                         &nbsp;
@@ -128,19 +128,19 @@
                 <th>Delete?</th>
             </tr>
             {% for form in currency_formset %}
-            {% block currency-form %}
+            {% block currency_form scoped %}
             <tr>
                 <td class="tdinput">{{ form.currency }}</td>
                 <td>{{ form.id_ptr }}{{ form.DELETE }}</td>
             </tr>
             {% endblock %}
             {% endfor %}
-            {% block new-currency %}
+            {% block new_currency scoped %}
             <tr class="new_row">
                 <td colspan="2">
                     {{ currency_formset.management_form.TOTAL_FORMS }}
-                    {% if currency_formset.management_form.TOTAL_FORMS.value < currency_formset.management_form.MAX_NUM_FORMS.value %} <button type="button"
-                        hx-get="{% url 'currency_form' currency_formset.management_form.TOTAL_FORMS.value %}"
+                    {% if currency_formset.management_form.TOTAL_FORMS.value() < currency_formset.management_form.MAX_NUM_FORMS.value() %} <button type="button"
+                        hx-get="{{ url('currency_form', currency_formset.management_form.TOTAL_FORMS.value()) }}"
                         hx-target="closest .new_row" hx-swap="outerHTML">New Currency</button>
                         {% endif %}
                         &nbsp;
@@ -151,15 +151,15 @@
         {{ currency_formset.management_form.INITIAL_FORMS }}
         {{ currency_formset.management_form.MIN_NUM_FORMS }}
         {{ currency_formset.management_form.MAX_NUM_FORMS }}
-        {% csrf_token %}
+        {{ csrf_input }}
 </form>
 <div>
-    {{ category_formset.errors|default:"" }}
-    {{ category_formset.non_form_errors }}
-    {{ account_formset.errors|default:"" }}
-    {{ account_formset.non_form_errors }}
-    {{ currency_formset.errors|default:"" }}
-    {{ currency_formset.non_form_errors }}
+    {{ category_formset.errors or "" }}
+    {{ category_formset.non_form_errors() }}
+    {{ account_formset.errors or "" }}
+    {{ account_formset.non_form_errors() }}
+    {{ currency_formset.errors or "" }}
+    {{ currency_formset.non_form_errors() }}
 </div>
 </main>
 <datalist id="currencies">

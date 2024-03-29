@@ -1,17 +1,15 @@
-{% load static %}
-
 <!DOCTYPE html>
 
 <head>
-    <title>{{ TODO }}</title>
+    <title></title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="{% static 'budget/style.css' %}">
+    <link rel="stylesheet" href="{{ static('budget/style.css') }}">
     <!--Not deferred to avoid FOUC-->
-    <script src="{% static 'budget/jdecimal.js' %}"></script>
-    <script src="{% static 'budget/util.js' %}"></script>
-    <script src="{% static 'budget/editor.js' %}"></script>
-    <script src="{% static 'budget/budget.js' %}"></script>
-    <script src="{% static 'budget/htmx.min.js' %}" defer></script>
+    <script src="{{ static('budget/jdecimal.js') }}"></script>
+    <script src="{{ static('budget/util.js') }}"></script>
+    <script src="{{ static('budget/editor.js') }}"></script>
+    <script src="{{ static('budget/budget.js') }}"></script>
+    <script src="{{ static('budget/htmx.min.js') }}" defer></script>
 </head>
 
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-ext="event-header" hx-history="false" class="all">
@@ -21,10 +19,10 @@
             {% for account in edit.accounts %}
             <option data-id="{{ account.id }}" data-name="{{ account.name }}" value="👤 {{ account.name }}"></option>
             {% endfor %}
-            {% for id, name in edit.friends.items %}
+            {% for id, name in edit.friends.items() %}
             <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
             {% endfor %}
-            {% for id, name in edit.payees.items %}
+            {% for id, name in edit.payees.items() %}
             <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
             {% endfor %}
         </datalist>
@@ -33,28 +31,28 @@
             {% for category in edit.categories %}
             <option data-id="{{ category.id }}" data-name="{{ category.name }}" value="👤 {{ category.name }}"></option>
             {% endfor %}
-            {% for id, name in edit.friends.items %}
+            {% for id, name in edit.friends.items() %}
             <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
             {% endfor %}
-            {% for id, name in edit.payees.items %}
+            {% for id, name in edit.payees.items() %}
             <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
             {% endfor %}
         </datalist>
-        {{ edit.data|json_script:"data" }}
+        <script id="data" type="application/json">
+            {{ edit.data|tojson|safe }}
+        </script>        
         <script id="data">window.data = JSON.parse(document.getElementById('data').textContent);</script>
     </div>
-    {% spaceless %}
         <div id="transaction" class="editor column">
-            {% if transaction.id %}
+            {%- if transaction.id %}
             {% include 'budget/partials/edit.html' %}
-            {% endif %}
+            {% endif -%}
         </div>
         <div id="account" class="column">
             {% if account %}
             {% include 'budget/partials/account.html' %}
             {% endif %}
         </div>
-    {% endspaceless %}
     <div id="overview" class="column">
         {% include 'budget/partials/overview.html' %}
     </div>

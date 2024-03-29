@@ -1,5 +1,5 @@
 <div class="controls">
-    <a class="backbutton" href="{% url 'all' budget.id account_id %}" hx-get="{% url 'all' budget.id account_id %}" hx-target="#account" hx-select-oob="#transaction">Back</a>
+    <a class="backbutton" href="{{ url('all', budget.id, account_id) }}" hx-get="{{ url('all',budget.id,account_id) }}" hx-target="#account" hx-select-oob="#transaction">Back</a>
     <div class="tools">
         {% if transaction.id and transaction.kind == "T" %}
         <button type="button" hx-delete=""
@@ -32,7 +32,7 @@
                 <tr>
                     <td class="tdinput t6" colspan="2">{{ form.date }}</td>
                 </tr>
-                <tr data-value="{{ form.repeat.value }}">
+                <tr data-value="{{ form.repeat.value() }}">
                     <th class="tdinput" colspan="2">{{ form.repeat }}</th>
                 </tr>
                 <tr class="repeat R">
@@ -45,8 +45,8 @@
             </table>
         </date-repeat>
         {% for part in form.formset %}
-        {% with part_index=forloop.counter0 %}
-        {% block edit-part %}
+        {% set part_index=loop.index0 %}
+        {% block edit_part scoped %}
         <edit-part>
             <hr>
             <table class="edit-table">
@@ -57,7 +57,7 @@
                     <th class="t4">Owed</th>
                 </tr>
                 {% for row in part.formset %}
-                {% block edit-row %}
+                {% block edit_row scoped %}
                 <tr class="edit-row">
                     <td class="tdinput"><account-select data-account>
                         {{ row.account }}<span></span><input list="account-list"
@@ -66,24 +66,24 @@
                     <td class="tdinput"><account-select>
                         {{ row.category }}<span></span><input list="category-list">
                     </account-select></td>
-                    <td class="tdinput"><currency-input currency="{{ part.currency.value }}">
+                    <td class="tdinput"><currency-input currency="{{ part.currency.value() }}">
                         {{ row.transferred }}
                         <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*"
                             {% if row.row.reconciled %}readonly{% endif %}>
                     </currency-input></td>
-                    <td class="tdinput"><currency-input currency="{{ part.currency.value }}">
+                    <td class="tdinput"><currency-input currency="{{ part.currency.value() }}">
                         {{ row.moved }}
                         <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*">
                     </currency-input></td>
                 </tr>
-                {% if not forloop or forloop.last %}
+                {% if not loop or loop.last %}
                 <tr class="new_row" style="text-align:right;">
                     <td colspan="4">
                         {{ part.formset.management_form.TOTAL_FORMS }}
                         &nbsp;
-                        {% if part.formset.management_form.TOTAL_FORMS.value < part.formset.management_form.MAX_NUM_FORMS.value %}
+                        {% if part.formset.management_form.TOTAL_FORMS.value() < part.formset.management_form.MAX_NUM_FORMS.value() %}
                         <button type="button"
-                            hx-get="{% url 'row_form' budget.id part_index part.formset.management_form.TOTAL_FORMS.value %}"
+                            hx-get="{{ url('row_form', budget.id, part_index, part.formset.management_form.TOTAL_FORMS.value()) }}"
                             hx-target="closest .new_row"
                             hx-swap="outerHTML">+</button>
                         {% endif %}
@@ -124,25 +124,25 @@
         {% if not forloop or forloop.last %}
         <div id="new_part">
             {{ form.formset.management_form.TOTAL_FORMS }}
-            {% if form.formset.management_form.TOTAL_FORMS.value < form.formset.management_form.MAX_NUM_FORMS.value %}
+            {% if form.formset.management_form.TOTAL_FORMS.value() < form.formset.management_form.MAX_NUM_FORMS.value() %}
             <button type="button"
-                hx-get="{% url 'part_form' budget.id form.formset.management_form.TOTAL_FORMS.value %}"
+                hx-get="{{ url('part_form', budget.id, form.formset.management_form.TOTAL_FORMS.value()) }}"
                 hx-target="#new_part"
                 hx-swap="outerHTML">Add Part</button>
             {% endif %}
         </div>
         {% endif %}
         {% endblock %}
-        {% endwith %}
         {% endfor %}
         {{ form.formset.management_form.INITIAL_FORMS }}
         {{ form.formset.management_form.MIN_NUM_FORMS }}
         {{ form.formset.management_form.MAX_NUM_FORMS }}
-        {% csrf_token %}
+        {{ csrf_input }}
     </form>
     </transaction-editor>
+    {{ form.formset.non_form_errors() or "" }}
+    
     {% endif %}
 
-    {{ form.errors|default:"" }}
-    {{ form.formset.non_form_errors|default:"" }}
+    {{ form.errors or "" }}
 </div>

@@ -1,1 +1,30 @@
-{% extends "admin/login.html" %}
+<!DOCTYPE html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{{ static('budget/style.css') }}">
+    <script src="{{ static('budget/manage.js') }}" defer></script>
+    <script src="{{ static('budget/htmx.min.js') }}" defer></script>
+</head>
+<body style="width: max-content;">
+<div class="login">
+
+<form action="" method="post" id="login-form">{{ csrf_input }}
+    {{ form.username.errors }}
+    {{ form.username.label_tag() }} {{ form.username }}
+    {{ form.password.errors }}
+    {{ form.password.label_tag() }} {{ form.password }}
+    <input type="hidden" name="next" value="{{ next }}">
+    <input type="submit" value="Log in">
+</form>
+
+{% if form.non_field_errors() %}
+{% for error in form.non_field_errors() %}
+<div class="errornote">
+    {{ error }}
+</div>
+{% endfor %}
+{% endif %}
+
+</div>
+</body>

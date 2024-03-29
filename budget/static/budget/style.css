@@ -49,6 +49,12 @@ body {
     width: max-content;
 }
 
+.login {
+    display: grid;
+    grid: auto-flow / max-content min-content;
+    width: min-content;
+}
+
 #datas {
     display: none;
 }

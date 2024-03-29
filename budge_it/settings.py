@@ -67,8 +67,26 @@ ROOT_URLCONF = 'budge_it.urls'
 
 TEMPLATES: Any = [
     {
+        'BACKEND': 'django.template.backends.jinja2.Jinja2',
+        # This just makes the diff cleaner, we could move these to the normal location.
+        'DIRS': ["budget/templates/"],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'environment': 'budget.jinja2.environment',
+            'trim_blocks': True,
+            'lstrip_blocks': True,
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+                'budget.views.hx',
+            ],
+        },
+    },
+    {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['templates/'],
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -81,6 +99,8 @@ TEMPLATES: Any = [
         },
     },
 ]
+
+FORM_RENDERER = 'django.forms.renderers.Jinja2'
 
 WSGI_APPLICATION = 'budge_it.wsgi.application'
 

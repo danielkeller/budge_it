@@ -1,26 +1,27 @@
-{% load budget %}
-
 <budget-form>
 <table id="table">
     <tr>
         <th>Category</th>
-        <th>{{ form.instance.date|date:"M d" }}</th>
+        <th>{{ form.instance.date.strftime("%b %Y") }}</th>
         <th class="t4">Budgeted</th>
         <th>Spent</th>
-        <th>{{ form.instance.date|end_of_month|date:"M d" }}</th>
+        <th>{{ end_of_month(form.instance.date).strftime("%b %Y") }}</th>
     </tr>
+    {% set rowclass = cycler('a', 'b') %}
+    {% set ns = namespace(lastgroup="") %}
     {% for row in form.rows %}
-    {% ifchanged row.category.group %}
-    <tr class=" {% cycle 'a' 'b' as rowcolor %}">
-        <th>{{row.category.group|default:"&nbsp;"}}</th>
+    {% if row.category.group != ns.lastgroup %}
+    {% set ns.lastgroup = row.category.group %}
+    <tr class="{{ rowclass.next() }}">
+        <th>{{row.category.group or "&nbsp;"}}</th>
         <td></td>
         <td></td>
         <td></td>
         <td></td>
     </tr>
-    {% endifchanged %}
-    <tr class="{% cycle rowcolor %}">
-        <td>{% account_in_budget row.category budget %}</td>
+    {% endif %}
+    <tr class="{{ rowclass.next() }}">
+        <td>{{ row.category.name or 'Inbox' }}</td>
         <td class="number">
             <long-currency currency="{{ row.category.currency }}" value="{{ row.category.balance }}"></long-currency>
         </td>
@@ -46,4 +47,4 @@
 </table>
 </budget-form>
 {{ form.date }}
-{{ form.errors|default:"" }}
+{{ form.errors or "" }}

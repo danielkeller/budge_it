@@ -1,15 +1,14 @@
-{% load l10n %}
 <div class="controls"><div class="tools">
-    <a href="{% url 'manage' budget.id %}">Manage...</a>
-    <a href="{% url 'budget' budget.id today.year today.month %}">Budget...</a>
+    <a href="{{ url('manage', budget.id) }}">Manage...</a>
+    <a href="{{ url('budget', budget.id, today.year, today.month) }}">Budget...</a>
 </div></div>
-{% localize off %}
+{% set checked = account and account.id %}
 <entry-list
     class="scroll"
     name="account"
     {% if not account %}autofocus{% endif %}
     hx-trigger="kbdselect,mouseselect delay:100ms"
-    hx-get="{% url 'all' budget.id %}"
+    hx-get="{{ url('all', budget.id) }}"
     hx-target="#account"
     hx-select-oob="#transaction">
     <table id="categories">
@@ -17,22 +16,25 @@
             <th>Category</th>
             <th class="t5">Balance</th>
         </tr>
+        {% set rowclass = cycler('a', 'b') %}
+        {% set ns = namespace(lastgroup="") %}
         {% for row in categories %}
-        {% ifchanged row.group %}
-        <tr class="{% cycle 'a' 'b' as rowcolor %}">
-            <th colspan="2">{{ row.group|default:"&nbsp;" }}</th>
+        {% if row.group != ns.lastgroup %}
+        {% set ns.lastgroup = row.group %}
+        <tr class="{{ rowclass.next() }}">
+            <th colspan="2">{{ row.group or "&nbsp;" }}</th>
         </tr>
-        {% endifchanged %}
-        <tr class="{% cycle rowcolor %} {% if row.id == account.id %}checked{% endif %}"
+        {% endif %}
+        <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}"
         data-value="{{row.id}}">
-            <td>{{ row.name|default:"Inbox" }}</td>
+            <td>{{ row.name or "Inbox" }}</td>
             <td class="number">
-                <long-currency currency="{{ row.currency }}" value="{{ row.balance | default:0 }}"></long-currency>
+                <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency>
             </td>
         </tr>
         {% endfor %}
         {% for row in totals %}
-        <tr class="{% cycle rowcolor %} {% if row.id == account.id %}checked{% endif %}" data-value="{{ row.id }}">
+        <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
             <td>Total</td>
             <td class="number">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance }}"></long-currency>
@@ -45,13 +47,13 @@
             <th class="t5">Balance</th>
         </tr>
         {% for row in accounts %}
-        <tr class="{% cycle 'a' 'b' as rowcolor %} {% if row.id == account.id %}checked{% endif %}" data-value="{{row.id}}">
-            <td>{{ row.name|default:"Inbox" }}</td>
-            <td class="number"> <long-currency currency="{{ row.currency }}" value="{{ row.balance | default:0 }}"></long-currency></td>
+        <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
+            <td>{{ row.name or "Inbox" }}</td>
+            <td class="number"> <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency></td>
         </tr>
         {% endfor %}
         {% for row in debts %}
-        <tr class="{% cycle rowcolor %} {% if row.id == account.id %}checked{% endif %}" data-value="{{ row.id }}">
+        <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
             <td>Owed by {{ row.other }}</td>
             <td class="number">
                 <long-currency currency="{{ row.currency }}" value="{{ row.other.balance }}"></long-currency>
@@ -59,7 +61,7 @@
         </tr>
         {% endfor %}
         {% for row in totals %}
-        <tr class="{% cycle rowcolor %}" data-value="{{ row.id }}">
+        <tr class="{{ rowclass.next() }}" data-value="{{ row.id }}">
             <td>Total</td>
             <td class="number">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance }}"></long-currency>
@@ -73,4 +75,3 @@
         </tr>
     </template>
 </entry-list>
-{% endlocalize %}
