@@ -59,7 +59,7 @@
             {% if row.recurrence %}🔁{% endif %}
         </span>
 
-        <span class="td ellipsis">{{row|transaction_description:account}}</span>
+        <span class="td ellipsis">{{row.description}}</span>
 
         <short-currency class="td number" value="{{row.change}}" currency="{{account.currency}}"></short-currency>
 

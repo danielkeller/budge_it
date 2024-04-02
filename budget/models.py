@@ -11,16 +11,38 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
 from django import forms
 from django.db.transaction import atomic
-from django.db.models import (Q, F, Prefetch, Subquery, OuterRef, Value,
-                              Min, Max, Sum, Exists, FilteredRelation,
-                              prefetch_related_objects)
-from django.db.models.functions import Coalesce
+from django.db.models import (Q, F, Prefetch, Subquery, OuterRef, Value, Case, When,
+                              Min, Max, Sum, Exists, FilteredRelation, expressions,
+                              prefetch_related_objects, aggregates)
+from django.db.models.functions import Coalesce, NullIf
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
 from .algorithms import sum_by, reroot, double_entrify_by, Debts
 from . import recurrence
 from .recurrence import RRule
+
+
+class JsonArray(expressions.Func):
+    output_field = models.JSONField()  # type: ignore
+
+    def as_sqlite(self, *args, **kwargs):
+        return super().as_sql(*args, function='JSON_ARRAY', **kwargs)
+
+    def as_postgresql(self, *args, **kwargs):
+        return super().as_sql(*args, function='JSONB_BUILD_ARRAY', **kwargs)
+
+
+class JsonAgg(aggregates.Aggregate):
+    # function = 'JSON_GROUP_ARRAY'
+    allow_distinct = True
+    output_field = models.JSONField()  # type: ignore
+
+    def as_sqlite(self, *args, **kwargs):
+        return super().as_sql(*args, function='JSON_GROUP_ARRAY', **kwargs)
+
+    def as_postgresql(self, *args, **kwargs):
+        return super().as_sql(*args, function='JSONB_AGG', **kwargs)
 
 
 class Id(models.Model):
@@ -200,30 +222,35 @@ class BaseAccount(Id):
             inbox = self.budget.get_inbox(type(self), self.currency).id
         else:
             inbox = None
+
         qs = (Transaction.objects
-              .filter_for(self.budget)
               .filter(Q(**{field: self}) |
                       (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
               .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
               .annotate(cleared_self=FilteredRelation('cleared',
                                                       condition=Q(cleared__account_id=self.id)),
                         reconciled=F('cleared_self__reconciled'))
+              .fetch_contents()
               .order_by('date', '-kind', 'id'))
+
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
+
+        populate_description(qs, self)
+
         balance, cleared = 0, 0
         for transaction in qs:
-            if getattr(transaction, 'account') == inbox:
-                setattr(transaction, 'is_inbox', True)
+            if transaction.account == inbox:
+                transaction.is_inbox = True
             elif self.clearable and transaction.reconciled is None:
-                setattr(transaction, 'uncleared', True)
+                transaction.uncleared = True
             else:
-                cleared += getattr(transaction, 'change')
-                setattr(transaction, 'running_sum', cleared)
+                cleared += transaction.change
+                transaction.running_sum = cleared
             if transaction.date and transaction.date > date.today():
-                setattr(transaction, 'is_future', True)
+                transaction.is_future = True
             elif not hasattr(transaction, 'is_inbox'):
-                balance += getattr(transaction, 'change')
+                balance += transaction.change
         return list(reversed(qs)), balance, cleared
 
 
@@ -299,19 +326,22 @@ class Balance:
                     .values('part__transaction')
                     .values_list('part__transaction', Sum('amount')))
         qs = (Transaction.objects
-              .filter_for(self.budget)
               .filter(id__in=gets.keys() | has.keys())
+              .fetch_contents()
               .order_by('date', '-kind', 'id'))
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
+        populate_description(qs, self)
         total, balance = 0, 0
         for transaction in qs:
             change = gets.get(transaction.id, 0) - has.get(transaction.id, 0)
             total += change
-            setattr(transaction, 'change', change)
-            setattr(transaction, 'running_sum', total)
-            if transaction.date and transaction.date <= date.today():
-                balance += getattr(transaction, 'change')
+            transaction.change = change
+            transaction.running_sum = total
+            if transaction.date and transaction.date > date.today():
+                transaction.is_future = True
+            else:
+                balance += transaction.change
         return list(reversed(qs)), balance, 0
 
 
@@ -334,24 +364,30 @@ class Total:
     def transactions(self) -> tuple[Iterable['Transaction'], int, int]:
         # TODO: Do we want to include budgets and transfers here?
         qs = (Transaction.objects
-              .filter_for(self.budget)
               .filter(parts__categories__currency=self.currency,
                       parts__categories__budget=self.budget)
               .annotate(change=Sum('parts__categoryentry_set__amount'))
               .exclude(change=0)
+              .fetch_contents()
               .order_by('date', '-kind', 'id'))
+
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
+
+        populate_description(qs, self)
+
         total, balance = 0, 0
         for transaction in qs:
-            total += getattr(transaction, 'change')
-            setattr(transaction, 'running_sum', total)
-            if transaction.date and transaction.date <= date.today():
-                balance += getattr(transaction, 'change')
+            total += transaction.change
+            transaction.running_sum = total
+            if transaction.date and transaction.date > date.today():
+                transaction.is_future = True
+            else:
+                balance += transaction.change
         return list(reversed(qs)), balance, 0
 
 
-AccountLike = Account | Category | Total | Balance
+AccountLike = BaseAccount | Account | Category | Total | Balance
 
 
 def group_by_currency(amounts: dict[AccountT, int]):
@@ -407,10 +443,34 @@ def double_entrify(in_budget: Budget, type: Type[AccountT],
     return entries
 
 
-class TransactionManager(models.Manager['Transaction']):
+class TransactionQuerySet(models.QuerySet['Transaction']):
+    def fetch_contents(self):
+        """Annotate with notes and account ids using a subquery."""
+        def accounts(type: Type[BaseAccount]):
+            return Subquery(
+                type.objects
+                .filter(entries__part=OuterRef('pk'))
+                .values('entries__part')
+                .annotate(json=JsonAgg(JsonArray(
+                    Case(When(entries__source__name='',
+                         then='entries__source__budget_id'), default='entries__source_id'),
+                    Case(When(name='', then='budget_id'), default='id'),
+                    'entries__amount')))
+                .values('json'))
+        contents = (
+            TransactionPart.objects
+            .filter(transaction__kind=Transaction.Kind.TRANSACTION, transaction=OuterRef('pk'))
+            .values('transaction')
+            .annotate(json=JsonAgg(JsonArray('note', accounts(Account), accounts(Category))))
+            .values('json'))
+        return self.annotate(contents=contents)
+
+    # TODO: Remove filter_for and get_for. Also the filtering is wrong, it shows parts
+    # that go between friends where the current budget isn't involved.
+
     # This could possibly be done with a proxy model, which would allow eg
     # related managers to tell which budget we're looking through.
-    def filter_for(self, budget: Budget):
+    def _filter_for(self, budget: Budget):
         """Adjust and prefetch the entries of this transaction to ones visible to
         'budget'."""
         accountentry_set = AccountEntry.objects.filter_for(budget)
@@ -430,12 +490,43 @@ class TransactionManager(models.Manager['Transaction']):
 
     def get_for(self, budget: Budget, id: int):
         try:
-            value = self.filter_for(budget).get(id=id)
+            value = self._filter_for(budget).get(id=id)
         except self.model.DoesNotExist:
             return None
         if all(part.empty() for part in value.parts.all()):
             return None
         return value
+
+
+def populate_description(transactions: Iterable['Transaction'], account: AccountLike):
+    local_names = dict(account.budget.account_set.values_list('id', 'name')
+                       .union(account.budget.category_set.values_list('id', 'name'), all=True))
+    local_names[account.budget.id] = 'Inbox'
+    other_names = dict(account.budget.budget_of.payee_set.values_list('id', 'name')
+                       .union(account.budget.friends.values_list('id', 'name'), all=True))
+
+    here = {account.id} if isinstance(account, BaseAccount) else set()
+
+    def visible(entries: list[tuple[int, int, int]] | None):
+        sums = sum_by((sink, amount)
+                      for source, sink, amount in entries or []
+                      if source in local_names or sink in local_names)
+        return (id for id, amount in sums.items() if amount)
+
+    def names(note: str, accounts: list[tuple[int, int, int]], categories: list[tuple[int, int, int]]):
+        ids = set(chain(visible(accounts), visible(categories))) - here
+        if ids and note:
+            return note
+        return ', '.join(local_names.get(id, other_names.get(id))
+                         for id in ids
+                         if id in local_names or id in other_names)
+
+    for transaction in transactions:
+        if transaction.contents:
+            iter = (names(*part) for part in transaction.contents)
+            transaction.description = '; '.join(iter)
+        else:
+            transaction.description = 'Budget'
 
 
 TYPE_CHECKING = False
@@ -501,11 +592,20 @@ class Transaction(models.Model):
     parts: 'models.Manager[TransactionPart]'
     cleared: 'models.Manager[Cleared]'
 
-    objects: ClassVar[TransactionManager] = TransactionManager()
+    objects: ClassVar[TransactionQuerySet]
+    objects = models.manager.BaseManager.from_queryset(
+        TransactionQuerySet)()  # type: ignore
 
+    account: BaseAccount
+    is_inbox: bool
+    is_future: bool
     reconciled: bool | None
+    uncleared: bool
+    description: str
     change: int
-    running_sum: int  # TODO this is gross, put in view logic
+    running_sum: int
+    contents: list[tuple[str, list[tuple[int, int, int]],
+                         list[tuple[int, int, int]]]]
 
     def __str__(self):
         return str(self.date)
