@@ -9,3 +9,5 @@ pyvenv.cfg
 *.sqlite3-shm
 *.DS_Store
 htmx.js
+prof.log
+prof.html

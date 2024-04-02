@@ -14,6 +14,6 @@ class Command(BaseCommand):
         request = HttpRequest()
         request.user = User.objects.get(username='admin')
         request.method = 'GET'
-        request.META['HX-Target'] = 'account'
-        for _ in range(10):
-            views.all(request, 72, 121)
+        request.META['HTTP_HX-Target'] = 'account'
+        for _ in range(20):
+            views.all(request, 72, 117)
