@@ -263,10 +263,10 @@ class TransactionForm(FormSetInline[PartFormSet]):
 
     @transaction.atomic
     def save(self, commit: bool = True):
-        instance = super().save(commit)
+        instance: Transaction = super().save(commit)
         self.formset.instance = instance
-        children = self.formset.save()
-        if all(not part or not part.pk for part in children):
+        self.formset.save()
+        if not instance.parts.exists():
             instance.delete()
         return instance
 
