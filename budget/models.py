@@ -590,12 +590,14 @@ class Transaction(models.Model):
         if not self.recurrence or not self.date or self.date > today:
             return False
         with atomic():
+            # 'self' is probably filtered, reload it
+            full = Transaction.objects.get(id=self.id)
             for copy in self.recurrence.iterate(self.date):
                 if copy <= today:
-                    self.copy_to(copy)
+                    full.copy_to(copy)
                 else:
-                    self.date = copy
-                    self.save()
+                    full.date = copy
+                    full.save()
                     return True
         raise RuntimeError("unreachable")
 
