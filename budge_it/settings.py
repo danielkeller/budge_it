@@ -100,7 +100,7 @@ TEMPLATES: Any = [
     },
 ]
 
-FORM_RENDERER = 'django.forms.renderers.Jinja2'
+FORM_RENDERER = 'django.forms.renderers.DjangoTemplates'
 
 WSGI_APPLICATION = 'budge_it.wsgi.application'
 
