@@ -87,7 +87,7 @@
                 Move here</button>
         </span>
         {% else %}
-        <short-currency class="td number" value="{{row.running_sum}}" currency="{{ account.currency }}" id="total-{{row.id}}"></short-currency>
+        <short-currency class="td number" value="{{row.running_sum or ''}}" currency="{{ account.currency }}" id="total-{{row.id}}"></short-currency>
         {% endif %}
     </div>
 {% endfor %}
