@@ -465,6 +465,11 @@ transaction-editor {
     text-align: right;
 }
 
+short-currency,
+long-currency {
+    white-space: nowrap;
+}
+
 .edit-table {
     position: relative;
 }
