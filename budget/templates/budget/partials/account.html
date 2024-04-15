@@ -6,7 +6,7 @@
         {% if account.clearable %}
         <div>
             <button hx-post="{{ url('reconcile', account.id) }}" hx-swap="none" hx-target="this"
-            hx-select-oob="#transaction,#entries:innerHTML,#categories"
+            hx-select-oob="#transaction,#entries,#categories"
             >Reconcile</button> balance of
             <long-currency id="cleared-balance" currency="{{ account.currency }}" value="{{ cleared }}"></long-currency>
         </div>
@@ -32,7 +32,7 @@
         <span class="th">Total</span>
     </div>
     {% if quick_add %}
-    <form hx-put="{{ url('all', budget.id, account.id) }}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#balance,#cleared-balance">
+    <form hx-put="{{ url('all', budget.id, account.id) }}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance">
         <span class="td tdinput">{{ quick_add.date }}</span>
         <span class="td tdinput">{{ quick_add.note }}</span>
         <currency-input class="td tdinput" currency="{{ account.currency }}">
@@ -71,7 +71,7 @@
             <input type="checkbox"
                 name="clear"
                 hx-post="{{ url('clear', account.id, row.id) }}"
-                hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#balance,#cleared-balance"
+                hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance"
                 hx-target="this"
                 {% if not row.uncleared %}checked{% endif %}>
             {% endif %}
@@ -82,7 +82,7 @@
         {% if row.is_inbox %}
         <span class="td">
             <button hx-post="{{ url('add_to_account', account.id, row.id) }}"
-                hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#balance,#cleared-balance"
+                hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance"
                 hx-target="this">
                 Move here</button>
         </span>

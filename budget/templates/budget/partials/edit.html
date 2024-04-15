@@ -3,7 +3,7 @@
     <div class="tools">
         {% if transaction.id and transaction.kind == "T" %}
         <button type="button" hx-delete=""
-            hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#datas"
+            hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas"
 	    hx-confirm="Delete this transaction?">
             Delete Transaction</button>
         {% endif %}
@@ -16,14 +16,14 @@
     {% if transaction.kind == 'B' %}
     <form id="form" autocomplete="off"
         hx-post=""
-        hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#datas">
+        hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
     {% include 'budget/partials/budget.html' %}
     </form>
     {% else %}
     <transaction-editor>
     <form id="form" autocomplete="off"
         hx-post=""
-        hx-swap="none" hx-select-oob="#transaction,#entries:innerHTML,#categories,#datas">
+        hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
         <date-repeat class="part-extras">
             <table class="date-table">
                 <tr>
