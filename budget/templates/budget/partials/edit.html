@@ -68,12 +68,11 @@
                     </account-select></td>
                     <td class="tdinput"><currency-input currency="{{ part.currency.value() }}">
                         {{ row.transferred }}
-                        <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*"
-                            {% if row.row.reconciled %}readonly{% endif %}>
+                        <input class="number" {% if row.row.reconciled %}readonly{% endif %}>
                     </currency-input></td>
                     <td class="tdinput"><currency-input currency="{{ part.currency.value() }}">
                         {{ row.moved }}
-                        <input class="number" pattern="\s*-?\d+(?:\.\d*)?\s*">
+                        <input class="number">
                     </currency-input></td>
                 </tr>
                 {% if not loop or loop.last %}

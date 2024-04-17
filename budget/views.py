@@ -232,6 +232,7 @@ def save(request: HttpRequest, budget: Budget, transaction_id: str | int | None)
         form = TransactionForm(budget, prefix="tx",
                                instance=transaction, data=request.POST)
         if not form.is_valid():
+            # This doesn't work.
             raise ValueError(form.errors, form.formset.non_form_errors())
     saved = form.save()
     if saved.id:

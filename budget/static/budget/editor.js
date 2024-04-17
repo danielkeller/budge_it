@@ -138,8 +138,15 @@ class CurrencyInput extends HTMLElement {
     }
     #oninput() {
         accept(this);
-        this.#hidden.value = this.input.value
-            && parseCurrency(this.input.value, this.currency);
+        this.input.setCustomValidity('');
+        if (this.input.value) {
+            let parsed = parseCurrency(this.input.value, this.currency);
+            if (isNaN(parsed))
+                this.input.setCustomValidity("Not a valid number");
+            this.#hidden.value = parsed;
+        } else {
+            this.#hidden.value = '';
+        }
         this.dispatchEvent(new CustomEvent('currency-input', { bubbles: true }));
     }
 }
