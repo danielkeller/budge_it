@@ -34,7 +34,7 @@ html {
 
 body {
     margin: 0 auto;
-    height: 100vh;
+    height: 100dvh;
     overflow: hidden;
     padding: var(--line-height);
 }
