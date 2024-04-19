@@ -12,7 +12,7 @@ from django.db import models
 from django import forms
 from django.db.transaction import atomic
 from django.db.models import (Q, F, Prefetch, Subquery, OuterRef, Value, Case, When,
-                              Min, Max, Sum, Exists, FilteredRelation, expressions,
+                              Min, Max, Sum, Count, Exists, FilteredRelation, expressions,
                               prefetch_related_objects, aggregates)
 from django.db.models.functions import Coalesce, NullIf
 from django.urls import reverse
@@ -124,9 +124,9 @@ class Budget(Id):
     @functools.cached_property
     def currencies(self) -> Iterable[str]:
         return (self.category_set
-                .filter(name='', closed=False)
+                .filter(name='')
                 .values_list('currency', flat=True)
-                .distinct())
+                .order_by('order'))
 
     def get_initial_currency(self):
         if self.initial_currency:
@@ -920,6 +920,7 @@ def accounts_overview(budget: Budget):
                   .filter(budget=budget)
                   .annotate(balance=sum_entries)
                   .exclude(closed=True, balance=0)
+                  .exclude(name='', balance=0)
                   .order_by('order', 'group', 'name')
                   .select_related('budget'))
     currencies = {*budget.account_set.values_list('currency').distinct(),
