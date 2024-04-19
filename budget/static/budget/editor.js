@@ -14,19 +14,27 @@ class Editor extends HTMLElement {
         });
         this.addEventListener('currency-input', suggestAmounts);
         this.addEventListener('focusout', suggestAmounts);
+        this.addEventListener('htmx:afterSwap', () => this.disableAmounts());
         setTimeout(() => {
+            this.disableAmounts();
             for (const part of this.parts) {
                 for (let { account, category, moved, transferred } of part.rows) {
                     if (category.value === account.value && category.value != data.budget)
                         category.input.classList.add('suggested');
-                    transferred.input.disabled = !account.value;
-                    moved.input.disabled = !category.value;
                 }
             }
         }, 0);
         setTimeout(checkValid, 0);
     }
     get parts() { return this.querySelectorAll('edit-part'); }
+    disableAmounts() {
+        for (const part of this.parts) {
+            for (let { account, category, moved, transferred } of part.rows) {
+                transferred.input.disabled = !account.value;
+                moved.input.disabled = !category.value;
+            }
+        }
+    }
 }
 customElements.define("transaction-editor", Editor);
 
