@@ -1,6 +1,6 @@
 from collections import defaultdict
 from typing import (Optional, Iterable, TypeVar, Type, Union, Generic,
-                    Any, ClassVar)
+                    Any, ClassVar, Literal)
 import functools
 from itertools import chain, islice
 from datetime import date, timedelta
@@ -244,6 +244,7 @@ class BaseAccount(Id):
                 transaction.is_inbox = True
             elif self.clearable and transaction.reconciled is None:
                 transaction.uncleared = True
+                transaction.running_sum = ''
             else:
                 cleared += transaction.change
                 transaction.running_sum = cleared
@@ -603,7 +604,7 @@ class Transaction(models.Model):
     uncleared: bool
     description: str
     change: int
-    running_sum: int
+    running_sum: int | Literal['']
     contents: list[tuple[str, list[tuple[int, int, int]],
                          list[tuple[int, int, int]]]]
 
