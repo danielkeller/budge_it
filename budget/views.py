@@ -36,14 +36,6 @@ def profileit(func: Any):
     return wrapper
 
 
-def hx(request: HttpRequest):
-    # This might not be neccesary, I think django already replaces underscores with hyphens
-    class HX:
-        def __getitem__(self, key: str):
-            return request.headers['HX-' + key.replace('_', '-')]
-    return {'hx': HX()}
-
-
 def post_data(get_response: Callable[[HttpRequest], HttpResponse]):
     def middleware(request: HttpRequest):
         if not request.POST and request.content_type == "application/x-www-form-urlencoded":
