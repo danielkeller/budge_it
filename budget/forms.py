@@ -481,7 +481,7 @@ class QuickAddForm(forms.Form):
                                            coerce=_get_budget,
                                            widget=forms.CheckboxSelectMultiple)
 
-    def __init__(self, account: AccountLike, *args: Any, **kwargs: Any):
+    def __init__(self, account: AccountLike, *args: Any, autofocus: bool = False, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.account = account
         budget = account.budget
@@ -502,6 +502,8 @@ class QuickAddForm(forms.Form):
         self.fields['split'].choices = choices
         self.fields['split'].initial = initial_split
         self.fields['is_split'].initial = bool(initial_split)
+        if autofocus:
+            self.fields['date'].widget.attrs['autofocus'] = ''
 
     @transaction.atomic
     def save(self):

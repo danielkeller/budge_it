@@ -100,7 +100,6 @@ def all(request: HttpRequest, budget_id: int,
     account_id = account_id or request.GET.get('account')
     transaction_id = transaction_id or request.GET.get('transaction')
 
-    budget = _get_allowed_budget_or_404(request, budget_id)
     if request.method == 'PUT':
         # A bit of a hack to use the method like this. TODO: Use update_all_view approach.
         transaction_id = quick_save(request, budget, account_id)
@@ -158,26 +157,36 @@ def update_all_view(request: HttpRequest, budget: Budget):
 def all_view(request: HttpRequest, budget: Budget,
              account_id: str | int | None = None,
              transaction_id: str | int | None = None):
+    prev_args = None
+    if 'HX-Current-URL' in request.headers:
+        prev_args = resolve(
+            urlparse(request.headers['HX-Current-URL']).path).kwargs
+
     def fix_url(response: HttpResponse):
         action = 'HX-Replace-Url'
-        if 'HX-Current-URL' in request.headers:
-            # Changing level?
-            previous = resolve(
-                urlparse(request.headers['HX-Current-URL']).path)
-            if (bool(account_id) != ('account_id' in previous.kwargs)
-                    or bool(transaction_id) != ('transaction_id' in previous.kwargs)):
-                action = 'HX-Push-Url'
+        # Changing level?
+        if prev_args and (bool(account_id) != ('account_id' in prev_args)
+                          or bool(transaction_id) != ('transaction_id' in prev_args)):
+            action = 'HX-Push-Url'
         response[action] = reverse(
             'all', args=[arg for arg in (
                 budget.id, account_id, transaction_id) if arg])
         return response
 
     transaction = _get_allowed_transaction_or_404(budget, transaction_id)
+
+    prev_transaction = None
+    if not transaction and prev_args and 'transaction_id' in prev_args:
+        prev_transaction = _get_allowed_transaction_or_404(
+            budget, prev_args['transaction_id'])
+
     # I think the prefix isn't needed
     if transaction and transaction.kind == Transaction.Kind.BUDGETING:
         form = BudgetingForm(budget, prefix="tx", instance=transaction)
     else:
-        form = TransactionForm(budget, prefix="tx", instance=transaction)
+        initial = {'date': prev_transaction.date} if prev_transaction else {}
+        form = TransactionForm(budget, prefix="tx",
+                               instance=transaction, initial=initial)
 
     context = {'budget': budget, 'account_id': account_id,
                'transaction': transaction, 'form': form}
@@ -188,7 +197,9 @@ def all_view(request: HttpRequest, budget: Budget,
     if account_id:
         account = _get_account_like_or_404(request, budget, account_id)
         entries, balance, cleared = account.transactions()
-        quick_add = QuickAddForm(account, prefix="qa")
+        initial = {'date': transaction.date} if transaction else {}
+        quick_add = QuickAddForm(account, initial=initial, prefix="qa",
+                                 autofocus=request.method == 'PUT')
         context |= {'account': account, 'entries': entries,
                     'balance': balance, 'cleared': cleared,
                     'quick_add': quick_add}

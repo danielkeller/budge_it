@@ -18,7 +18,7 @@
     </div>
 </div>
 <entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
-    {% if request.headers.hx_event != 'kbdselect' %}autofocus{% endif %}
+    {% if request.headers.hx_target == 'account' and request.headers.hx_event != 'kbdselect' %}autofocus{% endif %}
     name="transaction"
     hx-trigger="kbdselect,mouseselect delay:100ms"
     hx-get="{{ url('all', budget.id, account.id) }}"
