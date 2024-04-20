@@ -905,6 +905,19 @@ def months_between(start: date, end: date):
 # Some of these could be methods
 
 
+def groups_for(categories: Iterable[Category]) -> dict[Category, dict[str, list[int]]]:
+    groups = {}
+    prev_group = None
+    for category in categories:
+        if not prev_group or prev_group.group != category.group:
+            groups[category] = defaultdict(list)
+            groups[category][category.currency] = [category.balance]
+            prev_group = category
+        else:
+            groups[prev_group][category.currency].append(category.balance)
+    return groups
+
+
 def accounts_overview(budget: Budget):
     # TODO: Return totals and debts using the corresponding objects
     past = Q(entries__part__transaction__date__lte=date.today())
@@ -925,6 +938,8 @@ def accounts_overview(budget: Budget):
                   .select_related('budget'))
     currencies = {*budget.account_set.values_list('currency').distinct(),
                   *budget.category_set.values_list('currency').distinct()}
+
+    groups = groups_for(categories)
 
     past = Q(part__transaction__date__lte=date.today())
     sum_amount = Sum('amount', filter=past, default=0)
@@ -951,7 +966,7 @@ def accounts_overview(budget: Budget):
               for currency, total
               in sum_by((category.currency, category.balance)
                         for category in categories).items()]
-    return (accounts, categories, debts, totals)
+    return (accounts, categories, groups, debts, totals)
 
 
 def category_balance(budget: Budget, start: date):

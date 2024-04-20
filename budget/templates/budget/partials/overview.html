@@ -17,12 +17,16 @@
             <th class="t5">Balance</th>
         </tr>
         {% set rowclass = cycler('a', 'b') %}
-        {% set ns = namespace(lastgroup="") %}
         {% for row in categories %}
-        {% if row.group != ns.lastgroup %}
-        {% set ns.lastgroup = row.group %}
+        {% if row in groups %}
         <tr class="{{ rowclass.next() }}">
-            <th colspan="2">{{ row.group or "&nbsp;" }}</th>
+            <th>{{ row.group or "&nbsp;" }}</th>
+            <th class="number">
+                {% for currency, amounts in groups[row].items() if amounts|length > 1%}
+                <long-currency currency="{{ currency }}" value="{{ amounts|sum }}"></long-currency>
+                {% if not loop.last %}<br>{% endif %}
+                {% endfor %}
+            </th>
         </tr>
         {% endif %}
         <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}"
@@ -30,14 +34,6 @@
             <td>{{ row.name or "Inbox" }}</td>
             <td class="number">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency>
-            </td>
-        </tr>
-        {% endfor %}
-        {% for row in totals %}
-        <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
-            <td>Total</td>
-            <td class="number">
-                <long-currency currency="{{ row.currency }}" value="{{ row.balance }}"></long-currency>
             </td>
         </tr>
         {% endfor %}
@@ -60,8 +56,13 @@
             </td>
         </tr>
         {% endfor %}
+        <tr><th colspan="2">&nbsp;</th></tr>
+        <tr>
+            <th>Total</th>
+            <th class="t5">Balance</th>
+        </tr>
         {% for row in totals %}
-        <tr class="{{ rowclass.next() }}" data-value="{{ row.id }}">
+        <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
             <td>Total</td>
             <td class="number">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance }}"></long-currency>

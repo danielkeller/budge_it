@@ -196,9 +196,9 @@ def all_view(request: HttpRequest, budget: Budget,
     if request.headers.get('HX-Target') == 'account':
         return fix_url(render(request, 'budget/partials/account.html', context))
 
-    accounts, categories, debts, totals = accounts_overview(budget)
+    accounts, categories, groups, debts, totals = accounts_overview(budget)
     context |= {'accounts': accounts, 'categories': categories,
-                'debts': debts, 'totals': totals,
+                'groups': groups, 'debts': debts, 'totals': totals,
                 'today': date.today(),
                 'edit': _edit_context(budget)}
 
