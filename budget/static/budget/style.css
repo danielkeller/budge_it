@@ -125,6 +125,7 @@ body {
 edit-part {
     display: flex;
     flex-direction: column;
+    width: min-content;
 }
 
 form {
@@ -206,7 +207,7 @@ th {
     /* Make each table row take exactly one line */
     --td-line-height: calc(var(--line-height) - var(--td-border));
     line-height: var(--td-line-height);
-    width: var(--cell-width);
+    min-width: var(--cell-width);
     outline: var(--td-border) solid var(--line);
     padding: 0 var(--td-hpad);
 }
