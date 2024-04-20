@@ -45,18 +45,14 @@
         <script id="data" type="application/json">
             {{ edit.data|tojson|safe }}
         </script>        
-        <script id="data">window.data = JSON.parse(document.getElementById('data').textContent);</script>
+        <script>window.data = JSON.parse(document.getElementById('data').textContent);</script>
     </div>
-        <div id="transaction" class="editor column">
-            {%- if transaction.id %}
-            {% include 'budget/partials/edit.html' %}
-            {% endif -%}
-        </div>
-        <div id="account" class="column">
-            {%- if account %}
-            {% include 'budget/partials/account.html' %}
-            {% endif -%}
-        </div>
+    <div id="transaction" class="editor column">
+        {% include 'budget/partials/edit.html' %}
+    </div>
+    <div id="account" class="column">
+        {% include 'budget/partials/account.html' %}
+    </div>
     <div id="overview" class="column">
         {% include 'budget/partials/overview.html' %}
     </div>

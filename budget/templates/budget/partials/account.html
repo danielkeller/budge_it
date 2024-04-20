@@ -1,3 +1,4 @@
+{%- if account %}
 <title>{{ account.name or "Inbox" }} -  Budge It</title>
 <div class="controls">
     <div><b>{{ account.name or "Inbox" }}</b>:
@@ -13,7 +14,9 @@
         </div>
         {% endif %}
         <button type="button"
-            hx-on:click="document.querySelector('entry-list.transactions').select(null)">
+            hx-get="{{ url('all', budget.id, account.id, 'new') }}"
+            hx-target="#transaction"
+            hx-on:click="document.querySelector('entry-list.transactions').checked = null">
             New Transaction</button>
     </div>
 </div>
@@ -97,4 +100,6 @@
 {% endblock %}
 </div>
 </entry-list>
+{% endif -%}
+
 {% if request.headers.hx_target == 'account' %}<div id="transaction" class="editor column"></div>{% endif %}

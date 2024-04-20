@@ -10,7 +10,7 @@ urlpatterns = [
     # Real pages
     path('<int:budget_id>/', views.all, name='all'),
     path('<int:budget_id>/<account_id>/', views.all, name='all'),
-    path('<int:budget_id>/<account_id>/<int:transaction_id>/',
+    path('<int:budget_id>/<account_id>/<transaction_id>/',
          views.all, name='all'),
 
     path('manage/<int:budget_id>/', views.manage_accounts, name='manage'),

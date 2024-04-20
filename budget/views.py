@@ -83,7 +83,7 @@ def _get_account_like_or_404(request: HttpRequest, budget: Budget,
 
 def _get_allowed_transaction_or_404(budget: Budget,
                                     transaction_id: int | str | None):
-    if not transaction_id:
+    if not transaction_id or transaction_id == 'new':
         return None
     budget = budget.main_budget()
     transaction = Transaction.objects.get_for(budget, int(transaction_id))
@@ -188,7 +188,7 @@ def all_view(request: HttpRequest, budget: Budget,
         form = TransactionForm(budget, prefix="tx",
                                instance=transaction, initial=initial)
 
-    context = {'budget': budget, 'account_id': account_id,
+    context = {'budget': budget, 'account_id': account_id, 'transaction_id': transaction_id,
                'transaction': transaction, 'form': form}
 
     if request.headers.get('HX-Target') == 'transaction':

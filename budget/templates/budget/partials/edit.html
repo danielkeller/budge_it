@@ -1,3 +1,4 @@
+{%- if transaction_id %}
 <div class="controls">
     <a class="backbutton" href="{{ url('all', budget.id, account_id) }}" hx-get="{{ url('all',budget.id,account_id) }}" hx-target="#account" hx-select-oob="#transaction">Back</a>
     <div class="tools">
@@ -145,3 +146,4 @@
 
     {{ form.errors or "" }}
 </div>
+{% endif -%}
