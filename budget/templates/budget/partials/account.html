@@ -83,6 +83,8 @@
         {% if row.is_inbox %}
         <span class="td">
             <button hx-post="{{ url('add_to_account', account.id, row.id) }}"
+                class="move-here"
+                hx-sync=".move-here:replace"
                 hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance"
                 hx-target="this">
                 Move here</button>
