@@ -161,10 +161,11 @@ def all_view(request: HttpRequest, budget: Budget,
     def fix_url(response: HttpResponse):
         action = 'HX-Replace-Url'
         if 'HX-Current-URL' in request.headers:
-            # Going deeper?
-            params = resolve(urlparse(request.headers['HX-Current-URL']).path)
-            if (account_id and 'account_id' not in params.kwargs
-                    or transaction_id and 'transaction_id' not in params.kwargs):
+            # Changing level?
+            previous = resolve(
+                urlparse(request.headers['HX-Current-URL']).path)
+            if (bool(account_id) != ('account_id' in previous.kwargs)
+                    or bool(transaction_id) != ('transaction_id' in previous.kwargs)):
                 action = 'HX-Push-Url'
         response[action] = reverse(
             'all', args=[arg for arg in (
