@@ -289,6 +289,10 @@ entry-list .is_future>* {
     grid: auto-flow / max-content 1fr max-content max-content;
 }
 
+.grid.c2 {
+    grid: auto-flow / max-content max-content;
+}
+
 .c5 .disclosure+label {
     grid-column: span 2;
 }
@@ -296,6 +300,11 @@ entry-list .is_future>* {
 .grid>*,
 .grid>*>* {
     display: contents;
+}
+
+.grid>*>a {
+    color: inherit;
+    cursor: inherit;
 }
 
 .grid .ellipsis {

@@ -54,8 +54,8 @@
     </form>
     {% endif %}
 {% for row in entries %}
-    <div class="{{ loop.cycle('a', 'b') }} {{"is_inbox" if row.is_inbox else ""}} {% if transaction.id == row.id %}checked{% endif %} {{"is_future" if row.is_future else "" }}"
-        data-value="{{row.id}}">
+    <a class="{{ loop.cycle('a', 'b') }} {{"is_inbox" if row.is_inbox else ""}} {% if transaction.id == row.id %}checked{% endif %} {{"is_future" if row.is_future else "" }}"
+        data-value="{{row.id}}" href="{{ url('all', budget.id, account.id, row.id) }}">
         <span class="td">{{row.date}}
             {% if row.recurrence %}🔁{% endif %}
         </span>
@@ -97,7 +97,7 @@
         {% else %}
         <short-currency class="td number" value="{{ row.running_sum }}" currency="{{ account.currency }}" id="total-{{row.id}}"></short-currency>
         {% endif %}
-    </div>
+    </a>
 {% endfor %}
 {% endblock %}
 </div>

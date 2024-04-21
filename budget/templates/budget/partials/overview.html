@@ -4,6 +4,7 @@
 </div></div>
 {% set checked = account and account.id %}
 <entry-list
+    class="grid c2"
     class="scroll"
     name="account"
     {% if not account %}autofocus{% endif %}
@@ -11,68 +12,62 @@
     hx-get="{{ url('all', budget.id) }}"
     hx-target="#account"
     hx-select-oob="#transaction">
-    <table id="categories">
-        <tr>
-            <th>Category</th>
-            <th class="t5">Balance</th>
-        </tr>
+    <div id="categories">
+        <div>
+            <span class="th">Category</span>
+            <span class="th">Balance</span>
+        </div>
         {% set rowclass = cycler('a', 'b') %}
         {% for row in categories %}
         {% if row in groups %}
-        <tr class="{{ rowclass.next() }}">
-            <th>{{ row.group or "&nbsp;" }}</th>
-            <th class="number">
+        <div class="{{ rowclass.next() }}">
+            <span class="th">{{ row.group or "&nbsp;" }}</span>
+            <span class="th number">
                 {% for currency, amounts in groups[row].items() if amounts|length > 1%}
                 <long-currency currency="{{ currency }}" value="{{ amounts|sum }}"></long-currency>
                 {% if not loop.last %}<br>{% endif %}
                 {% endfor %}
-            </th>
-        </tr>
+            </span>
+        </div>
         {% endif %}
-        <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}"
-        data-value="{{row.id}}">
-            <td>{{ row.name or "Inbox" }}</td>
-            <td class="number">
+        <a class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}" href="{{ url('all', budget.id, row.id) }}">
+            <span class="td">{{ row.name or "Inbox" }}</span>
+            <span class="td number">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency>
-            </td>
-        </tr>
+            </span>
+        </a>
         {% endfor %}
-        <tr><th colspan="2">&nbsp;</th></tr>
-        <tr>
-            <th>Account</th>
-            <th class="t5">Balance</th>
-        </tr>
+        <div><span style="grid-column: span 2;">&nbsp;</span></div>
+        <div>
+            <span class="th">Account</span>
+            <span class="th">Balance</span>
+        </div>
         {% for row in accounts %}
-        <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
-            <td>{{ row.name or "Inbox" }}</td>
-            <td class="number"> <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency></td>
-        </tr>
+        <a class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}" href="{{ url('all', budget.id, row.id) }}">
+            <span class="td">{{ row.name or "Inbox" }}</span>
+            <span class="td number"> <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency></span>
+        </a>
         {% endfor %}
         {% for row in debts %}
-        <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
-            <td>Owed by {{ row.other }}</td>
-            <td class="number">
+        <a class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}" href="{{ url('all', budget.id, row.id) }}">
+            <span class="td">Owed by {{ row.other }}</span>
+            <span class="td number">
                 <long-currency currency="{{ row.currency }}" value="{{ row.other.balance }}"></long-currency>
-            </td>
-        </tr>
+            </span>
+        </a>
         {% endfor %}
-        <tr><th colspan="2">&nbsp;</th></tr>
-        <tr>
-            <th>Total</th>
-            <th class="t5">Balance</th>
-        </tr>
+        <div><span style="grid-column: span 2;">&nbsp;</span></div>
+        <div>
+            <span class="th">Total</span>
+            <span class="th">Balance</span>
+        </div>
         {% for row in totals %}
-        <tr class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
-            <td>Total</td>
-            <td class="number">
+        <a class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}" href="{{ url('all', budget.id, row.id) }}">
+            <span class="td">Total</span>
+            <span class="td number">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance }}"></long-currency>
-            </td>
-        </tr>
+            </span>
+        </a>
         {% endfor %}
-    </table>
-    <template id="new-group-t">
-        <tr id="new-group" data-category="1">
-            <th colspan="2">New Group</th>
-        </tr>
-    </template>
+    </div>
 </entry-list>
