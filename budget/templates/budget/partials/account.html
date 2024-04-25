@@ -28,12 +28,12 @@
     hx-target="#transaction">
 <div id="entries">
     {% block list_contents %}
-    <div>
-        <span class="th sticky">Date</span>
-        <span class="th">Transaction</span>
-        <span class="th">{{ account.currency }}</span>
-        {% if account.clearable %}<span class="th">☑️</span>{% endif %}
-        <span class="th">Total</span>
+    <div class="b">
+        <span class="th th1 sticky">Date</span>
+        <span class="th th1">Transaction</span>
+        <span class="th th1">{{ account.currency }}</span>
+        {% if account.clearable %}<span class="th th1">☑️</span>{% endif %}
+        <span class="th th1">Total</span>
     </div>
     {% if quick_add %}
     <form hx-put="{{ url('all', budget.id, account.id) }}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance">

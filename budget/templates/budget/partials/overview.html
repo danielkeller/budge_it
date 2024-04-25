@@ -4,7 +4,7 @@
 </div></div>
 {% set checked = account and account.id %}
 <entry-list
-    class="grid c2"
+    class="overview grid c2"
     class="scroll"
     name="account"
     {% if not account %}autofocus{% endif %}
@@ -13,9 +13,9 @@
     hx-target="#account"
     hx-select-oob="#transaction">
     <div id="categories">
-        <div>
-            <span class="th">Category</span>
-            <span class="th">Balance</span>
+        <div class="b">
+            <span class="th th1">Category</span>
+            <span class="th th1">Balance</span>
         </div>
         {% set rowclass = cycler('a', 'b') %}
         {% for row in categories %}
@@ -38,9 +38,9 @@
         </a>
         {% endfor %}
         <div><span style="grid-column: span 2;">&nbsp;</span></div>
-        <div>
-            <span class="th">Account</span>
-            <span class="th">Balance</span>
+        <div class="b">
+            <span class="th th1">Account</span>
+            <span class="th th1">Balance</span>
         </div>
         {% for row in accounts %}
         <a class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}" href="{{ url('all', budget.id, row.id) }}">
@@ -57,9 +57,9 @@
         </a>
         {% endfor %}
         <div><span style="grid-column: span 2;">&nbsp;</span></div>
-        <div>
-            <span class="th">Total</span>
-            <span class="th">Balance</span>
+        <div class="b">
+            <span class="th th1">Total</span>
+            <span class="th th1">Balance</span>
         </div>
         {% for row in totals %}
         <a class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}" href="{{ url('all', budget.id, row.id) }}">
