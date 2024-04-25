@@ -38,22 +38,36 @@ class Decimal {
         else result.m = Math.trunc(m);
         return result;
     }
+    static roundFromParts(e, m) {
+        const frac = m / 2;
+        const rnd = Math.abs(frac % 1);
+        const offs = Math.sign(frac) * ((rnd > .25) + (rnd >= .75));
+        return Decimal.fromParts(e, Math.trunc(frac) * 2 + offs);
+    }
 
     plus(other) {
         other = Decimal.#coerce(other);
         return Decimal.fromParts(Math.max(this.e, other.e),
-            this.#aligned(other) + other.#aligned(this))
+            this.#aligned(other.e) + other.#aligned(this.e))
     }
     negate() { return Decimal.fromParts(this.e, -this.m); }
     minus(other) { return this.plus(Decimal.#coerce(other).negate()); }
+    times(other) {
+        other = Decimal.#coerce(other);
+        return Decimal.fromParts(this.e + other.e, this.m * other.m);
+    }
+    // Rounded division
+    div(other) {
+        other = Decimal.#coerce(other);
+        const ext = this.#aligned(this.e + other.e);
+        return Decimal.roundFromParts(this.e, ext / other.m);
+    }
     round(places) {
         places = Math.trunc(places);
         if (this.e < places) return this.plus(Decimal.fromParts(places, 0));
-        const frac = this.m / (2 * 10 ** (this.e - places));
-        const rnd = Math.abs(frac % 1);
-        const offs = Math.sign(frac) * ((rnd > .25) + (rnd >= .75));
-        return Decimal.fromParts(places, Math.trunc(frac) * 2 + offs);
+        else return Decimal.roundFromParts(places, this.m / 10 ** (this.e - places));
     }
+    // Floored division and remainder
     divrem(int) {
         int = Math.trunc(int);
         const div = Decimal.fromParts(this.e, Math.trunc(this.m / int));
@@ -81,7 +95,66 @@ class Decimal {
     }
     #aligned(to) {
         let { e, m } = this;
-        for (; e < to.e; ++e) m *= 10;
+        for (; e < to; ++e) m *= 10;
         return m;
     }
+}
+
+function parse(input, minPlaces) {
+    function num(str) {
+        const num = str.match(/^[,.· 0-9]+/);
+        if (!num) return [Decimal.NaN, str];
+        let parsed = Decimal.parse(num[0]).plus(Decimal.fromParts(minPlaces, 0));
+        return [parsed, str.substring(num[0].length)];
+    }
+
+    function paren(str) {
+        str = str.trimStart();
+        if (str[0] === '(') {
+            let [result, rest] = add(str.substring(1));
+            rest = rest.trimStart();
+            if (rest[0] === ')')
+                return [result, rest.substring(1)];
+            return [result, rest];
+        }
+        return num(str);
+    }
+
+    function prefix(str) {
+        str = str.trimStart();
+        if (str[0] === '-' || str[0] === '+') {
+            let [num, rest] = paren(str.substring(1));
+            if (str[0] === '-') num = num.negate();
+            return [num, rest];
+        }
+        return paren(str);
+    }
+
+    function mul(str) {
+        let [result, rest] = prefix(str);
+        while (true) {
+            rest = rest.trimStart();
+            if (rest[0] !== '*' && rest[0] !== '/') break;
+            const [rhs, rest1] = prefix(rest.substring(1));
+            if (rest[0] === '*') result = result.times(rhs);
+            else result = result.div(rhs);
+            rest = rest1;
+        }
+        return [result, rest];
+    }
+
+    function add(str) {
+        let [result, rest] = mul(str);
+        while (true) {
+            rest = rest.trimStart();
+            if (rest[0] !== '+' && rest[0] !== '-') break;
+            const [rhs, rest1] = mul(rest.substring(1));
+            if (rest[0] === '+') result = result.plus(rhs);
+            else result = result.minus(rhs);
+            rest = rest1;
+        }
+        return [result, rest];
+    }
+
+    return add(input)[0];
 }

@@ -15,7 +15,8 @@ function currencyDecimals(currency) {
 }
 
 function parseCurrency(value, currency) {
-    return Decimal.parse(value).toInt(currencyDecimals(currency));
+    const places = currencyDecimals(currency);
+    return parse(value, places).toInt(places);
 }
 
 function formatCurrencyField(value, currency) {
@@ -187,17 +188,4 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-    /*class DummyRequest extends XMLHttpRequest {
-        get status() { return 200; }
-    }
-    htmx.defineExtension('null-request', {
-        onEvent: function (name, event) {
-            if (name === 'htmx:beforeRequest') {
-                event.preventDefault();
-                let onload = event.detail.xhr.onload;
-                event.detail.xhr = new DummyRequest();
-                onload();
-            }
-        }
-    });*/
 })
