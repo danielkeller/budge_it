@@ -42,7 +42,7 @@
             </tr>
             {% endif %}
             {% block category_form scoped %}
-            <tr draggable="true">
+            <tr draggable="true" data-category>
                 <td>={{ form.order }}{{ form.group }}{{ form.id_ptr }}</td>
                 {% if form.instance.pk and form.instance.name == '' %}
                 <td>Inbox</td>
@@ -74,7 +74,7 @@
             </tr>
             {% endblock %}
         </tbody>
-            <tr>
+            <tr data-account>
                 <th colspan=2>Account</th>
                 <th>Currency</th>
                 <th>Clearable</th>
@@ -83,8 +83,8 @@
             </tr>
             {% for form in account_formset %}
             {% block account_form scoped %}
-            <tr>
-                <td></td>
+            <tr draggable="true" data-account>
+                <td>={{ form.order }}</td>
                 <td class="tdinput">{{ form.name }}</td>
                 <td class="tdinput">{{ form.currency }}</td>
                 <td>{{ form.clearable }}</td>

@@ -28,13 +28,16 @@ const new_group_template =
 let findTarget = null;
 let dragging = null;
 function isGroup(element) { return 'group' in element.dataset; }
+function isAccount(element) { return 'account' in element.dataset; }
+function isCategory(element) { return !isAccount(element) && !isGroup(element); }
 function findGroup(element) { return element.closest('[data-group]'); }
 function findCategory(element) { return element.closest('[data-group]>tr'); }
+function findAccount(element) { return element.closest('[data-account]'); }
 
 document.addEventListener('dragstart', (event) => {
     dragging = event.target.closest('[draggable=true]');
     dragging.classList.add('dragging');
-    findTarget = isGroup(dragging) ? findGroup : findCategory;
+    findTarget = isGroup(dragging) ? findGroup : isAccount(dragging) ? findAccount : findCategory;
 });
 document.addEventListener('dragend', () => {
     dragging.classList.remove('dragging');
@@ -45,7 +48,7 @@ document.addEventListener('dragover', (event) => {
         event.preventDefault();
         // TODO: This doesn't really work on 'tbody'
         element.classList.add('droppable');
-        if (!isGroup(dragging)) {
+        if (isCategory(dragging)) {
             const group = findGroup(event.target);
             if (group.lastElementChild.id !== 'new-group') {
                 group.appendChild(new_group_template.cloneNode(true));
@@ -61,7 +64,7 @@ document.addEventListener('dragleave', (event) => {
         || !event.relatedTarget?.closest('table')
     )) {
         current.classList.remove('droppable');
-        if (!isGroup(dragging)
+        if (isCategory(dragging)
             && findGroup(current) !== findGroup(event.relatedTarget)) {
             findGroup(current).lastElementChild.remove();
         }
@@ -71,6 +74,8 @@ document.addEventListener('drop', (event) => {
     const element = findTarget(event.target);
     if (isGroup(dragging)) {
         reorder(dragging, element.lastElementChild);
+    } else if (isAccount(dragging)) {
+        reorder(dragging, element);
     } else {
         const targetGroup = element.querySelector('.group,.groupname');
         dragging.querySelector('.group').value =

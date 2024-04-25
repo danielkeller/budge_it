@@ -384,9 +384,10 @@ class BaseAccountManagementForm(forms.ModelForm):
 class AccountManagementForm(BaseAccountManagementForm):
     class Meta:  # type: ignore
         model = Account
-        fields = ('name', 'currency', 'clearable', 'closed')
+        fields = ('name', 'currency', 'order', 'clearable', 'closed')
         widgets = {'name': forms.TextInput(attrs={'required': True,
-                                                  'autofocus': ''})}
+                                                  'autofocus': ''}),
+                   'order': forms.HiddenInput(attrs={'class': 'order'})}
 
 
 class BaseAccountManagementFormSet(forms.BaseInlineFormSet):
