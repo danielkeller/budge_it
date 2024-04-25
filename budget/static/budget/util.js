@@ -88,7 +88,7 @@ class EntryList extends HTMLElement {
     connectedCallback() {
         this.setAttribute('tabindex', 0);
         this.addEventListener('click', event => {
-            if (!event.ctrlKey && !event.metaKey)
+            if (event.target.closest('a') && !event.ctrlKey && !event.metaKey)
                 event.preventDefault();
         });
         this.addEventListener('mousedown', (event) => {
