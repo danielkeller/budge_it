@@ -177,8 +177,8 @@ def all_view(request: HttpRequest, budget: Budget,
 
     prev_transaction = None
     if not transaction and prev_args and 'transaction_id' in prev_args:
-        prev_transaction = _get_allowed_transaction_or_404(
-            budget, prev_args['transaction_id'])
+        prev_transaction = Transaction.objects.get_for(
+            budget, int(prev_args['transaction_id']))
 
     # I think the prefix isn't needed
     if transaction and transaction.kind == Transaction.Kind.BUDGETING:
