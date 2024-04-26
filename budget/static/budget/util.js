@@ -20,7 +20,10 @@ function parseCurrency(value, currency) {
 }
 
 function formatCurrencyField(value, currency) {
-    return Decimal.fromParts(currencyDecimals(currency), value);
+    const decimals = currencyDecimals(currency);
+    const format = new Intl.NumberFormat(navigator.language,
+        { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+    return format.format(+value / 10 ** decimals);
 }
 
 function formatCurrency(value, currency) {
@@ -32,26 +35,7 @@ function formatCurrency(value, currency) {
             return format.format(+value / 10 ** decimals);
         } catch (invalidCurrency) { }
     }
-    const decimals = currencyDecimals(currency);
-    const format = new Intl.NumberFormat(navigator.language,
-        { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
-    return currency + " " + format.format(+value / 10 ** decimals);
-}
-
-function formatCurrencies(container) {
-    container = container || document;
-    const elements = container.dataset && container.dataset.currency
-        ? [container]
-        : container.querySelectorAll('[data-currency]');
-    for (const element of elements) {
-        if (element.classList.contains('shortcurrency'))
-            element.textContent = element.textContent && formatCurrencyField(
-                element.textContent, element.dataset.currency);
-        else
-            element.textContent = element.textContent && formatCurrency(
-                element.textContent, element.dataset.currency);
-        delete element.dataset['currency'];
-    }
+    return currency + " " + formatCurrencyField(value, currency);
 }
 
 function findAncestor(element, predicate) {
