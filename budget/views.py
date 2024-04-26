@@ -157,7 +157,7 @@ def update_all_view(request: HttpRequest, budget: Budget):
 def all_view(request: HttpRequest, budget: Budget,
              account_id: str | int | None = None,
              transaction_id: str | int | None = None):
-    prev_args = None
+    prev_args = {}
     if 'HX-Current-URL' in request.headers:
         prev_args = resolve(
             urlparse(request.headers['HX-Current-URL']).path).kwargs
@@ -165,8 +165,8 @@ def all_view(request: HttpRequest, budget: Budget,
     def fix_url(response: HttpResponse):
         action = 'HX-Replace-Url'
         # Changing level?
-        if prev_args and (bool(account_id) != ('account_id' in prev_args)
-                          or bool(transaction_id) != ('transaction_id' in prev_args)):
+        if (bool(account_id) != ('account_id' in prev_args)
+                or bool(transaction_id) != ('transaction_id' in prev_args)):
             action = 'HX-Push-Url'
         response[action] = reverse(
             'all', args=[arg for arg in (
@@ -176,7 +176,7 @@ def all_view(request: HttpRequest, budget: Budget,
     transaction = _get_allowed_transaction_or_404(budget, transaction_id)
 
     prev_transaction = None
-    if not transaction and prev_args and 'transaction_id' in prev_args:
+    if not transaction and prev_args.get('transaction_id', 'new') != 'new':
         prev_transaction = Transaction.objects.get_for(
             budget, int(prev_args['transaction_id']))
 
