@@ -72,10 +72,6 @@ customElements.define('long-currency', LongCurrency);
 class EntryList extends HTMLElement {
     connectedCallback() {
         this.setAttribute('tabindex', 0);
-        this.addEventListener('click', event => {
-            if (event.target.closest('a') && !event.ctrlKey && !event.metaKey)
-                event.preventDefault();
-        });
         this.addEventListener('mousedown', (event) => {
             const { target } = event;
             if (event.button !== 0 || event.ctrlKey || event.metaKey)
