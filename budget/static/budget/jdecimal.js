@@ -156,5 +156,7 @@ function parse(input, minPlaces) {
         return [result, rest];
     }
 
-    return add(input)[0];
+    const [result, rest] = add(input);
+    if (rest.trimStart() !== '') return Decimal.NaN;
+    return result;
 }

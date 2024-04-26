@@ -319,6 +319,12 @@ entry-list .is_future>* {
     z-index: 10;
 }
 
+.th2 {
+    position: sticky;
+    top: var(--line-height);
+    z-index: 10;
+}
+
 @container (max-width: 500px) {
     .grid.c4 {
         grid: auto-flow dense / max-content 1fr 1fr;
