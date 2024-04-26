@@ -302,9 +302,10 @@ entry-list .is_future>* {
     display: contents;
 }
 
-.grid>*>a {
+.grid a {
     color: inherit;
     cursor: inherit;
+    text-decoration: none;
 }
 
 .grid .ellipsis {
