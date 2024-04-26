@@ -102,7 +102,7 @@ class Decimal {
 
 function parse(input, minPlaces) {
     function num(str) {
-        const num = str.match(/^[,.· 0-9]+/);
+        const num = str.match(/^[,.·' 0-9]+/);
         if (!num) return [Decimal.NaN, str];
         let parsed = Decimal.parse(num[0]).plus(Decimal.fromParts(minPlaces, 0));
         return [parsed, str.substring(num[0].length)];
