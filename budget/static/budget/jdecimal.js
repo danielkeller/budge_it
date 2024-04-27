@@ -123,7 +123,7 @@ function parse(input, minPlaces) {
     function prefix(str) {
         str = str.trimStart();
         if (str[0] === '-' || str[0] === '+') {
-            let [num, rest] = paren(str.substring(1));
+            let [num, rest] = prefix(str.substring(1));
             if (str[0] === '-') num = num.negate();
             return [num, rest];
         }
