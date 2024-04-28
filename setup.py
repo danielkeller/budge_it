@@ -1,8 +1,8 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name='budge_it',
       version='0.1',
-      packages=['budget', 'budge_it'],
+      packages=find_packages(include=['budget', 'budget.*', 'budge_it']),
       py_modules=['manage'],
       include_package_data=True,
       install_requires=[
