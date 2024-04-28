@@ -138,16 +138,10 @@ form {
 button,
 input {
     font: inherit;
-    /* Precisely fit controls into a line of text */
-    height: var(--line-height);
+    /* Precisely fit controls into a line of text or table */
+    height: var(--td-line-height, var(--line-height));
     width: max-content;
     vertical-align: bottom;
-    margin: 0;
-}
-
-td button,
-td input {
-    height: var(--td-line-height);
     margin: 0;
 }
 
@@ -161,8 +155,21 @@ button,
     line-height: 0;
 }
 
+hr {
+    width: 100%;
+    margin: 0;
+    border-style: solid solid none none;
+    align-self: stretch;
+}
+
 table {
     border-spacing: var(--td-border);
+}
+
+.grid,
+table,
+hr {
+    margin-bottom: calc(0px - var(--td-border));
 }
 
 .t4 {
@@ -408,13 +415,6 @@ edit-part>div:empty {
     display: none;
 }
 
-hr {
-    width: 100%;
-    margin: 0;
-    border-style: solid solid none none;
-    align-self: stretch;
-}
-
 .tdinput {
     padding: 0;
     position: relative;
@@ -432,14 +432,10 @@ hr {
 .tdinput select,
 .tdinput textarea {
     border: none;
+    margin: 0;
     width: 100%;
     vertical-align: bottom;
     background-color: Field;
-}
-
-.tdinput input,
-.tdinput select {
-    height: var(--td-line-height);
 }
 
 .tdinput input,
@@ -525,6 +521,10 @@ long-currency {
 .note {
     width: 50px;
     flex: 1 1;
+}
+
+.note textarea {
+    height: calc(2 * var(--line-height) - 1px);
 }
 
 /* budgeting */
