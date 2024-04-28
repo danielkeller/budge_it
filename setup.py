@@ -2,7 +2,8 @@ from setuptools import setup
 
 setup(name='budge_it',
       version='0.1',
-      packages=['.'],
+      packages=['budget', 'budge_it'],
+      py_modules=['manage'],
       include_package_data=True,
       install_requires=[
           'Django==4.2.3',
