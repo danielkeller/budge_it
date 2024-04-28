@@ -1,2 +1,2 @@
-recursive-include budget/jinja2
-recursive-include budget/static
+graft budget/jinja2
+graft budget/static
