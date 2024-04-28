@@ -68,8 +68,7 @@ ROOT_URLCONF = 'budge_it.urls'
 TEMPLATES: Any = [
     {
         'BACKEND': 'django.template.backends.jinja2.Jinja2',
-        # This just makes the diff cleaner, we could move these to the normal location.
-        'DIRS': ["budget/templates/"],
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'environment': 'budget.jinja2.environment',
