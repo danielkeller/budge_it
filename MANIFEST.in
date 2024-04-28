@@ -1,0 +1,2 @@
+recursive-include budget/jinja2
+recursive-include budget/static
