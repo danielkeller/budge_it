@@ -21,7 +21,7 @@
         {% for row in categories %}
         {% if row in groups %}
         <div class="{{ rowclass.next() }}">
-            <span class="th">{{ row.group or "&nbsp;" }}</span>
+            <span class="th ellipsis">{{ row.group or "&nbsp;" }}</span>
             <span class="th number">
                 {% for currency, amounts in groups[row].items() if amounts|length > 1%}
                 <long-currency currency="{{ currency }}" value="{{ amounts|sum }}"></long-currency>
@@ -31,7 +31,7 @@
         </div>
         {% endif %}
         <div class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
-            <span class="td">{{ row.name or "Inbox" }}</span>
+            <span class="td ellipsis">{{ row.name or "Inbox" }}</span>
             <span class="td number">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency>
             </span>
@@ -44,7 +44,7 @@
         </div>
         {% for row in accounts %}
         <div class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
-            <span class="td">{{ row.name or "Inbox" }}</span>
+            <span class="td ellipsis">{{ row.name or "Inbox" }}</span>
             <span class="td number"> <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency></span>
         </div>
         {% endfor %}

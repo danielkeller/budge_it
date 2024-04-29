@@ -65,6 +65,10 @@ body {
     justify-content: flex-end;
 }
 
+#overview {
+    max-width: 300px;
+}
+
 #account {
     flex: 1 1 0;
     container-type: size;
@@ -90,6 +94,10 @@ body {
 }
 
 @media (max-width: 800px) {
+    #overview {
+        max-width: unset;
+    }
+
     #transaction {
         flex: 1 1 auto;
     }
@@ -297,7 +305,7 @@ entry-list .is_future>* {
 }
 
 .grid.c2 {
-    grid: auto-flow / max-content max-content;
+    grid: auto-flow / 1fr max-content;
 }
 
 .c5 .disclosure+label {
