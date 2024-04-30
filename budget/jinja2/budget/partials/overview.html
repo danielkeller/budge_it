@@ -1,7 +1,4 @@
-<div class="controls"><div class="tools">
-    <a href="{{ url('manage', budget.id) }}">Manage...</a>
-    <a href="{{ url('budget', budget.id, today.year, today.month) }}">Budget...</a>
-</div></div>
+<div class="overview-controls">&nbsp;</div>
 {% set checked = account and account.id %}
 <entry-list
     class="overview grid c2"
@@ -13,61 +10,64 @@
     hx-target="#account"
     hx-select-oob="#transaction">
     <div id="categories">
-        <div class="b">
-            <span class="th th1">Category</span>
-            <span class="th th1">Balance</span>
+        <div>
+            <span class="th th1">Categories</span>
+            <span class="th th1"><a href="{{ url('budget', budget.id, today.year, today.month) }}">Budget...</a></span>
         </div>
         {% set rowclass = cycler('a', 'b') %}
         {% for row in categories %}
         {% if row in groups %}
-        <div class="{{ rowclass.next() }}">
-            <span class="th ellipsis">{{ row.group or "&nbsp;" }}</span>
-            <span class="th number">
-                {% for currency, amounts in groups[row].items() if amounts|length > 1%}
+        <div>
+            <span class="th ellipsis">{{ row.group }}</span>
+            <span class="th">
+                {%- for currency, amounts in groups[row].items() if amounts|length > 1%}
                 <long-currency currency="{{ currency }}" value="{{ amounts|sum }}"></long-currency>
                 {% if not loop.last %}<br>{% endif %}
-                {% endfor %}
+                {% endfor -%}
             </span>
         </div>
         {% endif %}
-        <div class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
+        <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
             <span class="td ellipsis">{{ row.name or "Inbox" }}</span>
-            <span class="td number">
+            <span class="td">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency>
             </span>
         </div>
         {% endfor %}
-        <div><span style="grid-column: span 2;">&nbsp;</span></div>
-        <div class="b">
-            <span class="th th1">Account</span>
-            <span class="th th1">Balance</span>
+        <div>
+            <span class="th th1">Accounts</span>
+            <span class="th th1"></span>
         </div>
         {% for row in accounts %}
-        <div class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
+        <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
             <span class="td ellipsis">{{ row.name or "Inbox" }}</span>
-            <span class="td number"> <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency></span>
+            <span class="td"> <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency></span>
         </div>
         {% endfor %}
         {% for row in debts %}
-        <div class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
+        <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
             <span class="td">Owed by {{ row.other }}</span>
-            <span class="td number">
+            <span class="td">
                 <long-currency currency="{{ row.currency }}" value="{{ row.other.balance }}"></long-currency>
             </span>
         </div>
         {% endfor %}
-        <div><span style="grid-column: span 2;">&nbsp;</span></div>
-        <div class="b">
-            <span class="th th1">Total</span>
-            <span class="th th1">Balance</span>
+        <div>
+            <span class="th th2">Totals</span>
+            <span class="th th2"></span>
         </div>
         {% for row in totals %}
-        <div class="{{ rowclass.next() }} {% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
+        <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
             <span class="td">Total</span>
-            <span class="td number">
+            <span class="td">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance }}"></long-currency>
             </span>
         </div>
         {% endfor %}
+        <div><span style="grid-column: span 2;">&nbsp;</span></div>
+        <div><span style="grid-column: span 2;">
+                <a href="{{ url('manage', budget.id) }}">Edit accounts and categories...</a>
+        </span></div>
+        <div><span style="grid-column: span 2;">&nbsp;</span></div>
     </div>
 </entry-list>

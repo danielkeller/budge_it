@@ -1,14 +1,14 @@
 * {
     box-sizing: border-box;
-    gap: var(--line-height);
 }
 
 @media (prefers-color-scheme: light) {
     html {
         --canvas: rgb(246, 246, 246);
         --alt-canvas: #e0f0eb;
+        --accent: #d5ece1;
         --inactive-selected: rgb(200, 200, 200);
-        --line: #888;
+        --line: #aaa;
     }
 }
 
@@ -25,18 +25,16 @@ html {
     color-scheme: light dark;
     background-color: var(--canvas);
     --line-height: 21px;
-    --td-border: 1px;
-    --td-hpad: calc(var(--line-height) * 0.2);
+    --td-hpad: calc(var(--line-height) * 0.25);
     font-size: 14px;
     line-height: var(--line-height);
-    font-family: Avenir, 'Avenir Next LT Pro', Montserrat, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
+    font-family: Arial, 'Liberation Sans', Arimo, sans-serif;
 }
 
 body {
     margin: 0 auto;
     height: 100dvh;
     overflow: hidden;
-    padding: var(--line-height);
 }
 
 .column,
@@ -66,7 +64,40 @@ body {
 }
 
 #overview {
-    max-width: 300px;
+    max-width: 360px;
+    background-color: var(--accent);
+    border-right: 1px solid var(--line);
+    box-shadow: inset -5px 0 10px -10px var(--line);
+    grid: calc(3*var(--line-height)) 1fr / 1fr;
+}
+
+.overview-controls {
+    background-color: var(--accent);
+    border-bottom: 1px solid var(--line);
+    box-shadow: inset -5px 0 10px -10px var(--line);
+    z-index: 1;
+}
+
+.overview {
+    padding: 0 calc(var(--line-height) - var(--td-hpad));
+}
+
+.overview .th:not(:empty) {
+    padding-top: calc(2 * var(--td-hpad));
+    color: color-mix(in srgb, CanvasText 60%, var(--accent));
+}
+
+.overview .th1 {
+    background-color: var(--accent);
+    box-shadow: 0px 0px 3px 3px var(--accent);
+}
+
+.overview .td:first-child {
+    padding-left: calc(3 * var(--td-hpad));
+}
+
+.overview>*>*>*:last-child {
+    text-align: right;
 }
 
 #account {
@@ -96,6 +127,7 @@ body {
 @media (max-width: 800px) {
     #overview {
         max-width: unset;
+        width: 100%;
     }
 
     #transaction {
@@ -147,7 +179,7 @@ button,
 input {
     font: inherit;
     /* Precisely fit controls into a line of text or table */
-    height: var(--td-line-height, var(--line-height));
+    height: var(--line-height);
     width: max-content;
     vertical-align: bottom;
     margin: 0;
@@ -168,16 +200,6 @@ hr {
     margin: 0;
     border-style: solid solid none none;
     align-self: stretch;
-}
-
-table {
-    border-spacing: var(--td-border);
-}
-
-.grid,
-table,
-hr {
-    margin-bottom: calc(0px - var(--td-border));
 }
 
 .t4 {
@@ -203,8 +225,10 @@ hr {
 .th,
 th {
     user-select: none;
+    /* TODO: reconsider */
     font-weight: 700;
-    text-align: center;
+    color: color-mix(in hsl, CanvasText 65%, var(--canvas));
+    text-align: left;
 }
 
 tr.a,
@@ -223,11 +247,8 @@ tr.b,
 td,
 th {
     /* Make each table row take exactly one line */
-    --td-line-height: calc(var(--line-height) - var(--td-border));
-    line-height: var(--td-line-height);
     min-width: var(--cell-width);
     width: var(--cell-width);
-    outline: var(--td-border) solid var(--line);
     padding: 0 var(--td-hpad);
 }
 
@@ -292,8 +313,7 @@ entry-list .is_future>* {
     max-height: 100%;
     overflow-y: auto;
     display: grid;
-    gap: var(--td-border);
-    padding: var(--td-border);
+    gap: 0;
 }
 
 .grid.c5 {
@@ -317,12 +337,6 @@ entry-list .is_future>* {
     display: contents;
 }
 
-.grid a {
-    color: inherit;
-    cursor: inherit;
-    text-decoration: none;
-}
-
 .grid .ellipsis {
     text-overflow: ellipsis;
     overflow: hidden;
@@ -337,7 +351,14 @@ entry-list .is_future>* {
 
 .th2 {
     position: sticky;
+    margin-top: var(--line-height);
     top: var(--line-height);
+    z-index: 10;
+}
+
+.th3 {
+    position: sticky;
+    top: calc(2 * var(--line-height));
     z-index: 10;
 }
 
@@ -489,6 +510,7 @@ transaction-editor {
     font-style: italic;
 }
 
+.overview .number,
 .number {
     text-align: right;
 }
@@ -539,7 +561,7 @@ long-currency {
 
 date-picker {
     width: max-content;
-    border: var(--td-border) solid var(--line);
+    border: 1px solid var(--line);
     align-self: center;
 }
 
@@ -555,7 +577,7 @@ date-picker {
 }
 
 .years {
-    gap: var(--td-border);
+    gap: 1px;
     background-color: var(--line);
 }
 
@@ -564,7 +586,7 @@ date-picker {
 }
 
 .years>:not(:checked)+label {
-    border-bottom: var(--td-border) solid var(--line);
+    border-bottom: 1px solid var(--line);
     background-color: var(--alt-canvas);
 }
 
