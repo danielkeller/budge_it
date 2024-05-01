@@ -1,17 +1,6 @@
 {%- if transaction_id %}
 <div class="controls">
-    <a class="backbutton" href="{{ url('all', budget.id, account_id) }}" hx-get="{{ url('all',budget.id,account_id) }}" hx-target="#account" hx-select-oob="#transaction">Back</a>
-    <div class="tools">
-        {% if transaction.id and transaction.kind == "T" %}
-        <button type="button" hx-delete=""
-            hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas"
-	    hx-confirm="Delete this transaction?">
-            Delete Transaction</button>
-        {% endif %}
-        <button id="submit-button" form="form">
-            {% if transaction.id %}Save Changes{% else %}Create Transaction{% endif %}
-        </button>
-    </div>
+    <button class="backbutton" hx-on:click="document.querySelector('[name=transaction]').select(null)">Close</button>
 </div>
 <div class="scroll edit">
     {% if transaction.kind == 'B' %}
@@ -143,6 +132,18 @@
     {{ form.formset.non_form_errors() or "" }}
     
     {% endif %}
+
+    <div>
+        {% if transaction.id and transaction.kind == "T" %}
+        <button type="button" hx-delete=""
+            hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas"
+	    hx-confirm="Delete this transaction?">
+            Delete Transaction</button>
+        {% endif %}
+        <button id="submit-button" form="form">
+            {% if transaction.id %}Save Changes{% else %}Create Transaction{% endif %}
+        </button>
+    </div>
 
     {{ form.errors or "" }}
 </div>

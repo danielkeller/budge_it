@@ -58,23 +58,20 @@ body {
 }
 
 .all {
-    display: flex;
-    flex-direction: row-reverse;
-    justify-content: flex-end;
+    display: grid;
+    grid: minmax(0, max-content) 1fr / minmax(0, max-content) 1fr minmax(0, max-content);
 }
 
 #overview {
     max-width: 360px;
-    background-color: var(--accent);
-    border-right: 1px solid var(--line);
-    box-shadow: inset -5px 0 10px -10px var(--line);
+    grid-area: 1 / 1 / 3 / 1;
+    display: grid;
     grid: calc(3*var(--line-height)) 1fr / 1fr;
 }
 
-.overview-controls {
+#overview>.controls {
     background-color: var(--accent);
     border-bottom: 1px solid var(--line);
-    box-shadow: inset -5px 0 10px -10px var(--line);
     z-index: 1;
 }
 
@@ -82,7 +79,19 @@ body {
     padding: 0 calc(var(--line-height) - var(--td-hpad));
 }
 
-.overview .th:not(:empty) {
+.overview,
+#overview>.controls {
+    background-color: var(--accent);
+    box-shadow: inset -5px 0 10px -10px var(--line);
+    border-right: 1px solid var(--line);
+}
+
+.overview .th2 {
+    background-color: var(--accent);
+    box-shadow: 0px 0px 3px 3px var(--accent);
+}
+
+.overview .th {
     padding-top: calc(2 * var(--td-hpad));
     color: color-mix(in srgb, CanvasText 60%, var(--accent));
 }
@@ -100,9 +109,50 @@ body {
     text-align: right;
 }
 
-#account {
-    flex: 1 1 0;
+#account,
+#transaction {
+    display: contents;
+}
+
+.controls {
+    padding: var(--line-height);
+    padding-bottom: calc(var(--line-height) - 1px);
+    border-bottom: 1px solid var(--line);
+}
+
+#account>.controls {
+    grid-area: 1 / 2 / 1 / 2;
+}
+
+#transaction>.controls {
+    grid-area: 1 / 3 / 1 / 3;
+}
+
+.transactions {
+    grid-area: 2 / 2 / 2 / 2;
     container-type: size;
+    height: 100%;
+}
+
+.controls,
+.tools {
+    display: flex;
+    gap: var(--line-height);
+
+}
+
+.tools {
+    margin-left: auto;
+    flex-wrap: wrap;
+}
+
+.spacer {
+    margin: calc(0px - var(--line-height));
+    flex-grow: 1;
+}
+
+.edit {
+    grid-area: 2 / 3 / 2 / 3;
 }
 
 #account:empty,
@@ -114,7 +164,7 @@ body {
     display: none;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
     #transaction:not(:empty)~#overview {
         display: none;
     }
@@ -127,7 +177,7 @@ body {
 @media (max-width: 800px) {
     #overview {
         max-width: unset;
-        width: 100%;
+        grid-area: 1 / 2 / 2 / 2;
     }
 
     #transaction {
@@ -145,20 +195,18 @@ body {
     #account:not(:empty) .backbutton {
         display: initial;
     }
+
+    #transaction>.controls {
+        grid-area: 1 / 2 / 1 / 2;
+    }
+
+    .edit {
+        grid-area: 2 / 2 / 2 / 2;
+    }
 }
 
 .scroll {
     overflow-y: auto;
-}
-
-.controls,
-.tools {
-    display: flex;
-}
-
-.tools {
-    margin-left: auto;
-    flex-wrap: wrap;
 }
 
 .edit,
@@ -307,6 +355,11 @@ entry-list .is_future>* {
     font-style: italic;
 }
 
+entry-list {
+    /* We already have focus styling. Is that enough? */
+    outline: none;
+}
+
 
 .grid {
     align-self: start;
@@ -337,7 +390,7 @@ entry-list .is_future>* {
     display: contents;
 }
 
-.grid .ellipsis {
+.ellipsis {
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;

@@ -1,26 +1,28 @@
 {%- if account %}
 <title>{{ account.name or "Inbox" }} -  Budge It</title>
 <div class="controls">
+    <button class="backbutton" hx-on:click="document.querySelector('[name=account]').select(null)">Close</button>
+    <div><button type="button"
+        hx-get="{{ url('all', budget.id, account.id, 'new') }}"
+        hx-target="#transaction"
+        hx-on:click="document.querySelector('[name=transaction]').checked = null">
+        New Transaction</button></div>
+    <div class="spacer"></div>
     <div><b>{{ account.name or "Inbox" }}</b>:
-        <long-currency id="balance" currency="{{ account.currency }}" value="{{ balance }}"></long-currency></div>
-    <a class="backbutton" href="{{ url('all', budget.id) }}" hx-boost>Back</a>
-    <div class="tools">
-        {% if account.clearable %}
-        <div>
-            <button hx-post="{{ url('reconcile', account.id) }}" hx-swap="none" hx-target="this"
-            hx-select-oob="#transaction,#entries,#categories"
-            >Reconcile</button> balance of
-            <long-currency id="cleared-balance" currency="{{ account.currency }}" value="{{ cleared }}"></long-currency>
-        </div>
-        {% endif %}
-        <button type="button"
-            hx-get="{{ url('all', budget.id, account.id, 'new') }}"
-            hx-target="#transaction"
-            hx-on:click="document.querySelector('entry-list.transactions').checked = null">
-            New Transaction</button>
+        <long-currency id="balance" currency="{{ account.currency }}" value="{{ balance }}"></long-currency>
     </div>
+    {% if account.clearable %}
+    <div class="spacer"></div>
+    <div>
+        <button hx-post="{{ url('reconcile', account.id) }}" hx-swap="none" hx-target="this"
+        hx-select-oob="#transaction,#entries,#categories"
+        >Reconcile</button> balance of
+        <long-currency id="cleared-balance" currency="{{ account.currency }}" value="{{ cleared }}"></long-currency>
+    </div>
+    {% endif %}
 </div>
-<entry-list class="transactions grid {% if account.clearable %}c5{% else %}c4{% endif %}"
+<div class="transactions">
+<entry-list class="grid {% if account.clearable %}c5{% else %}c4{% endif %}"
     {% if request.headers.hx_target == 'account' and request.headers.hx_event != 'kbdselect' %}autofocus{% endif %}
     name="transaction"
     hx-trigger="kbdselect,mouseselect delay:100ms"
@@ -100,6 +102,7 @@
 {% endblock %}
 </div>
 </entry-list>
+</div>
 {% endif -%}
 
 {% if request.headers.hx_target == 'account' %}<div id="transaction" class="editor column"></div>{% endif %}
