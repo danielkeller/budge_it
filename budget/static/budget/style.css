@@ -118,6 +118,7 @@ body {
     padding: var(--line-height);
     padding-bottom: calc(var(--line-height) - 1px);
     border-bottom: 1px solid var(--line);
+    background-color: var(--alt-canvas);
 }
 
 #account>.controls {
@@ -205,6 +206,11 @@ body {
     }
 }
 
+.transactions .th {
+    outline: 1px solid var(--line);
+    background-color: var(--canvas);
+}
+
 .scroll {
     overflow-y: auto;
 }
@@ -224,13 +230,33 @@ form {
 }
 
 button,
-input {
-    font: inherit;
+input:not([type=checkbox]) {
     /* Precisely fit controls into a line of text or table */
     height: var(--line-height);
     width: max-content;
     vertical-align: bottom;
     margin: 0;
+}
+
+button,
+input:not([type=date]) {
+    font: inherit;
+}
+
+[type=checkbox] {
+    margin: 0;
+}
+
+.entry .td:first-child,
+.transactions .th:first-child,
+.transactions .tdinput:first-child input,
+.td.split-between {
+    padding-left: var(--line-height);
+}
+
+.entry .td:last-child,
+.transactions .th:last-child {
+    padding-right: var(--line-height);
 }
 
 td button,
@@ -500,6 +526,7 @@ edit-part>div:empty {
 .tdinput {
     padding: 0;
     position: relative;
+    background-color: Field;
 }
 
 /* The focus ring is on the same z-index as the input, so if an adjacent input

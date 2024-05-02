@@ -47,7 +47,7 @@
             <input class="number" size="8">
         </currency-input>
         {{ quick_add.is_split }}<label for="id_qa-is_split" class="td"> Split</label>
-        <span class="td" style="grid-column: 1 / -1;">
+        <span class="td split-between" style="grid-column: 1 / -1;">
             Split between: {% for split in quick_add.split %}
             {{ split }}{% if not loop.last %}, {% endif %}
             {% endfor %}
@@ -56,7 +56,7 @@
     </form>
     {% endif %}
 {% for row in entries %}
-    <div class="{{ loop.cycle('a', 'b') }} {{"is_inbox" if row.is_inbox else ""}} {% if transaction.id == row.id %}checked{% endif %} {{"is_future" if row.is_future else "" }}"
+    <div class="{{ loop.cycle('a', 'b') }} {{"is_inbox" if row.is_inbox else ""}} {% if transaction.id == row.id %}checked{% endif %} {{"is_future" if row.is_future else "" }} entry"
         data-value="{{row.id}}">
         <span class="td">{{row.date}} {% if row.recurrence %}🔁{% endif %}</span>
 
