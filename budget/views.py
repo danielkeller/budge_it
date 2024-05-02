@@ -375,7 +375,7 @@ def row_form(request: HttpRequest, budget_id: int,
     # Extra is 1
     part.formset.min_num = number + 1 - 1  # type: ignore
     context = {'budget': budget,
-               'row': part.formset.forms[number],
+               'row': part.formset.forms[number], 'row_index': number,
                'part': part, 'part_index': part_index}
     return HttpResponse(render_block_to_string(
         'budget/partials/edit.html', 'edit_row', context, request))

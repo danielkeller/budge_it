@@ -223,9 +223,9 @@ class TransactionForm(FormSetInline[PartFormSet]):
                                                   format='%Y-%m-%d'),
                            initial=date.today)
 
-    repeat = forms.ChoiceField(choices=[('N', "Don't repeat"),
-                                        ('R', 'Repeat every'),
-                                        ('C', 'Custom repeat')])
+    repeat = forms.ChoiceField(choices=[('N', 'None'),
+                                        ('R', 'Every'),
+                                        ('C', 'Custom')])
     interval = forms.IntegerField(min_value=1, initial=1,
                                   widget=forms.NumberInput(attrs={'size': 5}))
     freq = forms.ChoiceField(choices=[('YEARLY', 'Year'),

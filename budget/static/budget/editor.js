@@ -46,7 +46,7 @@ class DateRepeat extends HTMLElement {
     connectedCallback() {
         this.addEventListener('change', ({ target }) => {
             if (target.name === 'tx-repeat')
-                target.closest('tr').dataset.value = target.value;
+                target.closest('span').dataset.value = target.value;
         })
     }
 }

@@ -4,9 +4,12 @@
 
 @media (prefers-color-scheme: light) {
     html {
+        /* TODO: use color-mix to harmonize everything */
         --canvas: rgb(246, 246, 246);
-        --alt-canvas: #e0f0eb;
-        --accent: #d5ece1;
+        --alt-canvas: rgb(236, 238, 237);
+        --alt-canvas1: #e0f0eb;
+        --field: rgb(250, 251, 250);
+        --accent: #ebf2f0;
         --inactive-selected: rgb(200, 200, 200);
         --line: #aaa;
     }
@@ -17,6 +20,7 @@
         --canvas: rgb(46, 42, 48);
         --inactive-selected: rgb(100, 100, 100);
         --alt-canvas: #1e4438;
+        --alt-canvas1: #1e4438;
         --line: #888;
     }
 }
@@ -69,46 +73,6 @@ body {
     grid: calc(3*var(--line-height)) 1fr / 1fr;
 }
 
-#overview>.controls {
-    background-color: var(--accent);
-    border-bottom: 1px solid var(--line);
-    z-index: 1;
-}
-
-.overview {
-    padding: 0 calc(var(--line-height) - var(--td-hpad));
-}
-
-.overview,
-#overview>.controls {
-    background-color: var(--accent);
-    box-shadow: inset -5px 0 10px -10px var(--line);
-    border-right: 1px solid var(--line);
-}
-
-.overview .th2 {
-    background-color: var(--accent);
-    box-shadow: 0px 0px 3px 3px var(--accent);
-}
-
-.overview .th {
-    padding-top: calc(2 * var(--td-hpad));
-    color: color-mix(in srgb, CanvasText 60%, var(--accent));
-}
-
-.overview .th1 {
-    background-color: var(--accent);
-    box-shadow: 0px 0px 3px 3px var(--accent);
-}
-
-.overview .td:first-child {
-    padding-left: calc(3 * var(--td-hpad));
-}
-
-.overview>*>*>*:last-child {
-    text-align: right;
-}
-
 #account,
 #transaction {
     display: contents;
@@ -133,6 +97,7 @@ body {
     grid-area: 2 / 2 / 2 / 2;
     container-type: size;
     height: 100%;
+    background-color: var(--field);
 }
 
 .controls,
@@ -154,6 +119,8 @@ body {
 
 .edit {
     grid-area: 2 / 3 / 2 / 3;
+    border-left: 1px solid var(--line);
+    padding: var(--line-height);
 }
 
 #account:empty,
@@ -206,11 +173,6 @@ body {
     }
 }
 
-.transactions .th {
-    outline: 1px solid var(--line);
-    background-color: var(--canvas);
-}
-
 .scroll {
     overflow-y: auto;
 }
@@ -219,6 +181,7 @@ body {
 edit-part {
     display: flex;
     flex-direction: column;
+    gap: var(--line-height);
 }
 
 edit-part {
@@ -229,6 +192,7 @@ form {
     display: contents;
 }
 
+select,
 button,
 input:not([type=checkbox]) {
     /* Precisely fit controls into a line of text or table */
@@ -266,6 +230,7 @@ td [type="submit"] {
 
 button,
 [type="submit"] {
+    /* TODO: This doesn't quite center the text */
     line-height: 0;
 }
 
@@ -274,6 +239,10 @@ hr {
     margin: 0;
     border-style: solid solid none none;
     align-self: stretch;
+}
+
+table {
+    border-spacing: 0;
 }
 
 .t4 {
@@ -303,17 +272,24 @@ th {
     font-weight: 700;
     color: color-mix(in hsl, CanvasText 65%, var(--canvas));
     text-align: left;
+
+    /* TODO: This looks a little wonky */
+    outline: 1px solid var(--line);
+    background-color: var(--canvas);
+    z-index: 1;
+    position: relative;
 }
 
 tr.a,
 :not(tr).a>* {
-    background-color: var(--alt-canvas);
+    background-color: var(--alt-canvas1);
 }
 
 tr.b,
 :not(tr).b>* {
     /* make dragging look nicer */
-    background-color: var(--canvas);
+    background-color: var(--field);
+    /* background-color: Field; */
 }
 
 .td,
@@ -526,15 +502,14 @@ edit-part>div:empty {
 .tdinput {
     padding: 0;
     position: relative;
-    background-color: Field;
 }
 
 /* The focus ring is on the same z-index as the input, so if an adjacent input
    has a background it will cover part of it. */
 
 .tdinput :focus-visible {
-    position: relative;
-    z-index: 1;
+    box-shadow: inset 0 0 0px 2px AccentColor;
+    outline: none;
 }
 
 .tdinput input,
@@ -544,7 +519,7 @@ edit-part>div:empty {
     margin: 0;
     width: 100%;
     vertical-align: bottom;
-    background-color: Field;
+    background-color: transparent;
 }
 
 .tdinput input,
@@ -555,7 +530,8 @@ edit-part>div:empty {
 
 .tdinput :disabled,
 .tdinput [readonly] {
-    background-color: var(--canvas);
+    /* ??? */
+    /* background-color: var(--canvas); */
     color: GrayText;
 }
 
@@ -570,19 +546,41 @@ transaction-editor {
 }
 
 .date-table {
-    align-self: flex-start;
+    display: grid;
+    gap: var(--line-height);
+    grid-auto-columns: calc(3*var(--line-height)) 1fr 1fr;
+    width: calc(20 * var(--line-height));
 }
 
-.repeat {
+.date-table label {
+    grid-column-start: 1;
+    font-weight: 700;
+    color: color-mix(in hsl, CanvasText 65%, var(--canvas));
+    text-align: right;
+}
+
+.date-table>label+:not(label) {
+    grid-column-start: 2;
+}
+
+.date-table>label+:not(label)+:not(label) {
+    grid-column-start: 3;
+}
+
+[name="tx-repeat"] {
+    width: 100%;
+}
+
+.repeat>* {
     display: none;
 }
 
-[data-value=R]~.repeat.R {
-    display: table-row;
+[data-value=R]~.repeat>.R {
+    display: initial;
 }
 
-[data-value=C]~.repeat.C {
-    display: table-row;
+[data-value=C]~.repeat>.C {
+    display: initial;
 }
 
 .suggested {
@@ -602,6 +600,7 @@ long-currency {
 
 .edit-table {
     position: relative;
+    outline: 1px solid var(--line);
 }
 
 .tdinput .currency,
@@ -622,19 +621,57 @@ long-currency {
     padding-left: calc(var(--td-hpad) + 2ch);
 }
 
-.part-extras {
-    display: flex;
-    width: 100%;
-    align-items: flex-start;
-}
-
-.note {
-    width: 50px;
-    flex: 1 1;
-}
-
-.note textarea {
+.date-table textarea {
     height: calc(2 * var(--line-height) - 1px);
+    width: 100%;
+    margin: 0;
+}
+
+.edit .submit {
+    text-align: right;
+}
+
+/* sidebar */
+
+#overview>.controls {
+    border-bottom: 1px solid var(--line);
+    z-index: 2;
+}
+
+.overview {
+    padding: 0 calc(var(--line-height) - var(--td-hpad));
+}
+
+.overview,
+#overview>.controls {
+    background-color: var(--accent);
+    box-shadow: inset -5px 0 10px -10px var(--line);
+    border-right: 1px solid var(--line);
+}
+
+.overview .th2 {
+    background-color: var(--accent);
+    box-shadow: 0px 0px 3px 3px var(--accent);
+}
+
+.overview .th {
+    padding-top: calc(2 * var(--td-hpad));
+    color: color-mix(in srgb, CanvasText 60%, var(--accent));
+    outline: none;
+    background-color: transparent;
+}
+
+.overview .th1 {
+    background-color: var(--accent);
+    box-shadow: 0px 0px 3px 3px var(--accent);
+}
+
+.overview .td:first-child {
+    padding-left: calc(3 * var(--td-hpad));
+}
+
+.overview>*>*>*:last-child {
+    text-align: right;
 }
 
 /* budgeting */
