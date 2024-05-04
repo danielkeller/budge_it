@@ -11,12 +11,12 @@
     hx-select-oob="#transaction">
     <div id="categories">
         <div>
-            <span class="th th1">Categories</span>
-            <span class="th th1"><a href="{{ url('budget', budget.id, today.year, today.month) }}">Budget...</a></span>
+            <span class="th th2">Categories</span>
+            <span class="th th2"><a href="{{ url('budget', budget.id, today.year, today.month) }}">Budget...</a></span>
         </div>
-        {% set rowclass = cycler('a', 'b') %}
+        <div><span style="grid-column: span 2;">&nbsp;</span></div>
         {% for row in categories %}
-        {% if row in groups %}
+        {% if row in groups and row.group %}
         <div>
             <span class="th ellipsis">{{ row.group }}</span>
             <span class="th">
@@ -35,8 +35,8 @@
         </div>
         {% endfor %}
         <div>
-            <span class="th th1">Accounts</span>
-            <span class="th th1"></span>
+            <span class="th th2">Accounts</span>
+            <span class="th th2"></span>
         </div>
         {% for row in accounts %}
         <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">

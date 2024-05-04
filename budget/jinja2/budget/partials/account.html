@@ -22,6 +22,7 @@
     {% endif %}
 </div>
 <div class="transactions">
+{% set rowclass = cycler('a', 'b') %}
 <entry-list class="grid {% if account.clearable %}c5{% else %}c4{% endif %}"
     {% if request.headers.hx_target == 'account' and request.headers.hx_event != 'kbdselect' %}autofocus{% endif %}
     name="transaction"
@@ -38,7 +39,7 @@
         <span class="th th1">Total</span>
     </div>
     {% if quick_add %}
-    <form hx-put="{{ url('all', budget.id, account.id) }}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance">
+    <form class="{{ rowclass.next() }}" hx-put="{{ url('all', budget.id, account.id) }}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance">
         <span class="td tdinput">{{ quick_add.date }}</span>
         <span class="td tdinput">{{ quick_add.note }}</span>
         <currency-input class="td tdinput" currency="{{ account.currency }}">
@@ -56,7 +57,7 @@
     </form>
     {% endif %}
 {% for row in entries %}
-    <div class="{{ loop.cycle('a', 'b') }} {{"is_inbox" if row.is_inbox else ""}} {% if transaction.id == row.id %}checked{% endif %} {{"is_future" if row.is_future else "" }} entry"
+    <div class="{{ rowclass.next() }} {{"is_inbox" if row.is_inbox else ""}} {% if transaction.id == row.id %}checked{% endif %} {{"is_future" if row.is_future else "" }} entry"
         data-value="{{row.id}}">
         <span class="td">{{row.date}} {% if row.recurrence %}🔁{% endif %}</span>
 
