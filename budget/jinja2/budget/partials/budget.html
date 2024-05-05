@@ -1,50 +1,54 @@
 <budget-form>
-<table id="table">
-    <tr>
-        <th>Category</th>
-        <th>{{ form.instance.date.strftime("%b %Y") }}</th>
-        <th class="t4">Budgeted</th>
-        <th>Spent</th>
-        <th>{{ end_of_month(form.instance.date).strftime("%b %Y") }}</th>
-    </tr>
+<div id="table" class="budgeting grid gapgrid">
+<div>
+    <div>
+        <span class="listhead th th1">Category</span>
+        <span class="listhead th th1">{{ form.instance.date.strftime("%b %Y") }}</span>
+        <span class="listhead th th1 t5">Budgeted</span>
+        <span class="listhead th th1">Spent</span>
+        <span class="listhead th th1">{{ end_of_month(form.instance.date).strftime("%b %Y") }}</span>
+    </div>
     {% set rowclass = cycler('a', 'b') %}
     {% set ns = namespace(lastgroup="") %}
     {% for row in form.rows %}
     {% if row.category.group != ns.lastgroup %}
     {% set ns.lastgroup = row.category.group %}
-    <tr class="{{ rowclass.next() }}">
-        <th>{{row.category.group or "&nbsp;"}}</th>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-    </tr>
+    <div class="{{ rowclass.next() }}">
+        <span class="td th ellipsis">{{row.category.group or "&nbsp;"}}</span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
     {% endif %}
-    <tr class="{{ rowclass.next() }}">
-        <td>{{ row.category.name or 'Inbox' }}</td>
-        <td class="number">
+    <div class="{{ rowclass.next() }}">
+        <label for="{{ row.field.id_for_label }}_vis" class="td ellipsis">
+            {{ row.category.name or 'Inbox' }}
+        </label>
+        <label for="{{ row.field.id_for_label }}_vis" class="td number">
             <long-currency currency="{{ row.category.currency }}" value="{{ row.category.balance }}"></long-currency>
-        </td>
-        <td class="tdinput">
+        </label>
+        <span class="td tdinput t5">
             {% if row.category.name == '' %}
             <currency-input currency="{{ row.category.currency }}" data-budget-inbox>
                 {{ row.field }}<input class="suggested number" readonly>
             </currency-input>
             {% else %}
             <currency-input currency="{{ row.category.currency }}" data-budget-category>
-                {{ row.field }}<input class="number">
+                {{ row.field }}<input class="number" placeholder="0.00" id="{{ row.field.id_for_label }}_vis">
             </currency-input>
             {% endif %}
-        </td>
-        <td class="number">
+        </span>
+        <label for="{{ row.field.id_for_label }}_vis" class="td number">
             <short-currency currency="{{ row.category.currency }}" value="{{ row.category.change }}"></short-currency>
-        </td>
-        <td class="number">
+        </label>
+        <label for="{{ row.field.id_for_label }}_vis" class="td number">
             <short-currency currency="{{ row.category.currency }}" value="{{ row.final }}" data-total="{{ row.total }}"></short-currency>
-        </td>
-    </tr>
+        </label>
+    </div>
     {% endfor %}
-</table>
+</div>
+</div>
 </budget-form>
 {{ form.date }}
 {{ form.errors or "" }}

@@ -23,7 +23,7 @@
 </div>
 <div class="transactions">
 {% set rowclass = cycler('a', 'b') %}
-<entry-list class="grid {% if account.clearable %}c5{% else %}c4{% endif %}"
+<entry-list class="grid gapgrid {% if account.clearable %}c5{% else %}c4{% endif %}"
     {% if request.headers.hx_target == 'account' and request.headers.hx_event != 'kbdselect' %}autofocus{% endif %}
     name="transaction"
     hx-trigger="kbdselect,mouseselect delay:100ms"
@@ -32,11 +32,11 @@
 <div id="entries">
     {% block list_contents %}
     <div>
-        <span class="th th1">Date</span>
-        <span class="th th1">Transaction</span>
-        <span class="th th1">{{ account.currency }}</span>
-        {% if account.clearable %}<span class="th th1">☑️</span>{% endif %}
-        <span class="th th1">Total</span>
+        <span class="listhead th th1">Date</span>
+        <span class="listhead th th1">Transaction</span>
+        <span class="listhead th th1">{{ account.currency }}</span>
+        {% if account.clearable %}<span class="listhead th th1">☑️</span>{% endif %}
+        <span class="listhead th th1">Total</span>
     </div>
     {% if quick_add %}
     <form class="{{ rowclass.next() }}" hx-put="{{ url('all', budget.id, account.id) }}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance">
@@ -45,10 +45,10 @@
         <currency-input class="td tdinput" currency="{{ account.currency }}">
             <span class="sigil">-</span>
             {{ quick_add.amount }}
-            <input class="number" size="8">
+            <input class="number" size="8" placeholder="0.00">
         </currency-input>
         {{ quick_add.is_split }}<label for="id_qa-is_split" class="td"> Split</label>
-        <span class="td split-between" style="grid-column: 1 / -1;">
+        <span class="td split-between" style="grid-column: 2 / -2;">
             Split between: {% for split in quick_add.split %}
             {{ split }}{% if not loop.last %}, {% endif %}
             {% endfor %}

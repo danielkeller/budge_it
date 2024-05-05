@@ -1,8 +1,13 @@
 {%- if transaction_id %}
 <div class="controls">
     <button class="backbutton" hx-on:click="document.querySelector('[name=transaction]').select(null)">Close</button>
-    {% if transaction.id and transaction.kind == "T" %}
     <div class="spacer"></div>
+    <div class="submit">
+        <button id="submit-button" form="form">
+            {% if transaction.id %}Save Changes{% else %}Create Transaction{% endif %}
+        </button>
+    </div>
+    {% if transaction.id and transaction.kind == "T" %}
     <button type="button" hx-delete=""
         hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas"
     hx-confirm="Delete this transaction?">
@@ -46,10 +51,10 @@
             <hr>
             <table class="edit-table">
                 <tr>
-                    <th class="t6">Account</th>
-                    <th class="t6">Category</th>
-                    <th class="t4">Paid</th>
-                    <th class="t4">Owed</th>
+                    <th class="listhead t6">Account</th>
+                    <th class="listhead t6">Category</th>
+                    <th class="listhead t4">Paid</th>
+                    <th class="listhead t4">Owed</th>
                 </tr>
                 {% for row in part.formset %}
                 {% set row_index=loop.index0 %}
@@ -64,11 +69,11 @@
                     </account-select></td>
                     <td class="tdinput"><currency-input currency="{{ part.currency.value() }}">
                         {{ row.transferred }}
-                        <input class="number" {% if row.row.reconciled %}readonly{% endif %}>
+                        <input class="number" placeholder="0.00" {% if row.row.reconciled %}readonly{% endif %}>
                     </currency-input></td>
                     <td class="tdinput"><currency-input currency="{{ part.currency.value() }}">
                         {{ row.moved }}
-                        <input class="number">
+                        <input class="number" placeholder="0.00">
                     </currency-input></td>
                 </tr>
                 {% if not loop or loop.last %}
@@ -119,17 +124,11 @@
         {{ form.formset.management_form.MAX_NUM_FORMS }}
         {{ csrf_input }}
     </form>
-    </transaction-editor>
     {{ form.formset.non_form_errors() or "" }}
     
     {% endif %}
 
-    <div class="submit">
-        <button id="submit-button" form="form">
-            {% if transaction.id %}Save Changes{% else %}Create Transaction{% endif %}
-        </button>
-    </div>
-
     {{ form.errors or "" }}
+    </transaction-editor>
 </div>
 {% endif -%}

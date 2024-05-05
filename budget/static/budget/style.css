@@ -64,7 +64,7 @@ body {
 
 .all {
     display: grid;
-    grid: minmax(0, max-content) 1fr / minmax(0, max-content) 1fr minmax(0, max-content);
+    grid: minmax(0, max-content) 1fr / minmax(0, max-content) 1fr minmax(0, min-content);
 }
 
 #overview {
@@ -121,7 +121,6 @@ body {
 .edit {
     grid-area: 2 / 3 / 2 / 3;
     border-left: 1px solid var(--line);
-    padding: var(--line-height);
 }
 
 #account:empty,
@@ -178,17 +177,6 @@ body {
     overflow-y: auto;
 }
 
-.edit,
-edit-part {
-    display: flex;
-    flex-direction: column;
-    gap: var(--line-height);
-}
-
-edit-part {
-    width: min-content;
-}
-
 form {
     display: contents;
 }
@@ -210,18 +198,6 @@ input:not([type=date]) {
 
 [type=checkbox] {
     margin: 0;
-}
-
-.entry .td:first-child,
-.transactions .th:first-child,
-.transactions .tdinput:first-child input,
-.td.split-between {
-    padding-left: var(--line-height);
-}
-
-.entry .td:last-child,
-.transactions .th:last-child {
-    padding-right: var(--line-height);
 }
 
 td button,
@@ -280,21 +256,16 @@ th {
     user-select: none;
     /* TODO: reconsider */
     font-weight: 700;
-    color: color-mix(in hsl, CanvasText 65%, var(--canvas));
+    color: color-mix(in hsl, CanvasText 65%, transparent);
     text-align: left;
+}
 
+.listhead {
     /* TODO: This looks a little wonky */
     outline: 1px solid var(--line);
     background-color: var(--canvas);
     z-index: 1;
     position: relative;
-}
-
-tr.a,
-:not(tr).a>* {
-    /* make dragging look nicer */
-    background-color: var(--field);
-    /* background-color: Field; */
 }
 
 tr.b,
@@ -372,7 +343,6 @@ entry-list {
     outline: none;
 }
 
-
 .grid {
     align-self: start;
     max-height: 100%;
@@ -381,12 +351,42 @@ entry-list {
     gap: 0;
 }
 
+.gapgrid {
+    --gg-hpad: calc(var(--line-height) - var(--td-hpad));
+}
+
+.gapgrid .listhead:first-child,
+.gapgrid .listhead:last-child {
+    grid-column: span 2;
+}
+
+.gapgrid .td {
+    border-radius: var(--td-hpad);
+    margin: 0 calc(0px - var(--td-hpad));
+    padding: 0 calc(2 * var(--td-hpad));
+}
+
+.gapgrid .listhead:first-child {
+    padding-left: var(--line-height);
+}
+
+.gapgrid .td:first-child {
+    grid-column-start: 2;
+    margin-left: 0;
+    padding-left: var(--td-hpad);
+}
+
+.gapgrid .td:last-child {
+    margin-right: 0;
+    padding-right: var(--td-hpad);
+}
+
 .grid.c5 {
-    grid: auto-flow / max-content 1fr max-content max-content max-content;
+    grid: auto-flow / var(--gg-hpad) max-content 1fr max-content max-content max-content var(--gg-hpad);
 }
 
 .grid.c4 {
-    grid: auto-flow / max-content 1fr max-content max-content;
+    grid: auto-flow / var(--gg-hpad) max-content 1fr max-content max-content var(--gg-hpad);
 }
 
 .grid.c2 {
@@ -429,40 +429,68 @@ entry-list {
 
 @container (max-width: 500px) {
     .grid.c4 {
-        grid: auto-flow dense / max-content 1fr 1fr;
+        grid: auto-flow / var(--gg-hpad) max-content 1fr 1fr var(--gg-hpad);
     }
 
-    .grid.c4 span:nth-child(4n+1) {
+    .grid.c4 .td:nth-child(1),
+    .grid.c4 .th:nth-child(1) {
         grid-row: span 2;
     }
 
-    .grid.c4 span:nth-child(5n+2) {
-        grid-column: 2 / 4;
+    .grid.c4 .td:nth-child(2) {
+        grid-column: 3 / 5;
+        margin-right: 0;
+        padding-right: var(--td-hpad);
+        margin-bottom: calc(0px - 2 * var(--td-hpad));
+        padding-bottom: calc(2 * var(--td-hpad));
+    }
+
+    .grid.c4 .th:nth-child(2) {
+        grid-column: 3 / 6;
+    }
+
+    .grid.c4 .td:nth-child(3),
+    .grid.c4 .th:nth-child(3) {
+        grid-column: 3 / 4;
     }
 
     .grid.c5 {
-        grid: auto-flow dense / max-content 1fr max-content 1fr;
+        grid: auto-flow / var(--gg-hpad) max-content 1fr max-content 1fr var(--gg-hpad);
     }
 
-    .grid.c5 span:nth-child(5n+1) {
+    .grid.c5 .td:nth-child(1),
+    .grid.c5 .th:nth-child(1) {
         grid-row: span 2;
     }
 
-    .grid.c5 span:nth-child(5n+2) {
-        grid-column: 2 / 5;
+    .grid.c5 .td:nth-child(2) {
+        grid-column: 3 / 6;
+        margin-right: 0;
+        padding-right: var(--td-hpad);
+        margin-bottom: calc(0px - 2 * var(--td-hpad));
+        padding-bottom: calc(2 * var(--td-hpad));
     }
 
-    .grid.c5 .is_inbox :nth-child(5n+4) {
+    .grid.c5 .th:nth-child(2) {
+        grid-column: 3 / 7;
+    }
+
+    .grid.c5 .td:nth-child(3),
+    .grid.c5 .th:nth-child(3) {
+        grid-column: 3 / 4;
+    }
+
+    .grid.c5 .is_inbox :nth-child(4) {
         grid-column: span 2;
     }
 
-    .grid.c5 .is_inbox :nth-child(5n+5) {
+    .grid.c5 .is_inbox :nth-child(5) {
         display: none;
     }
 
-    .grid.c4 .th:nth-child(3),
-    .grid.c4 .th:nth-child(4),
-    .grid.c4 .th:nth-child(5) {
+    .grid .th:nth-child(3),
+    .grid .th:nth-child(4),
+    .grid .th:nth-child(5) {
         top: var(--line-height);
     }
 }
@@ -545,6 +573,10 @@ edit-part>div:empty {
     color: GrayText;
 }
 
+currency-input :disabled::placeholder {
+    color: transparent;
+}
+
 :invalid:not(:focus) {
     outline: 2px solid red;
 }
@@ -552,7 +584,18 @@ edit-part>div:empty {
 /* editor */
 
 transaction-editor {
-    display: contents;
+    padding: var(--line-height);
+}
+
+transaction-editor,
+edit-part {
+    display: flex;
+    flex-direction: column;
+    gap: var(--line-height);
+}
+
+edit-part {
+    width: min-content;
 }
 
 .date-table {
@@ -611,6 +654,7 @@ long-currency {
 .edit-table {
     position: relative;
     outline: 1px solid var(--line);
+    background-color: var(--field);
 }
 
 .tdinput .currency,
@@ -663,9 +707,6 @@ long-currency {
 
 .overview .th {
     padding-top: calc(2 * var(--td-hpad));
-    color: color-mix(in srgb, CanvasText 60%, var(--accent));
-    outline: none;
-    background-color: transparent;
 }
 
 .overview .th1,
@@ -684,6 +725,10 @@ long-currency {
 }
 
 /* budgeting */
+
+.budgeting.grid {
+    grid: auto-flow / var(--gg-hpad) minmax(calc(6*var(--line-height)), 1fr) max-content max-content max-content max-content var(--gg-hpad)
+}
 
 date-picker {
     width: max-content;
