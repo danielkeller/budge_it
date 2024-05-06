@@ -133,7 +133,7 @@ body {
 }
 
 @media (max-width: 1200px) {
-    #transaction:not(:empty)~#overview {
+    .all:has(#transaction:not(:empty))>#overview {
         display: none;
     }
 
@@ -152,11 +152,11 @@ body {
         flex: 1 1 auto;
     }
 
-    #transaction:not(:empty)+#account {
+    .all:has(#transaction:not(:empty))>#account {
         display: none;
     }
 
-    #account:not(:empty)+#overview {
+    .all:has(#account:not(:empty))>#overview {
         display: none;
     }
 
@@ -170,6 +170,7 @@ body {
 
     .edit {
         grid-area: 2 / 2 / 2 / 2;
+        border: none;
     }
 }
 
