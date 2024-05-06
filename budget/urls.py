@@ -15,7 +15,7 @@ urlpatterns = [
 
     path('manage/<int:budget_id>/', views.manage_accounts, name='manage'),
     path('budget/<int:budget_id>/<int:year>/<int:month>/',
-         views.budget, name='budget'),
+         views.budgeting, name='budget'),
 
     # POST-only paths
     path('account/<int:account_id>/add/<int:transaction_id>/',

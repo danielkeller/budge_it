@@ -3,10 +3,10 @@
 <div>
     <div>
         <span class="listhead th th1">Category</span>
-        <span class="listhead th th1">{{ form.instance.date.strftime("%b %Y") }}</span>
+        <span class="listhead th th1">{{ form.instance.date.strftime("%b") }} 1</span>
         <span class="listhead th th1 t5">Budgeted</span>
         <span class="listhead th th1">Spent</span>
-        <span class="listhead th th1">{{ end_of_month(form.instance.date).strftime("%b %Y") }}</span>
+        <span class="listhead th th1">{{ end_of_month(form.instance.date).strftime("%b %d") }}</span>
     </div>
     {% set rowclass = cycler('a', 'b') %}
     {% set ns = namespace(lastgroup="") %}

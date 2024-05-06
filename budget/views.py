@@ -382,7 +382,7 @@ def row_form(request: HttpRequest, budget_id: int,
 
 
 @login_required
-def budget(request: HttpRequest, budget_id: int, year: int, month: int):
+def budgeting(request: HttpRequest, budget_id: int, year: int, month: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
     try:
         budget_date = date(year, month, 1)
@@ -411,6 +411,13 @@ def budget(request: HttpRequest, budget_id: int, year: int, month: int):
                'current_year': year, 'current_month': month,
                'years': years, 'months': months,
                'prior': prior}
+
+    accounts, categories, groups, debts, totals = accounts_overview(budget)
+    context |= {'accounts': accounts, 'categories': categories,
+                'groups': groups, 'debts': debts, 'totals': totals,
+                'today': date.today(),
+                'edit': _edit_context(budget)}
+
     return render(request, 'budget/budget.html', context)
 
 
@@ -428,4 +435,5 @@ def copy_budget(request: HttpRequest, budget_id: int, transaction_id: int,
     except ValueError:
         raise Http404()
     prior.copy_to(budget_date)
+    # TODO returning it directly doesn't work?
     return HttpResponseRedirect(reverse('budget', args=(budget_id, year, month)))

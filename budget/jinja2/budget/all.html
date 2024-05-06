@@ -17,39 +17,7 @@
 </head>
 
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-ext="event-header" hx-history="false" class="all">
-    <div id="datas">
-        <datalist id="account-list">
-            <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
-            {% for account in edit.accounts %}
-            <option data-id="{{ account.id }}" data-name="{{ account.name }}" value="👤 {{ account.name }}"></option>
-            {% endfor %}
-            {% for id, name in edit.friends.items() %}
-            <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
-            {% endfor %}
-            {% for id, name in edit.payees.items() %}
-            <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
-            {% endfor %}
-        </datalist>
-        <datalist id="category-list">
-            <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
-            {% for category in edit.categories %}
-            <option data-id="{{ category.id }}" data-name="{{ category.name }}" value="👤 {{ category.name }}"></option>
-            {% endfor %}
-            {% for id, name in edit.friends.items() %}
-            <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
-            {% endfor %}
-            {% for id, name in edit.payees.items() %}
-            <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
-            {% endfor %}
-        </datalist>
-        <script id="data" type="application/json">
-            {{ edit.data|tojson|safe }}
-        </script>        
-        <script>window.data = JSON.parse(document.getElementById('data').textContent);</script>
-    </div>
-    <div id="overview">
-        {% include 'budget/partials/overview.html' %}
-    </div>
+    <div id="overview">{% include 'budget/partials/overview.html' %}</div>
     <div id="account">{% include 'budget/partials/account.html' %}</div>
     <div id="transaction">{% include 'budget/partials/edit.html' %}</div>
 </body>

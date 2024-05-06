@@ -251,6 +251,8 @@ class TransactionForm(FormSetInline[PartFormSet]):
         super().__init__(PartFormSet, *args, instance=instance, **kwargs)
         if instance and not instance.recurrence:
             self.fields['repeat'].disabled = True
+        if not instance:
+            self.fields['date'].widget.attrs['autofocus'] = ''
 
     def clean(self):
         if self.cleaned_data['repeat'] == 'N':

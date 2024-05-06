@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-
+<!--TODO: mege with all.html-->
 <head>
+    <title>Budge It - {{ form.instance.date.strftime("%b %Y") }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{{ static('budget/style.css') }}">
     <script src="{{ static('budget/util.js') }}"></script>
@@ -9,23 +10,12 @@
     <script src="{{ static('budget/budget.js') }}"></script>
     <script src="{{ static('budget/htmx.min.js') }}" defer></script>
 </head>
-<body class="popup">
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-ext="event-header" hx-history="false" class="all">
+<div id="overview">{% include 'budget/partials/overview.html' %}</div>
+<div id="account">
     <div class="controls">
-        <div class="navigation">
-            <div><a href="{{ budget.get_absolute_url() }}">Back</a></div>
-        </div>
-        <div class="tools">
-            {% if prior and not form.instance.id %}
-            <form method="post" action="{{ url('copy_budget', budget.id, prior.id, current_year, current_month) }}">
-                {{ csrf_input }}
-                <button>Copy from {{ prior.date.strftime("%b %Y") }}</button>
-            </form>
-            {% endif %}
-            <button form="form">Save</button>
-        </div>
-    </div>
-
-    <main class="manage">
+        <div><button class="backbutton" hx-on:click="document.querySelector('[name=account]').select(null)">Close</button></div>
+        <div class="spacer"></div>
         <date-picker>
             <form class="years">
                 {% for year in years %}
@@ -43,9 +33,22 @@
                 {% endfor %}
             </div>
         </date-picker>
+        <div class="spacer"></div>
+        <div>
+            {% if prior and not form.instance.id %}
+            <button hx-post="{{ url('copy_budget', budget.id, prior.id, current_year, current_month) }}" hx-target="body">Copy from {{ prior.date.strftime("%b %Y") }}</button>
+            {% endif %}
+            <button form="form">Save</button>
+        </div>
+    </div>
+
+    <div class="transactions">
+        <!--TODO: htmx-ify-->
         <form id="form" method="post">
             {% include 'budget/partials/budget.html' %}
             {{ csrf_input }}
         </form>
-    </main>
+    </div>
+</div>
+<div id="transaction"></div>
 </body>

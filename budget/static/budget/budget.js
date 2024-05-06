@@ -20,7 +20,7 @@ class BudgetForm extends HTMLElement {
 customElements.define("budget-form", BudgetForm);
 
 function updateFinal(input) {
-    const final = input.closest('tr').querySelector('[data-total]');
+    const final = input.closest('div').querySelector('[data-total]');
     final.value = +final.dataset.total + (+input.value || 0);
 }
 

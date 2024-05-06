@@ -1,4 +1,35 @@
-<div class="controls">&nbsp;</div>
+<div class="controls">
+    <div id="datas">
+        <datalist id="account-list">
+            <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
+            {% for account in edit.accounts %}
+            <option data-id="{{ account.id }}" data-name="{{ account.name }}" value="👤 {{ account.name }}"></option>
+            {% endfor %}
+            {% for id, name in edit.friends.items() %}
+            <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
+            {% endfor %}
+            {% for id, name in edit.payees.items() %}
+            <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
+            {% endfor %}
+        </datalist>
+        <datalist id="category-list">
+            <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
+            {% for category in edit.categories %}
+            <option data-id="{{ category.id }}" data-name="{{ category.name }}" value="👤 {{ category.name }}"></option>
+            {% endfor %}
+            {% for id, name in edit.friends.items() %}
+            <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
+            {% endfor %}
+            {% for id, name in edit.payees.items() %}
+            <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
+            {% endfor %}
+        </datalist>
+        <script id="data" type="application/json">
+            {{ edit.data|tojson|safe }}
+        </script>        
+        <script>window.data = JSON.parse(document.getElementById('data').textContent);</script>
+    </div>
+</div>
 {% set checked = account and account.id %}
 <entry-list
     class="overview grid c2"
@@ -10,9 +41,10 @@
     hx-target="#account"
     hx-select-oob="#transaction">
     <div id="categories">
+        <!--If this were in the controls their height could be dynamic-->
         <div>
             <span class="th th2">Categories</span>
-            <span class="th th2"><a href="{{ url('budget', budget.id, today.year, today.month) }}">Budget...</a></span>
+            <span class="th th2"><a href="{{ url('budget', budget.id, today.year, today.month) }}" hx-boost="true">Budget...</a></span>
         </div>
         <div><span style="grid-column: span 2;">&nbsp;</span></div>
         {% for row in categories %}
