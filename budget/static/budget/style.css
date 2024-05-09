@@ -200,15 +200,8 @@ textarea {
     border-radius: 2px;
 }
 
-select,
-button {
-    background-color: var(--button-face);
-    border: 1px solid var(--line);
-    border-radius: var(--td-hpad);
-    padding: 0 var(--td-hpad);
-}
-
-:disabled {
+input:disabled,
+textarea:disabled {
     background-color: var(--button-face);
 }
 
