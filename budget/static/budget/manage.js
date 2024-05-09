@@ -24,7 +24,7 @@ document.addEventListener('input', ({ target }) => {
 });
 
 const new_group_template =
-    document.getElementById('new-group-t').content.firstElementChild;
+    document.getElementById('new-group-t')?.content.firstElementChild;
 let findTarget = null;
 let dragging = null;
 function isGroup(element) { return 'group' in element.dataset; }
