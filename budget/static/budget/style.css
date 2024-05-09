@@ -269,6 +269,11 @@ th {
     position: relative;
 }
 
+tr.a,
+:not(tr).a>* {
+    background-color: var(--field);
+}
+
 tr.b,
 :not(tr).b>* {
     background-color: var(--alt-canvas1);
@@ -317,7 +322,7 @@ tbody.droppable>:last-child>.tdinput>* {
 }
 
 .groupname {
-    text-align: center;
+    color: inherit;
 }
 
 .dragging button {

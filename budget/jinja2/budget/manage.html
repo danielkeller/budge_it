@@ -1,39 +1,42 @@
 <!DOCTYPE html>
 
 <head>
+    <title>Budge It</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{{ static('budget/style.css') }}">
+    <script src="{{ static('budget/jdecimal.js') }}"></script>
+    <script src="{{ static('budget/util.js') }}"></script>
+    <script src="{{ static('budget/editor.js') }}"></script>
+    <script src="{{ static('budget/budget.js') }}"></script>
     <script src="{{ static('budget/manage.js') }}" defer></script>
     <script src="{{ static('budget/htmx.min.js') }}" defer></script>
 </head>
-<body class="popup">
-<form id="form" method="post">
+<body class="all">
+    <div id="overview">{% include 'budget/partials/overview.html' %}</div>
+    <div id="account">
+    <form id="form" method="post">
 
     <div class="controls">
-        <div class="navigation">
-            <div><a href="{{ budget.get_absolute_url() }}">Back</a></div>
-        </div>
-        <div class="tools">
-            <div><button form="form">Save</button></div>
-        </div>
+        <div>Budget name for others: {{ budget_form.name }}</div>
+        <div class="spacer"></div>
+        <div><button form="form">Save</button></div>
     </div>
 
-    <main class="manage">
-        <div>Budget name for others: {{ budget_form.name }}</div>
-        <table>
-            <tbody data-group>
+    <div class="transactions scroll">
+    <table>
+        <tbody data-group>
             <tr>
-                <th colspan=2 class="order">Category</th>
-                <th>Currency</th>
-                <th></th>
-                <th>Closed</th>
-                <th>Delete?</th>
+                <th colspan=2 class="order listhead th1">Category</th>
+                <th class="listhead th1">Currency</th>
+                <th class="listhead th1"></th>
+                <th class="listhead th1">Closed</th>
+                <th class="listhead th1">Delete?</th>
             </tr>
             {% set ns = namespace(lastgroup="") %}
             {% for form in category_formset %}
             {% if form.group.value() != ns.lastgroup %}
             {% set ns.lastgroup = form.group.value() %}
-    </tbody>
+        </tbody>
         <tbody draggable="true" data-group>
             <tr>
                 <td class="order">=</td>
@@ -73,13 +76,14 @@
                 </td>
             </tr>
             {% endblock %}
+            <tr><td>&nbsp;</td></tr>
         </tbody>
             <tr data-account>
-                <th colspan=2>Account</th>
-                <th>Currency</th>
-                <th>Clearable</th>
-                <th>Closed</th>
-                <th>Delete?</th>
+                <th class="listhead th1" colspan=2>Account</th>
+                <th class="listhead th1">Currency</th>
+                <th class="listhead th1">Clearable</th>
+                <th class="listhead th1">Closed</th>
+                <th class="listhead th1">Delete?</th>
             </tr>
             {% for form in account_formset %}
             {% block account_form scoped %}
@@ -108,6 +112,7 @@
                 </td>
             </tr>
             {% endblock %}
+            <tr><td>&nbsp;</td></tr>
         </table>
         <template id="new-group-t">
             <tr id="new-group">
@@ -152,6 +157,16 @@
         {{ currency_formset.management_form.MIN_NUM_FORMS }}
         {{ currency_formset.management_form.MAX_NUM_FORMS }}
         {{ csrf_input }}
+        <datalist id="currencies">
+            <option value="USD">
+            <option value="EUR">
+            <option value="JPY">
+            <option value="GBP">
+            <option value="AUD">
+            <option value="CHF">
+            <option value="CNH">
+            <option value="INR">
+        </datalist>
 </form>
 <div>
     {{ category_formset.errors or "" }}
@@ -161,15 +176,7 @@
     {{ currency_formset.errors or "" }}
     {{ currency_formset.non_form_errors() }}
 </div>
-</main>
-<datalist id="currencies">
-    <option value="USD">
-    <option value="EUR">
-    <option value="JPY">
-    <option value="GBP">
-    <option value="AUD">
-    <option value="CHF">
-    <option value="CNH">
-    <option value="INR">
-</datalist>
+</div>
+</div>
+<div id="transaction"></div>
 </body>

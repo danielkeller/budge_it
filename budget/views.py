@@ -350,6 +350,13 @@ def manage_accounts(request: HttpRequest, budget_id: int):
                'category_formset': category_formset,
                'account_formset': account_formset,
                'currency_formset': currency_formset}
+
+    accounts, categories, groups, debts, totals = accounts_overview(budget)
+    context |= {'accounts': accounts, 'categories': categories,
+                'groups': groups, 'debts': debts, 'totals': totals,
+                'today': date.today(),
+                'edit': _edit_context(budget)}
+
     return render(request, 'budget/manage.html', context)
 
 
