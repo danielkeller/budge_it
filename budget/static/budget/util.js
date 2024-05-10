@@ -70,11 +70,19 @@ customElements.define('short-currency', ShortCurrency);
 customElements.define('long-currency', LongCurrency);
 
 class EntryList extends HTMLElement {
+    #touching = false;
     connectedCallback() {
         this.setAttribute('tabindex', 0);
+        this.addEventListener('touchstart', () => this.#touching = true);
+        this.addEventListener('touchend', () => this.#touching = false);
+        this.addEventListener('touchcancel', () => this.#touching = false);
+        this.addEventListener('click', (event) => {
+            if (event.button === 0 && !event.ctrlKey && !event.metaKey)
+                event.preventDefault();
+        });
         this.addEventListener('mousedown', (event) => {
             const { target } = event;
-            if (event.button !== 0 || event.ctrlKey || event.metaKey)
+            if (this.#touching || event.button !== 0 || event.ctrlKey || event.metaKey)
                 return;
             if (target.tagName === "BUTTON" || target.tagName === "INPUT")
                 return;

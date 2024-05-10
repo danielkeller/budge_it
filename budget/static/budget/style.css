@@ -357,6 +357,12 @@ tbody.droppable>:last-child>.tdinput>* {
     cursor: grabbing;
 }
 
+entry-list>*>*>a {
+    color: inherit;
+    cursor: default;
+    text-decoration: inherit;
+}
+
 entry-list .checked>* {
     background-color: var(--inactive-selected);
     border-radius: var(--td-hpad);

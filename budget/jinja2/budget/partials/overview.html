@@ -60,7 +60,7 @@
         </div>
         {% endif %}
         <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
-            <span class="td ellipsis">{{ row.name or "Inbox" }}</span>
+            <a class="td ellipsis" href="{{ url('all', budget.id, row.id) }}">{{ row.name or "Inbox" }}</a>
             <span class="td">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency>
             </span>
@@ -72,13 +72,13 @@
         </div>
         {% for row in accounts %}
         <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
-            <span class="td ellipsis">{{ row.name or "Inbox" }}</span>
+            <a class="td ellipsis" href="{{ url('all', budget.id, row.id) }}">{{ row.name or "Inbox" }}</a>
             <span class="td"> <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency></span>
         </div>
         {% endfor %}
         {% for row in debts %}
         <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
-            <span class="td">Owed by {{ row.other }}</span>
+            <a class="td" href="{{ url('all', budget.id, row.id) }}">Owed by {{ row.other }}</a>
             <span class="td">
                 <long-currency currency="{{ row.currency }}" value="{{ row.other.balance }}"></long-currency>
             </span>
@@ -90,7 +90,7 @@
         </div>
         {% for row in totals %}
         <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{ row.id }}">
-            <span class="td">Total</span>
+            <a class="td" href="{{ url('all', budget.id, row.id) }}">Total</a>
             <span class="td">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance }}"></long-currency>
             </span>
