@@ -53,16 +53,6 @@ body {
     overflow: hidden;
 }
 
-.column,
-.popup {
-    display: grid;
-    grid: minmax(0, max-content) / auto;
-}
-
-.popup {
-    width: max-content;
-}
-
 .login {
     display: grid;
     grid: auto-flow / max-content min-content;
@@ -112,16 +102,10 @@ body {
     background-color: var(--field);
 }
 
-.controls,
-.tools {
+.controls {
     display: flex;
     gap: var(--line-height);
 
-}
-
-.tools {
-    margin-left: auto;
-    flex-wrap: wrap;
 }
 
 .spacer {
@@ -161,10 +145,6 @@ body {
     #overview {
         max-width: unset;
         grid-area: 1 / 2 / 2 / 2;
-    }
-
-    #transaction {
-        flex: 1 1 auto;
     }
 
     .has_transaction~#account {
@@ -229,14 +209,8 @@ input:not([type=date]) {
     margin: 0;
 }
 
-td button,
-td [type="submit"] {
-    min-width: max-content;
-}
-
 button,
 [type="submit"] {
-    /* TODO: This doesn't quite center the text */
     line-height: 0;
 }
 
@@ -357,7 +331,7 @@ tbody.droppable>:last-child>.tdinput>* {
     cursor: grabbing;
 }
 
-entry-list>*>*>a {
+a.td {
     color: inherit;
     cursor: default;
     text-decoration: inherit;
@@ -388,11 +362,9 @@ entry-list {
 }
 
 .grid {
-    align-self: start;
     max-height: 100%;
     overflow-y: auto;
     display: grid;
-    gap: 0;
 }
 
 .gapgrid {
@@ -404,7 +376,7 @@ entry-list {
     grid-column: span 2;
 }
 
-.gapgrid .td {
+.gapgrid .td:not(.tdinput) {
     border-radius: var(--td-hpad);
     margin: 0 calc(0px - var(--td-hpad));
     padding: 0 calc(2 * var(--td-hpad));
@@ -484,6 +456,9 @@ entry-list {
     .grid.c4 .td:nth-child(2) {
         grid-column: 3 / 5;
         margin-right: 0;
+    }
+
+    .grid.c4 .td:nth-child(2):not(.tdinput) {
         padding-right: var(--td-hpad);
         margin-bottom: calc(0px - 2 * var(--td-hpad));
         padding-bottom: calc(2 * var(--td-hpad));
@@ -510,6 +485,9 @@ entry-list {
     .grid.c5 .td:nth-child(2) {
         grid-column: 3 / 6;
         margin-right: 0;
+    }
+
+    .grid.c5 .td:nth-child(2):not(.tdinput) {
         padding-right: var(--td-hpad);
         margin-bottom: calc(0px - 2 * var(--td-hpad));
         padding-bottom: calc(2 * var(--td-hpad));
@@ -550,15 +528,13 @@ entry-list {
 }
 
 .disclosure:focus-visible+label {
-    outline: 3px solid LinkText;
-    outline: 3px solid AccentColor;
+    box-shadow: inset 0 0 0px 2px LinkText;
+    box-shadow: inset 0 0 0px 2px AccentColor;
     border-radius: 2px;
-    position: relative;
-    z-index: 1;
 }
 
 .disclosure+label::before {
-    content: '▶';
+    content: '►';
     display: inline-block;
     width: 1em;
 }
@@ -577,17 +553,12 @@ entry-list {
     display: initial;
 }
 
-edit-part>div:empty {
-    display: none;
-}
-
 .tdinput {
     padding: 0;
     position: relative;
 }
 
-/* The focus ring is on the same z-index as the input, so if an adjacent input
-   has a background it will cover part of it. */
+/* The default focus ring is on the same z-index as the input. */
 
 .tdinput :focus-visible {
     box-shadow: inset 0 0 0px 2px LinkText;
@@ -595,20 +566,13 @@ edit-part>div:empty {
     outline: none;
 }
 
-.tdinput input,
-.tdinput select,
-.tdinput textarea {
+.tdinput input {
     border: none;
     margin: 0;
     width: 100%;
     vertical-align: bottom;
     background-color: transparent;
-}
-
-.tdinput input,
-.tdinput textarea {
     padding: 0 var(--td-hpad);
-    resize: vertical;
 }
 
 .tdinput :disabled,
@@ -641,6 +605,10 @@ edit-part {
 
 edit-part {
     width: min-content;
+}
+
+edit-part>div:empty {
+    display: none;
 }
 
 .date-table {
@@ -702,7 +670,6 @@ long-currency {
     background-color: var(--field);
 }
 
-.tdinput .currency,
 .tdinput .sigil {
     position: absolute;
     padding-left: var(--td-hpad);
@@ -710,10 +677,6 @@ long-currency {
     background-color: transparent;
     /* ??? */
     width: max-content;
-}
-
-.tdinput .currency+input {
-    padding-left: calc(var(--td-hpad) + 4ch);
 }
 
 .tdinput .sigil+input {
@@ -724,10 +687,6 @@ long-currency {
     height: calc(2 * var(--line-height) - 1px);
     width: 100%;
     margin: 0;
-}
-
-.edit .submit {
-    text-align: right;
 }
 
 /* sidebar */
@@ -756,6 +715,7 @@ long-currency {
 
 .overview .th1,
 .overview .th2 {
+    margin-bottom: calc(2 * var(--td-hpad));
     padding-top: 0;
     background-color: var(--sidebar);
     box-shadow: 0px 0px 3px 3px var(--sidebar);

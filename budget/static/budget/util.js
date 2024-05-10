@@ -77,7 +77,8 @@ class EntryList extends HTMLElement {
         this.addEventListener('touchend', () => this.#touching = false);
         this.addEventListener('touchcancel', () => this.#touching = false);
         this.addEventListener('click', (event) => {
-            if (event.button === 0 && !event.ctrlKey && !event.metaKey)
+            if (event.target.tagName === 'A' && event.target.classList.contains('td')
+                && event.button === 0 && !event.ctrlKey && !event.metaKey)
                 event.preventDefault();
         });
         this.addEventListener('mousedown', (event) => {

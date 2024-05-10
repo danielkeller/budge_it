@@ -48,7 +48,7 @@
             {{ quick_add.amount }}
             <input class="number" size="8" placeholder="0.00">
         </currency-input>
-        {{ quick_add.is_split }}<label for="id_qa-is_split" class="td"> Split</label>
+        {{ quick_add.is_split }}<label for="id_qa-is_split" class="td tdinput"> Split</label>
         <span class="td split-between" style="grid-column: 2 / -2;">
             Split between: {% for split in quick_add.split %}
             {{ split }}{% if not loop.last %}, {% endif %}
