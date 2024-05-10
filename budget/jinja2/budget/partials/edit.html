@@ -10,7 +10,7 @@
     {% if transaction.id and transaction.kind == "T" %}
     <button type="button" hx-delete=""
         hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas"
-    hx-confirm="Delete this transaction?">
+        hx-confirm="Delete this transaction?">
         Delete Transaction</button>
     {% endif %}
 </div>
@@ -132,3 +132,7 @@
     </transaction-editor>
 </div>
 {% endif -%}
+
+{% if request.headers.hx_target == 'transaction' %}
+<div id="pagestate" {% if transaction_id %}class="has_transaction"{% else %}class="has_account"{% endif %} hx-swap-oob="true"></div>
+{% endif %}

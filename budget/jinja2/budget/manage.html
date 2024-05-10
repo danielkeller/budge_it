@@ -11,12 +11,14 @@
     <script src="{{ static('budget/manage.js') }}" defer></script>
     <script src="{{ static('budget/htmx.min.js') }}" defer></script>
 </head>
-<body class="all">
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-ext="event-header" hx-history="false" class="all">
+    <div id="pagestate" class="has_account"></div>
     <div id="overview">{% include 'budget/partials/overview.html' %}</div>
     <div id="account">
     <form id="form" method="post">
 
     <div class="controls">
+        <div><button class="backbutton" hx-get="{{ url('all', budget.id) }}" hx-target="#account">Close</button></div>
         <div>Budget name for others: {{ budget_form.name }}</div>
         <div class="spacer"></div>
         <div><button form="form">Save</button></div>

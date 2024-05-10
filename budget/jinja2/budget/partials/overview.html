@@ -39,12 +39,12 @@
     hx-trigger="kbdselect,mouseselect delay:100ms"
     hx-get="{{ url('all', budget.id) }}"
     hx-target="#account"
-    hx-select-oob="#transaction">
+    hx-disinherit="*">
     <div id="categories">
         <!--If this were in the controls their height could be dynamic-->
         <div>
             <span class="th th2">Categories</span>
-            <span class="th th2"><a href="{{ url('budget', budget.id, today.year, today.month) }}" hx-boost="true" hx-disinherit="*">Budget...</a></span>
+            <span class="th th2"><a href="{{ url('budget', budget.id, today.year, today.month) }}" hx-boost="true">Budget...</a></span>
         </div>
         <div><span style="grid-column: span 2;">&nbsp;</span></div>
         {% for row in categories %}

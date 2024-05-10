@@ -12,6 +12,7 @@
     <script src="{{ static('budget/htmx.min.js') }}" defer></script>
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-ext="event-header" hx-history="false" class="all">
+<div id="pagestate" class="has_account"></div>
 <div id="overview">{% include 'budget/partials/overview.html' %}</div>
 <div id="account">
     <div class="controls">

@@ -28,7 +28,8 @@
     name="transaction"
     hx-trigger="kbdselect,mouseselect delay:100ms"
     hx-get="{{ url('all', budget.id, account.id) }}"
-    hx-target="#transaction">
+    hx-target="#transaction"
+    hx-disinherit="*">
 <div id="entries">
     {% block list_contents %}
     <div>
@@ -106,4 +107,7 @@
 </div>
 {% endif -%}
 
-{% if request.headers.hx_target == 'account' %}<div id="transaction" class="editor column"></div>{% endif %}
+{% if request.headers.hx_target == 'account' %}
+<div id="pagestate" {% if account %}class="has_account"{% endif %} hx-swap-oob="true"></div>
+<div id="transaction" class="editor column" hx-swap-oob="true"></div>
+{% endif %}
