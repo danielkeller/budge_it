@@ -359,6 +359,11 @@ tbody.droppable>:last-child>.tdinput>* {
 
 entry-list .checked>* {
     background-color: var(--inactive-selected);
+    border-radius: var(--td-hpad);
+}
+
+entry-list .checked> :first-child {
+    margin-right: calc(-2 * var(--td-hpad));
 }
 
 entry-list:focus .checked>* {
