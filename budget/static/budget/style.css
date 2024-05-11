@@ -758,7 +758,8 @@ date-picker {
     background-color: var(--line);
 }
 
-.years>label {
+.years>label,
+.months {
     background-color: var(--canvas);
 }
 
