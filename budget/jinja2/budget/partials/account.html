@@ -6,7 +6,7 @@
         hx-get="{{ url('all', budget.id, account.id, 'new') }}"
         hx-trigger="click, keyup[key=='c'&&keyNotCaptured()] from:body"
         hx-target="#transaction"
-        hx-on:htmx:after-request="document.querySelector('[name=transaction]').checked = null">
+        hx-on:htmx:after-request="document.querySelector('[name=transaction]').uncheck()">
         New Transaction</button></div>
     <div class="spacer"></div>
     <div><b>{{ account.name or "Inbox" }}</b>:
@@ -59,7 +59,7 @@
     </form>
     {% endif %}
     {% for row in entries %}
-    <div class="{{ rowclass.next() }} {{"is_inbox" if row.is_inbox else ""}} {% if transaction.id == row.id %}checked{% endif %} {{"is_future" if row.is_future else "" }} entry"
+    <div class="{{ rowclass.next() }} {{"is_inbox" if row.is_inbox else ""}} {% if row.id in transaction_ids %}checked active{% endif %} {{"is_future" if row.is_future else "" }} entry"
         data-value="{{row.id}}">
         <a class="td" href="{{ url('all', budget.id, account.id, row.id) }}">{{row.date}} {% if row.recurrence %}🔁{% endif %}</a>
 

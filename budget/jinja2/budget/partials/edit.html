@@ -1,4 +1,4 @@
-{%- if transaction_id %}
+{%- if transaction_ids %}
 <div class="controls">
     <button class="backbutton" hx-on:click="document.querySelector('[name=transaction]').select(null)">Close</button>
     <div class="spacer"></div>
@@ -13,7 +13,9 @@
     {% endif %}
 </div>
 <div class="scroll edit">
-    {% if transaction.kind == 'B' %}
+    {% if transaction_ids|length > 1 %}
+    {{ transaction_ids|length }} transactions selected.
+    {% elif transaction.kind == 'B' %}
     <form id="form" autocomplete="off"
         hx-trigger="submit, keydown[key=='Enter'&&(ctrlKey||metaKey)] from:body"
         hx-post=""
@@ -134,5 +136,5 @@
 {% endif -%}
 
 {% if request.headers.hx_target == 'transaction' %}
-<div id="pagestate" {% if transaction_id %}class="has_transaction"{% else %}class="has_account"{% endif %} hx-swap-oob="true"></div>
+<div id="pagestate" {% if transaction_ids %}class="has_transaction"{% else %}class="has_account"{% endif %} hx-swap-oob="true"></div>
 {% endif %}

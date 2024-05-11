@@ -74,6 +74,12 @@ class LongCurrency extends ShortCurrency {
 customElements.define('short-currency', ShortCurrency);
 customElements.define('long-currency', LongCurrency);
 
+function isBetween(node, a, b) {
+    const p1 = ~node.compareDocumentPosition(a);
+    const p2 = ~node.compareDocumentPosition(b);
+    return p1 & 2 && p2 & 4 || p2 & 2 && p1 & 4;
+}
+
 class EntryList extends HTMLElement {
     #touching = false;
     connectedCallback() {
@@ -83,36 +89,45 @@ class EntryList extends HTMLElement {
         this.addEventListener('touchcancel', () => this.#touching = false);
         this.addEventListener('click', (event) => {
             if (event.target.tagName === 'A' && event.target.classList.contains('td')
-                && event.button === 0 && !event.ctrlKey && !event.metaKey)
+                && event.button === 0) {
                 event.preventDefault();
+            }
         });
         this.addEventListener('mousedown', (event) => {
             const { target } = event;
-            if (this.#touching || event.button !== 0 || event.ctrlKey || event.metaKey)
+            if (this.#touching || event.button !== 0)
                 return;
             if (target.tagName === "BUTTON" || target.tagName === "INPUT")
                 return;
-            event.preventDefault();
+            event.preventDefault(); // Don't focus the link.
             this.focus();
             const row = target.closest('[data-value]');
             if (row) {
-                if (this.checked !== row) this.select(row);
-                else this.select(null);
+                this.select(row, 'mouse', {
+                    shift: event.shiftKey,
+                    ctrl: event.ctrlKey || event.metaKey
+                });
             }
         });
         this.addEventListener('keydown', (event) => {
+            const modifiers = { shift: event.shiftKey };
             if (event.key === 'ArrowUp') {
-                this.prev();
+                this.prev(modifiers);
                 event.preventDefault();
             } else if (event.key === 'ArrowDown') {
-                this.next();
+                this.next(modifiers);
                 event.preventDefault();
             } else if (event.key === 'Home') {
-                this.checked = null;
-                this.next();
+                const items = this.items;
+                this.select(items[0], 'kbd', modifiers);
             } else if (event.key === 'End') {
-                this.checked = null;
-                this.prev();
+                const items = this.items;
+                this.select(items[items.length - 1], 'kbd', modifiers);
+            } else if (event.key === 'a' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                const items = this.items;
+                this.tail = items[0];
+                this.select(items[items.length - 1], 'kbd', { shift: true });
             }
         });
         this.addEventListener('htmx:load', () => {
@@ -122,47 +137,76 @@ class EntryList extends HTMLElement {
         // Wait for htmx to do its thing
         setTimeout(() => this.scrollIntoView(), 0);
     }
-    get name() { return this.getAttribute('name'); }
-    get checked() { return this.querySelector('.checked'); }
-    set checked(row) {
-        const prev = this.checked;
-        if (prev) prev.classList.remove('checked');
-        if (row) row.classList.add('checked');
+    uncheck() {
+        for (const prev of this.querySelectorAll('.checked'))
+            prev.classList.remove('checked');
+    }
+    select(row, source = 'mouse', { shift, ctrl } = {}) {
+        const prev_value = this.value;
+        if (ctrl) {
+            row.classList.toggle('checked');
+        } else if (shift) {
+            for (let other of this.items) {
+                if (isBetween(other, this.tail, this.active))
+                    other.classList.remove('checked');
+                if (isBetween(other, this.tail, row))
+                    other.classList.add('checked');
+            }
+        } else {
+            this.uncheck();
+            row.classList.add('checked');
+        }
+        this.active = row;
+        if (!shift) this.tail = row;
+        if (prev_value.toString() !== this.value.toString()) {
+            (row || this).dispatchEvent(
+                new CustomEvent(source + 'select', { bubbles: true }));
+        }
+    }
+    prev(modifiers = {}) {
+        const items = this.items;
+        const index = items.indexOf(this.active);
+        if (index !== -1 && index !== 0) {
+            this.select(items[index - 1], 'kbd', modifiers);
+        } else if (items.length >= 1) {
+            this.select(items[items.length - 1], 'kbd', modifiers);
+        }
+    }
+    next(modifiers = {}) {
+        const items = this.items;
+        const index = items.indexOf(this.active);
+        if (index !== -1 && index !== items.length - 1) {
+            this.select(items[index + 1], 'kbd', modifiers);
+        } else if (items.length >= 1) {
+            this.select(items[0], 'kbd', modifiers);
+        }
+    }
+    get items() { return Array.from(this.querySelectorAll('[data-value]')); }
+    get active() { return this.querySelector('.active'); }
+    set active(row) {
+        for (const prev of this.querySelectorAll('.active'))
+            prev.classList.remove('active');
+        if (row) row.classList.add('active');
         this.scrollIntoView();
     }
-    get value() { return this.checked?.dataset.value; }
-    set value(value) {
-        this.checked = this.querySelector(`[data-value="${value}"]`);
+    get tail() { return this.querySelector('.tail'); }
+    set tail(row) {
+        for (const prev of this.querySelectorAll('.tail'))
+            prev.classList.remove('tail');
+        if (row) row.classList.add('tail');
     }
-    select(row, source) {
-        source = source || 'mouse';
-        this.checked = row;
-        (row || this).dispatchEvent(
-            new CustomEvent(source + 'select', { bubbles: true }));
-    }
-    prev() {
-        const items = Array.from(this.querySelectorAll('[data-value]'));
-        const index = items.indexOf(this.checked);
-        if (index !== -1 && index !== 0) {
-            this.select(items[index - 1], 'kbd');
-        } else if (items.length >= 1) {
-            this.select(items[items.length - 1], 'kbd');
-        }
-    }
-    next() {
-        const items = Array.from(this.querySelectorAll('[data-value]'));
-        const index = items.indexOf(this.checked);
-        if (index !== -1 && index !== items.length - 1) {
-            this.select(items[index + 1], 'kbd');
-        } else if (items.length >= 1) {
-            this.select(items[0], 'kbd');
-        }
+    get name() { return this.getAttribute('name'); }
+    get value() {
+        let result = [];
+        for (const row of this.querySelectorAll('.checked'))
+            result.push(row.dataset.value);
+        return result;
     }
     scrollIntoView() {
-        if (!this.checked) return;
-        const rowRect = this.checked.children[0].getBoundingClientRect();
+        if (!this.active) return;
+        const rowRect = this.active.children[0].getBoundingClientRect();
         const viewRect = this.getBoundingClientRect();
-        const sticky = this.querySelector('.sticky');
+        const sticky = this.querySelector('.th1');
         const border = 1; // Not nice but w/e
         const visibleTop = sticky ? sticky.getBoundingClientRect().bottom : viewRect.top;
         if (rowRect.top < visibleTop) {

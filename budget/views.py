@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, Literal, Collection
 from datetime import date
 from urllib.parse import urlparse
 
@@ -82,33 +82,44 @@ def _get_account_like_or_404(request: HttpRequest, budget: Budget,
 
 
 def _get_allowed_transaction_or_404(budget: Budget,
-                                    transaction_id: int | str | None):
-    if not transaction_id or transaction_id == 'new':
+                                    transaction_ids: Collection[int | Literal['new']]):
+    if not transaction_ids or 'new' in transaction_ids:
         return None
     budget = budget.main_budget()
-    transaction = Transaction.objects.get_for(budget, int(transaction_id))
+    transaction = Transaction.objects.get_for(
+        budget, next(iter(transaction_ids)))  # type: ignore
     if not transaction:
         raise Http404()
     return transaction
 
 
+def parse_transaction_ids(ids: str | list[str]) -> set[int | Literal['new']]:
+    if not ids:
+        return set()
+    if isinstance(ids, list):
+        return set('new' if id == 'new' else int(id) for id in ids)
+    else:
+        return parse_transaction_ids(ids.split(','))
+
+
 @login_required
 def all(request: HttpRequest, budget_id: int,
-        account_id: str | int | None = None,
-        transaction_id: str | int | None = None):
+        account_id: str | None = None,
+        transaction_id: str | None = None):
     budget = _get_allowed_budget_or_404(request, budget_id)
     account_id = account_id or request.GET.get('account')
-    transaction_id = transaction_id or request.GET.get('transaction')
+    transaction_ids = parse_transaction_ids(
+        transaction_id or request.GET.getlist('transaction'))
 
     if request.method == 'PUT':
         # A bit of a hack to use the method like this. TODO: Use update_all_view approach.
-        transaction_id = quick_save(request, budget, account_id)
+        transaction_ids = quick_save(request, budget, account_id)
     elif request.method == 'POST':
-        transaction_id = save(request, budget, transaction_id)
+        transaction_ids = save(request, budget, transaction_ids)
     elif request.method == 'DELETE':
-        transaction_id = delete(budget, transaction_id)
+        transaction_ids = delete(budget, transaction_ids)
 
-    return all_view(request, budget, account_id, transaction_id)
+    return all_view(request, budget, account_id, transaction_ids)
 
 # TODO: The hx-select-oob on these is getting a little out of hand
 
@@ -117,7 +128,7 @@ def all(request: HttpRequest, budget_id: int,
 def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
     account = _get_allowed_account_or_404(request, account_id)
     transaction = _get_allowed_transaction_or_404(
-        account.budget, transaction_id)
+        account.budget, {transaction_id})
     assert transaction
     transaction.change_inbox_to(account)
     return update_all_view(request, account.budget)
@@ -150,13 +161,14 @@ def reconcile(request: HttpRequest, account_id: int):
 
 def update_all_view(request: HttpRequest, budget: Budget):
     params = resolve(urlparse(request.headers['HX-Current-URL']).path)
-    params.kwargs.pop('budget_id')
-    return all_view(request, budget, **params.kwargs)
+    return all_view(request, budget,
+                    params.kwargs.get('account_id'),
+                    parse_transaction_ids(params.kwargs.get('transaction_id', '')))
 
 
 def all_view(request: HttpRequest, budget: Budget,
              account_id: str | int | None = None,
-             transaction_id: str | int | None = None):
+             transaction_ids: Collection[int | Literal['new']] = set()):
     prev_args = {}
     if 'HX-Current-URL' in request.headers:
         prev_args = resolve(
@@ -166,29 +178,33 @@ def all_view(request: HttpRequest, budget: Budget,
         action = 'HX-Replace-Url'
         # Changing level?
         if (bool(account_id) != ('account_id' in prev_args)
-                or bool(transaction_id) != ('transaction_id' in prev_args)):
+                or bool(transaction_ids) != ('transaction_id' in prev_args)):
             action = 'HX-Push-Url'
+        ids_str = ','.join(str(id) for id in transaction_ids)
         response[action] = reverse(
-            'all', args=[arg for arg in (
-                budget.id, account_id, transaction_id) if arg])
+            'all', args=[arg for arg in (budget.id, account_id, ids_str) if arg])
         return response
 
-    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
-
-    prev_transaction = None
-    if not transaction and prev_args.get('transaction_id', 'new') != 'new':
-        prev_transaction = Transaction.objects.get_for(
-            budget, int(prev_args['transaction_id']))
+    transaction = _get_allowed_transaction_or_404(budget, transaction_ids)
 
     # I think the prefix isn't needed
     if transaction and transaction.kind == Transaction.Kind.BUDGETING:
         form = BudgetingForm(budget, prefix="tx", instance=transaction)
     else:
-        initial = {'date': prev_transaction.date} if prev_transaction else {}
+        initial = {}
+        if not transaction:
+            prev_ids = parse_transaction_ids(
+                prev_args.get('transaction_id', ''))
+            if prev_ids:
+                prev_transaction = Transaction.objects.get_for(
+                    budget, next(iter(prev_ids - set('new'))))  # type: ignore
+                if prev_transaction:
+                    initial = {'date': prev_transaction.date}
+
         form = TransactionForm(budget, prefix="tx",
                                instance=transaction, initial=initial)
 
-    context = {'budget': budget, 'account_id': account_id, 'transaction_id': transaction_id,
+    context = {'budget': budget, 'account_id': account_id, 'transaction_ids': transaction_ids,
                'transaction': transaction, 'form': form}
 
     if request.headers.get('HX-Target') == 'transaction':
@@ -216,16 +232,18 @@ def all_view(request: HttpRequest, budget: Budget,
     return fix_url(render(request, 'budget/all.html', context))
 
 
-def quick_save(request: HttpRequest, budget: Budget, account_id: str | int | None):
+def quick_save(request: HttpRequest, budget: Budget, account_id: str | None):
     account = _get_account_like_or_404(request, budget, account_id or "")
     form = QuickAddForm(account, prefix="qa", data=request.POST)
     if not form.is_valid():
         raise ValueError(form.errors)
-    return form.save().id
+    return {form.save().id}
 
 
-def save(request: HttpRequest, budget: Budget, transaction_id: str | int | None):
-    transaction = _get_allowed_transaction_or_404(budget, transaction_id)
+def save(request: HttpRequest, budget: Budget, transaction_ids: Collection[int | Literal['new']]):
+    if len(transaction_ids) > 1:
+        raise ValueError('Too many transactions')
+    transaction = _get_allowed_transaction_or_404(budget, transaction_ids)
 
     if transaction and transaction.kind == Transaction.Kind.BUDGETING:
         form = BudgetingForm(budget, prefix="tx",
@@ -242,22 +260,25 @@ def save(request: HttpRequest, budget: Budget, transaction_id: str | int | None)
     if saved.id:
         budget.initial_currency = saved.first_currency()
         budget.save()
-    return saved.id
+    return {saved.id}
 
 
-def delete(budget: Budget, transaction_id: str | int | None):
-    transaction = get_object_or_404(Transaction, id=transaction_id)
+def delete(budget: Budget, transaction_ids: Collection[int | Literal['new']]):
+    if len(transaction_ids) != 1:
+        raise ValueError('Need exactly one transaction')
+    transaction = get_object_or_404(
+        Transaction, id=next(iter(transaction_ids)))
     with atomic():
         if not any([part.set_entries(budget, {}, {})
                     for part in transaction.parts.all()]):
             transaction.delete()
-    return None
+    return set()
 
 
 def _edit_context(budget: Budget):
     friends = dict(budget.friends.values_list('id', 'name'))
     payees = dict(Budget.objects.filter(payee_of=budget.owner())
-                                .values_list('id', 'name'))
+                  .values_list('id', 'name'))
     # Closed?
     accounts = budget.account_set.exclude(name='')
     categories = budget.category_set.exclude(name='')
