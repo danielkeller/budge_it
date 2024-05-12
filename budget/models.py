@@ -460,9 +460,9 @@ class TransactionQuerySet(models.QuerySet['Transaction']):
                 .values('json'))
         contents = (
             TransactionPart.objects
-            .filter(transaction__kind=Transaction.Kind.TRANSACTION, transaction=OuterRef('pk'))
+            .filter(transaction=OuterRef('pk'))
             .values('transaction')
-            .annotate(json=JsonAgg(JsonArray('note', accounts(Account), accounts(Category))))
+            .annotate(json=JsonAgg(JsonArray('id', 'note', accounts(Account), accounts(Category))))
             .values('json'))
         return self.annotate(contents=contents)
 
@@ -503,31 +503,35 @@ def populate_description(transactions: Iterable['Transaction'], account: Account
     local_names = dict(account.budget.account_set.values_list('id', 'name')
                        .union(account.budget.category_set.values_list('id', 'name'), all=True))
     local_names[account.budget.id] = 'Inbox'
-    other_names = dict(account.budget.budget_of.payee_set.values_list('id', 'name')
-                       .union(account.budget.friends.values_list('id', 'name'), all=True))
+    all_names = local_names | dict(
+        account.budget.budget_of.payee_set.values_list('id', 'name')
+        .union(account.budget.friends.values_list('id', 'name'), all=True))  # type: ignore
 
     here = {account.id} if isinstance(account, BaseAccount) else set()
 
     def visible(entries: list[tuple[int, int, int]] | None):
+        # Edge visibility: Can see both source and sink
         sums = sum_by((sink, amount)
                       for source, sink, amount in entries or []
-                      if source in local_names or sink in local_names)
+                      if source in all_names and sink in all_names)
         return (id for id, amount in sums.items() if amount)
 
-    def names(note: str, accounts: list[tuple[int, int, int]], categories: list[tuple[int, int, int]]):
-        ids = set(chain(visible(accounts), visible(categories))) - here
-        if ids and note:
-            return note
-        return ', '.join(local_names.get(id, other_names.get(id))
-                         for id in ids
-                         if id in local_names or id in other_names)
+    def names(id: int, note: str,
+              accounts: list[tuple[int, int, int]],
+              categories: list[tuple[int, int, int]]):
+        ids = set(chain(visible(accounts), visible(categories)))
+        # Part visibility: At least one own account
+        if not ids & local_names.keys():
+            return ''
+        return note or ', '.join(all_names[id] for id in ids - here)
 
     for transaction in transactions:
-        if transaction.contents:
+        if transaction.kind == Transaction.Kind.TRANSACTION:
             iter = (names(*part) for part in transaction.contents)
-            transaction.description = '; '.join(iter)
+            transaction.description = '; '.join(name for name in iter if name)
         else:
             transaction.description = 'Budget'
+        # transaction.description = str(transaction.contents)
 
 
 TYPE_CHECKING = False
@@ -605,7 +609,7 @@ class Transaction(models.Model):
     description: str
     change: int
     running_sum: int | Literal['']
-    contents: list[tuple[str, list[tuple[int, int, int]],
+    contents: list[tuple[int, str, list[tuple[int, int, int]],
                          list[tuple[int, int, int]]]]
 
     def __str__(self):
@@ -630,36 +634,6 @@ class Transaction(models.Model):
             if twentieth and twentieth < date.today():
                 raise ValidationError(
                     {'recurrence': 'Transaction repeats more than 20 times'})
-
-    def auto_description(self, in_account: AccountLike):
-        if self.kind == self.Kind.BUDGETING:
-            return "Budget"
-
-        note = ', '.join(part.note for part in self.parts.all() if part.note)
-        if note:
-            return note
-
-        accounts = {entry
-                    for part in self.parts.all()
-                    for entry in part.accountentry_set.entries()}
-        categories = {entry
-                      for part in self.parts.all()
-                      for entry in part.categoryentry_set.entries()}
-        if isinstance(in_account, Balance):
-            this_budget = in_account.other
-        else:
-            this_budget = in_account.budget
-        names = (
-            list({account.budget.name
-                  for account in chain(accounts, categories)
-                  if account.budget.budget_of_id != in_account.budget.owner()
-                  and account.budget != this_budget})
-            + [account.name or "Inbox"
-               for account in chain(accounts, categories)
-               if account.budget.budget_of_id == in_account.budget.owner()
-               and account != in_account]
-        )
-        return ", ".join(names)
 
     def first_currency(self):
         part = self.parts.first()
@@ -868,7 +842,7 @@ class Entry(Generic[AccountT], models.Model):
 
     amount = models.BigIntegerField()
 
-    @ property
+    @property
     def accounts(self):
         return (self.source, self.sink)
 
