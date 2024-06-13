@@ -3,7 +3,7 @@
     <button class="backbutton" hx-on:click="document.querySelector('[name=transaction]').select(null)">Close</button>
     <div class="spacer"></div>
     <button id="submit-button" form="form">
-        {% if transaction.id %}<u>S</u>ave Changes{% else %}Create Tran<u>s</u>action{% endif %}
+        {% if transaction.id %}Save Changes{% else %}Create Transaction{% endif %}
     </button>
     {% if transaction.id and transaction.kind == "T" %}
     <button type="button" hx-delete=""
@@ -15,7 +15,7 @@
 <div class="scroll edit">
     {% if transaction.kind == 'B' %}
     <form id="form" autocomplete="off"
-        hx-trigger="keyup[(altKey||ctrlKey)&&key=='s'] from:body"
+        hx-trigger="submit, keydown[key=='Enter'&&(ctrlKey||metaKey)] from:body"
         hx-post=""
         hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
     {% include 'budget/partials/budget.html' %}
@@ -23,7 +23,7 @@
     {% else %}
     <transaction-editor>
     <form id="form" autocomplete="off"
-        hx-trigger="keyup[(altKey||ctrlKey)&&key=='s'] from:body"
+        hx-trigger="submit, keydown[key=='Enter'&&(ctrlKey||metaKey)] from:body"
         hx-post=""
         hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
         <date-repeat class="part-extras">

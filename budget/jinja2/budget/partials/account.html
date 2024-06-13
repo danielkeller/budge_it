@@ -4,10 +4,10 @@
     <button class="backbutton" hx-on:click="document.querySelector('[name=account]').select(null)">Close</button>
     <div><button type="button"
         hx-get="{{ url('all', budget.id, account.id, 'new') }}"
-        hx-trigger="click, keyup[(altKey||ctrlKey)&&key=='n'] from:body"
+        hx-trigger="click, keyup[key=='c'&&keyNotCaptured()] from:body"
         hx-target="#transaction"
         hx-on:htmx:after-request="document.querySelector('[name=transaction]').checked = null">
-        <u>N</u>ew Transaction</button></div>
+        New Transaction</button></div>
     <div class="spacer"></div>
     <div><b>{{ account.name or "Inbox" }}</b>:
         <long-currency id="balance" currency="{{ account.currency }}" value="{{ balance }}"></long-currency>

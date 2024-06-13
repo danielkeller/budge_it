@@ -1,6 +1,11 @@
 "use strict";
 // TODO: Calling a file 'util' is a bad idea.
 
+function keyNotCaptured() {
+    return ['INPUT', 'TEXTAREA', 'SELECT']
+        .indexOf(document.activeElement.tagName) === -1;
+}
+
 function currencyDecimals(currency) {
     const currencyRe = /.*\.([0-9])|.*/;
     const forced = currency.match(currencyRe)[1];
