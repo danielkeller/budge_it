@@ -87,6 +87,8 @@ class EntryList extends HTMLElement {
                 return;
             if (target.tagName === "BUTTON" || target.tagName === "INPUT")
                 return;
+            event.preventDefault();
+            this.focus();
             const row = target.closest('[data-value]');
             if (row) {
                 if (this.checked !== row) this.select(row);
