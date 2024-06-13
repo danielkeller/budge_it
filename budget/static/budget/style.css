@@ -699,6 +699,9 @@ long-currency {
 
 .overview {
     grid-area: 1 / 1 / 3 / 1;
+}
+
+.overview>.grid {
     padding: 0 calc(var(--line-height) - var(--td-hpad));
 }
 
@@ -725,7 +728,8 @@ long-currency {
     padding-left: calc(3 * var(--td-hpad));
 }
 
-.overview>*>*>*:last-child {
+.overview .th:last-child,
+.overview .td:last-child {
     text-align: right;
 }
 

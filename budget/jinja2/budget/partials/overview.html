@@ -31,8 +31,9 @@
     </div>
 </div>
 {% set checked = account and account.id %}
+<div class="overview">
 <entry-list
-    class="overview grid c2"
+    class="grid c2"
     class="scroll"
     name="account"
     {% if not account %}autofocus{% endif %}
@@ -103,3 +104,4 @@
         <div><span style="grid-column: span 2;">&nbsp;</span></div>
     </div>
 </entry-list>
+</div>
