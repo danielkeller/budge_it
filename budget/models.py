@@ -208,6 +208,13 @@ class BaseAccount(Id):
         else:
             return f"{self.budget.name} - {str(self.name)}  ({self.currency})"
 
+    def description(self, in_budget: Budget):
+        if self.name:
+            return self.name
+        if self.budget == in_budget:
+            return 'Inbox'
+        return self.budget.name
+
     def __lt__(self, other: 'BaseAccount'):
         """Not actually important"""
         return self.id < other.id
@@ -236,7 +243,7 @@ class BaseAccount(Id):
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
 
-        populate_description(qs, self)
+        fetch_accounts(qs, self.budget)
 
         balance, cleared = 0, 0
         for transaction in qs:
@@ -332,7 +339,7 @@ class Balance:
               .order_by('date', '-kind', 'id'))
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
-        populate_description(qs, self)
+        fetch_accounts(qs, self.budget)
         total, balance = 0, 0
         for transaction in qs:
             change = gets.get(transaction.id, 0) - has.get(transaction.id, 0)
@@ -375,7 +382,7 @@ class Total:
         if sum(transaction.do_recurrence() for transaction in qs):
             return self.transactions()  # Retry
 
-        populate_description(qs, self)
+        fetch_accounts(qs, self.budget)
 
         total, balance = 0, 0
         for transaction in qs:
@@ -453,11 +460,9 @@ class TransactionQuerySet(models.QuerySet['Transaction']):
                 .filter(entries__part=OuterRef('pk'))
                 .values('entries__part')
                 .annotate(json=JsonAgg(JsonArray(
-                    Case(When(entries__source__name='',
-                         then='entries__source__budget_id'), default='entries__source_id'),
-                    Case(When(name='', then='budget_id'), default='id'),
-                    'entries__amount')))
+                    'entries__source_id', 'id', 'entries__amount')))
                 .values('json'))
+        # TODO: Cleared
         contents = (
             TransactionPart.objects
             .filter(transaction=OuterRef('pk'))
@@ -465,9 +470,6 @@ class TransactionQuerySet(models.QuerySet['Transaction']):
             .annotate(json=JsonAgg(JsonArray('id', 'note', accounts(Account), accounts(Category))))
             .values('json'))
         return self.annotate(contents=contents)
-
-    # TODO: Remove filter_for and get_for. Also the filtering is wrong, it shows parts
-    # that go between friends where the current budget isn't involved.
 
     # This could possibly be done with a proxy model, which would allow eg
     # related managers to tell which budget we're looking through.
@@ -499,39 +501,64 @@ class TransactionQuerySet(models.QuerySet['Transaction']):
         return value
 
 
-def populate_description(transactions: Iterable['Transaction'], account: AccountLike):
-    local_names = dict(account.budget.account_set.values_list('id', 'name')
-                       .union(account.budget.category_set.values_list('id', 'name'), all=True))
-    local_names[account.budget.id] = 'Inbox'
-    all_names = local_names | dict(
-        account.budget.budget_of.payee_set.values_list('id', 'name')
-        .union(account.budget.friends.values_list('id', 'name'), all=True))  # type: ignore
+def account_dict(accounts: Iterable[AccountT]):
+    return {account.id: account for account in accounts}
 
-    here = {account.id} if isinstance(account, BaseAccount) else set()
+# Can I reuse this logic to populate the accounts in the other direction,
+# when we save something?
 
-    def visible(entries: list[tuple[int, int, int]] | None):
-        # Edge visibility: Can see both source and sink
-        sums = sum_by((sink, amount)
-                      for source, sink, amount in entries or []
-                      if source in all_names and sink in all_names)
-        return (id for id, amount in sums.items() if amount)
 
-    def names(id: int, note: str,
-              accounts: list[tuple[int, int, int]],
-              categories: list[tuple[int, int, int]]):
-        ids = set(chain(visible(accounts), visible(categories)))
+def fetch_accounts(transactions: Iterable['Transaction'], budget: Budget):
+    """To be called after fetch_contents on the queryset."""
+    local_accounts = account_dict(budget.account_set.all())
+    local_categories = account_dict(budget.category_set.all())
+    other_accounts = account_dict(
+        Account.objects
+        .filter(Q(budget__payee_of=budget.budget_of_id)
+                | Q(budget__friends=budget), name='')
+        .select_related('budget'))
+    other_categories = account_dict(
+        Category.objects
+        .filter(Q(budget__payee_of=budget.budget_of_id)
+                | Q(budget__friends=budget), name='')
+        .select_related('budget'))
+
+    def to_flows(json: list[tuple[int, int, int]],
+                 accounts: dict[int, AccountT]
+                 ) -> tuple[dict[tuple[AccountT, AccountT], int],
+                            dict[tuple[int, int], int]]:
+        # Flow visibility: Can see both source and sink
+        visible = {(accounts[source], accounts[sink]): amount
+                   for source, sink, amount in json
+                   if source in accounts and sink in accounts}
+        invisible = {(source, sink): amount
+                     for source, sink, amount in json
+                     if source not in accounts or sink not in accounts}
+        return (visible, invisible)
+
+    def to_part(
+            transaction: Transaction,
+            json: tuple[int, str,
+                        list[tuple[int, int, int]],
+                        list[tuple[int, int, int]]]):
+        part = TransactionPart(
+            id=json[0], note=json[1], transaction=transaction)
+        part.visible_accounts, part.invisible_accounts = to_flows(
+            json[2] or [], local_accounts | other_accounts)
+        part.visible_categories, part.invisible_categories = to_flows(
+            json[3] or [], local_categories | other_categories)
+        return part
+
+    def part_visible(part: TransactionPart):
         # Part visibility: At least one own account
-        if not ids & local_names.keys():
-            return ''
-        return note or ', '.join(all_names[id] for id in ids - here)
+        return (any(sink.id in local_accounts
+                    for _, sink in part.visible_accounts)
+                or any(sink.id in local_categories
+                       for _, sink in part.visible_categories))
 
     for transaction in transactions:
-        if transaction.kind == Transaction.Kind.TRANSACTION:
-            iter = (names(*part) for part in transaction.contents)
-            transaction.description = '; '.join(name for name in iter if name)
-        else:
-            transaction.description = 'Budget'
-        # transaction.description = str(transaction.contents)
+        parts = [to_part(transaction, json) for json in transaction.contents]
+        transaction.fetched_parts = list(filter(part_visible, parts))
 
 
 TYPE_CHECKING = False
@@ -594,7 +621,7 @@ class Transaction(models.Model):
     kind = models.CharField(max_length=1, choices=Kind.choices,
                             default=Kind.TRANSACTION)
 
-    parts: 'models.Manager[TransactionPart]'
+    parts: 'models.manager.RelatedManager[TransactionPart]'
     cleared: 'models.Manager[Cleared]'
 
     objects: ClassVar[TransactionQuerySet]
@@ -606,14 +633,20 @@ class Transaction(models.Model):
     is_future: bool
     reconciled: bool | None
     uncleared: bool
-    description: str
     change: int
     running_sum: int | Literal['']
     contents: list[tuple[int, str, list[tuple[int, int, int]],
                          list[tuple[int, int, int]]]]
+    fetched_parts: list['TransactionPart']
 
     def __str__(self):
         return str(self.date)
+
+    def description(self, in_account: AccountLike):
+        if self.kind == Transaction.Kind.BUDGETING:
+            return 'Budget'
+        return '; '.join(part.description(in_account)
+                         for part in self.fetched_parts)
 
     @property
     def month(self) -> 'Optional[date]':
@@ -706,11 +739,31 @@ class TransactionPart(models.Model):
     accountentry_set: 'EntryManager[Account]'
     categoryentry_set: 'EntryManager[Category]'
 
+    visible_accounts: dict[tuple[Account, Account], int]
+    invisible_accounts: dict[tuple[int, int], int]
+    visible_categories: dict[tuple[Category, Category], int]
+    invisible_categories: dict[tuple[int, int], int]
+
     def empty(self) -> bool:
         return (not self.accountentry_set.all() and
                 not self.categoryentry_set.all())
 
     # Maybe we need a re-double-entrify function...
+
+    def description(self, in_account: AccountLike):
+        if self.note:
+            return self.note
+        accounts, categories = self.entries1()
+        accounts = set(chain(accounts, categories))
+        if isinstance(in_account, Account) or isinstance(in_account, Category):
+            accounts.discard(in_account)
+        return ', '.join(account.description(in_account.budget) for account in accounts)
+
+    def entries1(self):
+        return (sum_by((sink, amount)
+                       for (_, sink), amount in self.visible_accounts.items()),
+                sum_by((sink, amount)
+                       for (_, sink), amount in self.visible_categories.items()))
 
     def entries(self):
         return (self.accountentry_set.entries(), self.categoryentry_set.entries())

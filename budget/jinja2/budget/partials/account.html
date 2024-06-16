@@ -63,7 +63,7 @@
         data-value="{{row.id}}">
         <a class="td" href="{{ url('all', budget.id, account.id, row.id) }}">{{row.date}} {% if row.recurrence %}🔁{% endif %}</a>
 
-        <a class="td ellipsis" href="{{ url('all', budget.id, account.id, row.id) }}">{{ row.description }}</a>
+        <a class="td ellipsis" href="{{ url('all', budget.id, account.id, row.id) }}">{{ row.description(account) }}</a>
 
         <short-currency class="td number" value="{{row.change}}" currency="{{account.currency}}"></short-currency>
 
