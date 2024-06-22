@@ -525,14 +525,13 @@ def fetch_accounts(transactions: Iterable['Transaction'], budget: Budget):
         .select_related('budget'))
 
     def to_flows(json: list[tuple[int, int, int]],
-                 accounts: dict[int, AccountT]
-                 ) -> tuple[dict[tuple[AccountT, AccountT], int],
-                            dict[tuple[int, int], int]]:
+                 accounts: dict[int, AccountT],
+                 type: Type[AccountT]):
         # Flow visibility: Can see both source and sink
         visible = {(accounts[source], accounts[sink]): amount
                    for source, sink, amount in json
                    if source in accounts and sink in accounts}
-        invisible = {(source, sink): amount
+        invisible = {(type(pk=source), type(pk=sink)): amount
                      for source, sink, amount in json
                      if source not in accounts or sink not in accounts}
         return (visible, invisible)
@@ -545,9 +544,9 @@ def fetch_accounts(transactions: Iterable['Transaction'], budget: Budget):
         part = TransactionPart(
             id=json[0], note=json[1], transaction=transaction)
         part.visible_accounts, part.invisible_accounts = to_flows(
-            json[2] or [], local_accounts | other_accounts)
+            json[2] or [], local_accounts | other_accounts, Account)
         part.visible_categories, part.invisible_categories = to_flows(
-            json[3] or [], local_categories | other_categories)
+            json[3] or [], local_categories | other_categories, Category)
         return part
 
     def part_visible(part: TransactionPart):
@@ -740,10 +739,11 @@ class TransactionPart(models.Model):
     accountentry_set: 'EntryManager[Account]'
     categoryentry_set: 'EntryManager[Category]'
 
+    # Make a type alias?
     visible_accounts: dict[tuple[Account, Account], int]
-    invisible_accounts: dict[tuple[int, int], int]
+    invisible_accounts: dict[tuple[Account, Account], int]
     visible_categories: dict[tuple[Category, Category], int]
-    invisible_categories: dict[tuple[int, int], int]
+    invisible_categories: dict[tuple[Category, Category], int]
 
     def empty(self) -> bool:
         return not self.visible_accounts and not self.visible_categories
@@ -773,19 +773,20 @@ class TransactionPart(models.Model):
 
     def set_entries(self, in_budget: Budget,
                     accounts: dict[Account, int], categories: dict[Category, int]):
-        """Set the contents of this transaction from the perspective of one budget. 'accounts' and 'categories' both must to sum to zero."""
-        # 'self' is already filtered for a user, we just can't see which one
-        return self.set_flows(double_entrify(in_budget, Account, accounts),
-                              double_entrify(in_budget, Category, categories))
+        """Set the contents of this transaction from the perspective of one budget.
+        'accounts' and 'categories' both must to sum to zero."""
+        return self.set_flows(double_entrify(in_budget, Account, accounts)
+                              | self.invisible_accounts,
+                              double_entrify(in_budget, Category, categories)
+                              | self.invisible_categories)
 
     @atomic
     def set_flows(self,
                   accounts: dict[tuple[Account, Account], int],
                   categories: dict[tuple[Category, Category], int]):
-        self.accountentry_set.set_flows(accounts)
-        self.categoryentry_set.set_flows(categories)
-        if (AccountEntry.objects.filter(part=self).exists() or
-                CategoryEntry.objects.filter(part=self).exists()):
+        has_accounts = self.accountentry_set.set_flows(accounts)
+        has_categories = self.categoryentry_set.set_flows(categories)
+        if has_accounts or has_categories:
             return self
         self.delete()
         return None
@@ -875,8 +876,10 @@ class EntryManager(Generic[AccountT], models.Manager['Entry[AccountT]']):
              self.model(source=sink, sink=source, amount=-amount,
                         part=self.instance))
             for (source, sink), amount in flows.items() if amount)
-        if updates:
-            self.bulk_create(updates)
+        if not updates:
+            return False
+        self.bulk_create(updates)
+        return True
 
 
 class Entry(Generic[AccountT], models.Model):

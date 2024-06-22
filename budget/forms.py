@@ -69,14 +69,12 @@ class EntryForm(forms.Form):
 
 class BaseEntryFormSet(forms.BaseFormSet):
     budget: Budget
-    instance: Optional[TransactionPart]
     currency: str
 
     def __init__(self, budget: Budget,
                  instance: Optional[TransactionPart] = None,
                  **kwargs: Any):
         self.budget = budget
-        self.instance = instance
         if instance:
             kwargs['initial'] = instance.tabular()
         super().__init__(**kwargs)
@@ -94,19 +92,11 @@ class BaseEntryFormSet(forms.BaseFormSet):
             if account:
                 if isinstance(account, Budget):
                     data['account'] = account.get_inbox(Account, self.currency)
-                elif account.currency != self.currency:
-                    raise ValidationError(
-                        f'Account currency {account.currency} does not match '
-                        + self.currency)
             category = data.get('category')
             if category:
                 if isinstance(category, Budget):
                     data['category'] = category.get_inbox(
                         Category, self.currency)
-                elif category.currency != self.currency:
-                    raise ValidationError(
-                        f'Category currency {category.currency} does not match '
-                        + self.currency)
 
 
 EntryFormSet = forms.formset_factory(
@@ -116,9 +106,9 @@ EntryFormSet = forms.formset_factory(
 FormSetT = TypeVar('FormSetT', bound=forms.BaseInlineFormSet)
 
 
-class FormSetInline(Generic[FormSetT], forms.Form):
+class FormSetInline(forms.Form):
     """Form lifecycle boilerplate to hold a formset as a property."""
-    formset: FormSetT
+    formset: Any
 
     def is_valid(self):
         return super().is_valid() and self.formset.is_valid()
@@ -133,13 +123,19 @@ class BasePartFormSet(forms.BaseFormSet):
                  **kwargs: Any):
         if instance:
             kwargs['initial'] = instance.fetched_parts
-        form_kwargs = {'instance': instance, 'budget': budget}
+        form_kwargs = {'budget': budget}
         super().__init__(form_kwargs=form_kwargs, **kwargs)
 
+    def save(self, transaction: Transaction):
+        for form in self.forms:
+            form.save(transaction)
 
-class PartForm(FormSetInline[EntryFormSet]):
+
+class PartForm(FormSetInline):
     formset: BaseEntryFormSet
     budget: Budget
+    instance: TransactionPart
+
     id = forms.ModelChoiceField(required=False,
                                 queryset=TransactionPart.objects.none(),
                                 widget=forms.HiddenInput)
@@ -149,10 +145,10 @@ class PartForm(FormSetInline[EntryFormSet]):
         attrs={'class': 'part-currency'}))
 
     def __init__(self, budget: Budget, *args: Any,
-                 instance: Optional[Transaction],
                  initial: Optional[TransactionPart] = None,
                  **kwargs: Any):
         self.budget = budget
+        self.instance = initial or TransactionPart()
         values = model_to_dict(initial) if initial else {}
         values['currency'] = budget.get_initial_currency()
         if initial:
@@ -160,9 +156,12 @@ class PartForm(FormSetInline[EntryFormSet]):
             if entry:
                 values['currency'] = entry.currency
         super().__init__(*args, initial=values, **kwargs)
-        self.formset = EntryFormSet(budget=budget, instance=initial)
-        if instance:
-            self.fields['id'].queryset = instance.parts.all()  # ???
+        del kwargs['use_required_attribute']
+        del kwargs['renderer']
+        self.formset = EntryFormSet(budget=budget, instance=initial, **kwargs)
+        if initial:
+            self.fields['id'].queryset = (
+                TransactionPart.objects.filter(pk=initial.pk))
         currencies = budget.currencies
         self.fields['currency'].choices = list(zip(currencies, currencies))
         if values['currency'] not in currencies:
@@ -175,9 +174,11 @@ class PartForm(FormSetInline[EntryFormSet]):
         if self.is_bound:
             self.formset.currency = self.cleaned_data.get(
                 'currency')  # type: ignore
+            self.instance.note = self.cleaned_data['note']
 
-    def save(self, commit: bool = True) -> Optional[TransactionPart]:
-        instance: TransactionPart = super().save(commit)
+    def save(self, transaction: Transaction):
+        self.instance.transaction = transaction
+        self.instance.save()
         accounts: dict[Account, int] = defaultdict(int)
         categories: dict[Category, int] = defaultdict(int)
         for form in self.formset.forms:
@@ -189,7 +190,8 @@ class PartForm(FormSetInline[EntryFormSet]):
             category = data.get('category')
             if category and data.get('moved'):
                 categories[category] += data['moved']
-        return instance.set_entries(self.budget, accounts, categories)
+        # TODO: We need the fetched stuff for this to work now.
+        self.instance.set_entries(self.budget, accounts, categories)
 
 
 PartFormSet = forms.formset_factory(
@@ -197,12 +199,12 @@ PartFormSet = forms.formset_factory(
     min_num=1, extra=0, max_num=15)
 
 
-class TransactionForm(forms.ModelForm, FormSetInline[PartFormSet]):
+class TransactionForm(forms.ModelForm, FormSetInline):
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date', 'recurrence',)
 
-    formset = BasePartFormSet
+    formset: BasePartFormSet
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
                                                   format='%Y-%m-%d'),
                            initial=date.today)
@@ -252,8 +254,7 @@ class TransactionForm(forms.ModelForm, FormSetInline[PartFormSet]):
     @transaction.atomic
     def save(self, commit: bool = True):
         instance: Transaction = super().save(commit)
-        self.formset.instance = instance
-        self.formset.save()
+        self.formset.save(instance)
         if not instance.parts.exists():
             instance.delete()
         return instance

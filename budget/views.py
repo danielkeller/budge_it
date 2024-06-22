@@ -255,7 +255,8 @@ def save(request: HttpRequest, budget: Budget, transaction_ids: Collection[int |
                                instance=transaction, data=request.POST)
         if not form.is_valid():
             # This doesn't work.
-            raise ValueError(form.errors, form.formset.non_form_errors())
+            raise ValueError(form.errors, form.formset.errors,
+                             form.formset.non_form_errors())
     saved = form.save()
     if saved.id:
         budget.initial_currency = saved.first_currency()
