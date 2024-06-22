@@ -103,9 +103,6 @@ EntryFormSet = forms.formset_factory(
     EntryForm, formset=BaseEntryFormSet, extra=1, min_num=1, max_num=15)
 
 
-FormSetT = TypeVar('FormSetT', bound=forms.BaseInlineFormSet)
-
-
 class FormSetInline(forms.Form):
     """Form lifecycle boilerplate to hold a formset as a property."""
     formset: Any
@@ -115,20 +112,6 @@ class FormSetInline(forms.Form):
 
     def has_changed(self):
         return super().has_changed() or self.formset.has_changed()
-
-
-class BasePartFormSet(forms.BaseFormSet):
-    def __init__(self, budget: Budget,
-                 instance: Optional[Transaction] = None,
-                 **kwargs: Any):
-        if instance:
-            kwargs['initial'] = instance.fetched_parts
-        form_kwargs = {'budget': budget}
-        super().__init__(form_kwargs=form_kwargs, **kwargs)
-
-    def save(self, transaction: Transaction):
-        for form in self.forms:
-            form.save(transaction)
 
 
 class PartForm(FormSetInline):
@@ -152,7 +135,7 @@ class PartForm(FormSetInline):
         values = model_to_dict(initial) if initial else {}
         values['currency'] = budget.get_initial_currency()
         if initial:
-            entry = next(chain(*initial.entries1()), None)
+            entry = next(chain(*initial.entries()), None)
             if entry:
                 values['currency'] = entry.currency
         super().__init__(*args, initial=values, **kwargs)
@@ -192,6 +175,20 @@ class PartForm(FormSetInline):
                 categories[category] += data['moved']
         # TODO: We need the fetched stuff for this to work now.
         self.instance.set_entries(self.budget, accounts, categories)
+
+
+class BasePartFormSet(forms.BaseFormSet):
+    def __init__(self, budget: Budget,
+                 instance: Optional[Transaction] = None,
+                 **kwargs: Any):
+        if instance:
+            kwargs['initial'] = instance.visible_parts
+        form_kwargs = {'budget': budget}
+        super().__init__(form_kwargs=form_kwargs, **kwargs)
+
+    def save(self, transaction: Transaction):
+        for form in self.forms:
+            form.save(transaction)
 
 
 PartFormSet = forms.formset_factory(
@@ -295,8 +292,7 @@ class BudgetingForm(forms.ModelForm):
                 required=False, widget=forms.HiddenInput(
                     attrs={'form': 'form'}))
         if instance.pk:
-            for category, amount in (instance.parts.get()
-                                     .categoryentry_set.entries().items()):
+            for category, amount in instance.visible_parts[0].entries()[1].items():
                 self.initial[str(category.id)] = amount
         self.rows = [BudgetingForm.Row(category, self[str(category.id)])
                      for category in self.categories]

@@ -1,3 +1,6 @@
+from .recurrence import RRule
+from . import recurrence
+from .algorithms import sum_by, reroot, double_entrify_by, Debts
 from collections import defaultdict
 from typing import (Optional, Iterable, TypeVar, Type, Union, Generic,
                     Any, ClassVar, Literal)
@@ -18,9 +21,9 @@ from django.db.models.functions import Coalesce, NullIf
 from django.urls import reverse
 from django.contrib.auth.models import User, AnonymousUser, AbstractBaseUser
 
-from .algorithms import sum_by, reroot, double_entrify_by, Debts
-from . import recurrence
-from .recurrence import RRule
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from django.db.models.manager import RelatedManager
 
 
 class JsonArray(expressions.Func):
@@ -239,11 +242,10 @@ class BaseAccount(Id):
                         reconciled=F('cleared_self__reconciled'))
               .fetch_contents()
               .order_by('date', '-kind', 'id'))
-
-        if sum(transaction.do_recurrence() for transaction in qs):
-            return self.transactions()  # Retry
-
         fetch_accounts(qs, self.budget)
+
+        if sum(transaction.do_recurrence() for transaction in set(qs)):
+            return self.transactions()  # Retry
 
         balance, cleared = 0, 0
         for transaction in qs:
@@ -272,7 +274,7 @@ class Account(BaseAccount):
         on_delete=models.CASCADE, parent_link=True)
 
     clearable = models.BooleanField(default=False)  # type: ignore
-    cleared: 'models.manager.RelatedManager[Cleared]'
+    cleared: 'RelatedManager[Cleared]'
     cleared_transaction: 'models.ManyToManyField[Transaction, Cleared]'
 
     def kind(self):
@@ -337,9 +339,11 @@ class Balance:
               .filter(id__in=gets.keys() | has.keys())
               .fetch_contents()
               .order_by('date', '-kind', 'id'))
-        if sum(transaction.do_recurrence() for transaction in qs):
-            return self.transactions()  # Retry
         fetch_accounts(qs, self.budget)
+
+        if sum(transaction.do_recurrence() for transaction in set(qs)):
+            return self.transactions()  # Retry
+
         total, balance = 0, 0
         for transaction in qs:
             change = gets.get(transaction.id, 0) - has.get(transaction.id, 0)
@@ -378,11 +382,10 @@ class Total:
               .exclude(change=0)
               .fetch_contents()
               .order_by('date', '-kind', 'id'))
-
-        if sum(transaction.do_recurrence() for transaction in qs):
-            return self.transactions()  # Retry
-
         fetch_accounts(qs, self.budget)
+
+        if sum(transaction.do_recurrence() for transaction in set(qs)):
+            return self.transactions()  # Retry
 
         total, balance = 0, 0
         for transaction in qs:
@@ -448,7 +451,9 @@ def double_entrify(in_budget: Budget, type: Type[AccountT],
         for payee, amount in payees.items():
             entries |= debts.combine_one(amount, payee)
         entries |= debts.combine()
-    return entries
+    # This is kind of silly, maybe rethink.
+    return entries | {(sink, source): -amount
+                      for (source, sink), amount in entries.items()}
 
 
 class TransactionQuerySet(models.QuerySet['Transaction']):
@@ -471,33 +476,13 @@ class TransactionQuerySet(models.QuerySet['Transaction']):
             .values('json'))
         return self.annotate(contents=contents)
 
-    # This could possibly be done with a proxy model, which would allow eg
-    # related managers to tell which budget we're looking through.
-    def _filter_for(self, budget: Budget):
-        """Adjust and prefetch the entries of this transaction to ones visible to
-        'budget'."""
-        accountentry_set = AccountEntry.objects.filter_for(budget)
-        categoryentry_set = CategoryEntry.objects.filter_for(budget)
-        # We have to do this stupid ordering thing because otherwise django's
-        # form stuff adds an ordering later and breaks the prefetch logic.
-        # TODO: This is ugly. Should we just do the filtering in python?
-        parts = (TransactionPart.objects
-                 .filter(Exists(accountentry_set.filter(part=OuterRef('id')))
-                         | Exists(categoryentry_set.filter(part=OuterRef('id'))))
-                 .order_by('id'))
-        return self.prefetch_related(
-            Prefetch('parts', queryset=parts),
-            Prefetch('parts__accountentry_set', queryset=accountentry_set),
-            Prefetch('parts__categoryentry_set', queryset=categoryentry_set),
-        )
-
     def get_for(self, budget: Budget, id: int):
         try:
             value = self.fetch_contents().get(id=id)
             fetch_accounts([value], budget)
         except self.model.DoesNotExist:
             return None
-        if all(part.empty() for part in value.fetched_parts):
+        if all(part.empty() for part in value.visible_parts):
             return None
         return value
 
@@ -558,10 +543,10 @@ def fetch_accounts(transactions: Iterable['Transaction'], budget: Budget):
 
     for transaction in transactions:
         parts = [to_part(transaction, json) for json in transaction.contents]
-        transaction.fetched_parts = list(filter(part_visible, parts))
+        transaction.all_parts = parts
+        transaction.visible_parts = list(filter(part_visible, parts))
 
 
-TYPE_CHECKING = False
 if TYPE_CHECKING:  # stupid thing
     RRFBase = models.Field[RRule | str | None, RRule | None]
 else:
@@ -621,7 +606,7 @@ class Transaction(models.Model):
     kind = models.CharField(max_length=1, choices=Kind.choices,
                             default=Kind.TRANSACTION)
 
-    parts: 'models.manager.RelatedManager[TransactionPart]'
+    parts: 'RelatedManager[TransactionPart]'
     cleared: 'models.Manager[Cleared]'
 
     objects: ClassVar[TransactionQuerySet]
@@ -637,7 +622,8 @@ class Transaction(models.Model):
     running_sum: int | Literal['']
     contents: list[tuple[int, str, list[tuple[int, int, int]],
                          list[tuple[int, int, int]]]]
-    fetched_parts: list['TransactionPart'] = []
+    all_parts: list['TransactionPart'] = []
+    visible_parts: list['TransactionPart'] = []
 
     def __str__(self):
         return str(self.date)
@@ -646,7 +632,7 @@ class Transaction(models.Model):
         if self.kind == Transaction.Kind.BUDGETING:
             return 'Budget'
         return '; '.join(part.description(in_account)
-                         for part in self.fetched_parts)
+                         for part in self.visible_parts)
 
     @property
     def month(self) -> 'Optional[date]':
@@ -669,24 +655,19 @@ class Transaction(models.Model):
                     {'recurrence': 'Transaction repeats more than 20 times'})
 
     def first_currency(self):
-        part = self.parts.first()
-        if part:
-            entry = (part.accountentry_set.first()
-                     or part.categoryentry_set.first())
-            if entry:
-                return entry.sink.currency
-        raise ValueError()
+        part = self.visible_parts[0]
+        return next(chain(*part.entries())).currency
 
     @atomic
     def change_inbox_to(self, account: Account | Category):
-        for part in self.parts.all():
+        for part in self.visible_parts:
             part.change_inbox_to(account)
 
     @atomic
     def copy_to(self, to: 'date'):
         transaction = Transaction(date=to, kind=self.kind)
         transaction.save()
-        for from_part in self.parts.all():
+        for from_part in self.all_parts:
             part = TransactionPart(
                 transaction=transaction, note=from_part.note)
             part.save()
@@ -698,14 +679,12 @@ class Transaction(models.Model):
         if not self.recurrence or not self.date or self.date > today:
             return False
         with atomic():
-            # 'self' is probably filtered, reload it
-            full = Transaction.objects.get(id=self.id)
             for copy in self.recurrence.iterate(self.date):
                 if copy <= today:
-                    full.copy_to(copy)
+                    self.copy_to(copy)
                 else:
-                    full.date = copy
-                    full.save()
+                    self.date = copy
+                    self.save()
                     return True
         raise RuntimeError("unreachable")
 
@@ -736,8 +715,8 @@ class TransactionPart(models.Model):
     categories: 'models.ManyToManyField[Category, CategoryEntry]'
     categories = models.ManyToManyField(Category, through='CategoryEntry',
                                         through_fields=('part', 'sink'))
-    accountentry_set: 'EntryManager[Account]'
-    categoryentry_set: 'EntryManager[Category]'
+    accountentry_set: 'RelatedManager[Account]'
+    categoryentry_set: 'RelatedManager[Category]'
 
     # Make a type alias?
     visible_accounts: dict[tuple[Account, Account], int]
@@ -753,23 +732,21 @@ class TransactionPart(models.Model):
     def description(self, in_account: AccountLike):
         if self.note:
             return self.note
-        accounts, categories = self.entries1()
+        accounts, categories = self.entries()
         accounts = set(chain(accounts, categories))
         if isinstance(in_account, Account) or isinstance(in_account, Category):
             accounts.discard(in_account)
         return ', '.join(account.description(in_account.budget) for account in accounts)
 
-    def entries1(self):
+    def entries(self):
         return (sum_by((sink, amount)
                        for (_, sink), amount in self.visible_accounts.items()),
                 sum_by((sink, amount)
                        for (_, sink), amount in self.visible_categories.items()))
 
-    def entries(self):
-        return (self.accountentry_set.entries(), self.categoryentry_set.entries())
-
     def flows(self):
-        return (self.accountentry_set.flows(), self.categoryentry_set.flows())
+        return (self.visible_accounts | self.invisible_accounts,
+                self.visible_categories | self.invisible_categories)
 
     def set_entries(self, in_budget: Budget,
                     accounts: dict[Account, int], categories: dict[Category, int]):
@@ -784,12 +761,22 @@ class TransactionPart(models.Model):
     def set_flows(self,
                   accounts: dict[tuple[Account, Account], int],
                   categories: dict[tuple[Category, Category], int]):
-        has_accounts = self.accountentry_set.set_flows(accounts)
-        has_categories = self.categoryentry_set.set_flows(categories)
+        has_accounts = self.set_flows_of(self.accountentry_set, accounts)
+        has_categories = self.set_flows_of(self.categoryentry_set, categories)
         if has_accounts or has_categories:
             return self
         self.delete()
         return None
+
+    def set_flows_of(self, manager: Any, flows: dict[tuple[AccountT, AccountT], int]):
+        manager.all().delete()
+        updates = [manager.model(source=source, sink=sink, amount=amount,
+                                 part=self)
+                   for (source, sink), amount in flows.items() if amount]
+        if not updates:
+            return False
+        manager.bulk_create(updates)
+        return True
 
     def change_inbox_to(self, account: Account | Category):
         accounts, categories = self.entries()
@@ -826,7 +813,7 @@ class TransactionPart(models.Model):
         reconciled = (self.transaction.cleared
                       .filter(reconciled=True)
                       .values_list('account', flat=True))
-        accounts, categories = self.entries1()
+        accounts, categories = self.entries()
         amounts = sorted((account.currency, amount)
                          for account, amount
                          in chain(accounts.items(), categories.items()))
@@ -842,52 +829,11 @@ class TransactionPart(models.Model):
         return rows
 
 
-class EntryManager(Generic[AccountT], models.Manager['Entry[AccountT]']):
-    # This could be a generic arg actually...
-    instance: TransactionPart  # When used as a relatedmanager
-
-    def filter_for(self, budget: Budget):
-        """Filter entries to ones visible to 'budget'."""
-        source_visible = (Q(source__budget__budget_of_id=budget.owner())
-                          | Q(source__budget__payee_of_id=budget.owner())
-                          | (Q(source__name="")
-                             & Q(source__budget__in=budget.friends.all())))
-        sink_visible = (Q(sink__budget__budget_of_id=budget.owner())
-                        | Q(sink__budget__payee_of_id=budget.owner())
-                        | (Q(sink__name="")
-                           & Q(sink__budget__in=budget.friends.all())))
-        return (self.filter(source_visible, sink_visible)
-                .select_related('sink__budget')
-                .only('part_id', 'amount',
-                      'sink__name', 'sink__budget__name', 'sink__budget__budget_of_id'))
-
-    def entries(self) -> defaultdict[AccountT, int]:
-        return sum_by((entry.sink, entry.amount) for entry in self.all())
-
-    def flows(self) -> dict[tuple[AccountT, AccountT], int]:
-        return {(entry.source, entry.sink): entry.amount
-                for entry in self.all() if entry.amount > 0}
-
-    def set_flows(self, flows: dict[tuple[AccountT, AccountT], int]):
-        self.all().delete()
-        updates = chain.from_iterable(
-            (self.model(source=source, sink=sink, amount=amount,
-                        part=self.instance),
-             self.model(source=sink, sink=source, amount=-amount,
-                        part=self.instance))
-            for (source, sink), amount in flows.items() if amount)
-        if not updates:
-            return False
-        self.bulk_create(updates)
-        return True
-
-
 class Entry(Generic[AccountT], models.Model):
     class Meta:  # type: ignore
         abstract = True
         constraints = [models.UniqueConstraint(
             fields=["part", "source", "sink"], name="m2m_%(class)s")]
-    objects: ClassVar[EntryManager[AccountT]] = EntryManager()  # type: ignore
     part = models.ForeignKey(TransactionPart, on_delete=models.CASCADE,
                              related_name="%(class)s_set")
     source: models.ForeignKey[AccountT]
@@ -1033,7 +979,7 @@ def budgeting_categories(budget: Budget, transaction: Transaction) -> list[Categ
     balances = category_balance(budget, transaction.date)
 
     if transaction.pk:
-        entries = transaction.parts.get().categoryentry_set.entries()
+        entries = transaction.visible_parts[0].entries()[1]
     else:
         entries = {}
 

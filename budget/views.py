@@ -271,7 +271,7 @@ def delete(budget: Budget, transaction_ids: Collection[int | Literal['new']]):
         Transaction, id=next(iter(transaction_ids)))
     with atomic():
         if not any([part.set_entries(budget, {}, {})
-                    for part in transaction.parts.all()]):
+                    for part in transaction.visible_parts]):
             transaction.delete()
     return set()
 
