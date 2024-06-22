@@ -201,7 +201,7 @@ def all_view(request: HttpRequest, budget: Budget,
                 if prev_transaction:
                     initial = {'date': prev_transaction.date}
 
-        form = TransactionForm(budget, prefix="tx",
+        form = TransactionForm(budget=budget, prefix="tx",
                                instance=transaction, initial=initial)
 
     context = {'budget': budget, 'account_id': account_id, 'transaction_ids': transaction_ids,
@@ -251,7 +251,7 @@ def save(request: HttpRequest, budget: Budget, transaction_ids: Collection[int |
         if not form.is_valid():
             raise ValueError(form.errors)
     else:
-        form = TransactionForm(budget, prefix="tx",
+        form = TransactionForm(budget=budget, prefix="tx",
                                instance=transaction, data=request.POST)
         if not form.is_valid():
             # This doesn't work.
@@ -384,7 +384,7 @@ def manage_accounts(request: HttpRequest, budget_id: int):
 def part_form(request: HttpRequest, budget_id: int, number: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
     budget = budget.main_budget()
-    form = TransactionForm(budget, prefix="tx")
+    form = TransactionForm(budget=budget, prefix="tx")
     form.formset.min_num = number + 1  # type: ignore
     context = {'budget': budget,
                'part': form.formset.forms[number], 'part_index': number,
@@ -397,7 +397,7 @@ def row_form(request: HttpRequest, budget_id: int,
              part_index: int, number: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
     budget = budget.main_budget()
-    form = TransactionForm(budget, prefix="tx")
+    form = TransactionForm(budget=budget, prefix="tx")
     form.formset.min_num = part_index + 1  # type: ignore
     part = form.formset.forms[part_index]
     # Extra is 1

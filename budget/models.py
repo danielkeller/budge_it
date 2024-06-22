@@ -493,10 +493,11 @@ class TransactionQuerySet(models.QuerySet['Transaction']):
 
     def get_for(self, budget: Budget, id: int):
         try:
-            value = self._filter_for(budget).get(id=id)
+            value = self.fetch_contents().get(id=id)
+            fetch_accounts([value], budget)
         except self.model.DoesNotExist:
             return None
-        if all(part.empty() for part in value.parts.all()):
+        if all(part.empty() for part in value.fetched_parts):
             return None
         return value
 
@@ -637,7 +638,7 @@ class Transaction(models.Model):
     running_sum: int | Literal['']
     contents: list[tuple[int, str, list[tuple[int, int, int]],
                          list[tuple[int, int, int]]]]
-    fetched_parts: list['TransactionPart']
+    fetched_parts: list['TransactionPart'] = []
 
     def __str__(self):
         return str(self.date)
@@ -745,8 +746,7 @@ class TransactionPart(models.Model):
     invisible_categories: dict[tuple[int, int], int]
 
     def empty(self) -> bool:
-        return (not self.accountentry_set.all() and
-                not self.categoryentry_set.all())
+        return not self.visible_accounts and not self.visible_categories
 
     # Maybe we need a re-double-entrify function...
 
@@ -825,8 +825,7 @@ class TransactionPart(models.Model):
         reconciled = (self.transaction.cleared
                       .filter(reconciled=True)
                       .values_list('account', flat=True))
-        accounts = self.accountentry_set.entries()
-        categories = self.categoryentry_set.entries()
+        accounts, categories = self.entries1()
         amounts = sorted((account.currency, amount)
                          for account, amount
                          in chain(accounts.items(), categories.items()))

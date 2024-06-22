@@ -2,11 +2,13 @@ from dataclasses import dataclass
 from collections import defaultdict
 from typing import Any, Union, Mapping, Optional, Type, TypeVar, cast, Generic
 from datetime import date
+from itertools import chain
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.forms import ValidationError, BoundField
 from django.db import transaction
+from django.forms.models import model_to_dict
 
 from .models import (Id, Budget, BaseAccount, Account, Category, Balance,
                      TransactionPart, Transaction, AccountLike,
@@ -114,22 +116,9 @@ EntryFormSet = forms.formset_factory(
 FormSetT = TypeVar('FormSetT', bound=forms.BaseInlineFormSet)
 
 
-class FormSetInline(Generic[FormSetT], forms.ModelForm):
+class FormSetInline(Generic[FormSetT], forms.Form):
     """Form lifecycle boilerplate to hold a formset as a property."""
     formset: FormSetT
-
-    def __init__(self,
-                 formset: Type[FormSetT],
-                 budget: Budget,
-                 renderer: Any = None,
-                 use_required_attribute: Optional[bool] = None,
-                 empty_permitted: bool = False,
-                 initial: Optional[dict[str, Any]] = None,
-                 **kwargs: Any):
-        super().__init__(**kwargs, initial=initial, renderer=renderer,
-                         empty_permitted=empty_permitted,
-                         use_required_attribute=use_required_attribute)
-        self.formset = formset(budget, **kwargs)
 
     def is_valid(self):
         return super().is_valid() and self.formset.is_valid()
@@ -138,53 +127,47 @@ class FormSetInline(Generic[FormSetT], forms.ModelForm):
         return super().has_changed() or self.formset.has_changed()
 
 
-class BasePartFormSet(forms.BaseInlineFormSet):
-    budget: Budget
-
+class BasePartFormSet(forms.BaseFormSet):
     def __init__(self, budget: Budget,
                  instance: Optional[Transaction] = None,
                  **kwargs: Any):
-        self.budget = budget
-        super().__init__(instance=instance, **kwargs)
-        # BaseInlineFormSet breaks the prefetches so unbreak it here
         if instance:
-            self.queryset = instance.parts.all()
-        else:
-            self.queryset = self.model.objects.none()
-
-    def get_form_kwargs(self, index: Any) -> Any:
-        return {'budget': self.budget}
+            kwargs['initial'] = instance.fetched_parts
+        form_kwargs = {'instance': instance, 'budget': budget}
+        super().__init__(form_kwargs=form_kwargs, **kwargs)
 
 
 class PartForm(FormSetInline[EntryFormSet]):
-    class Meta:  # type: ignore
-        model = TransactionPart
-        fields = ('note',)
-
+    formset: BaseEntryFormSet
     budget: Budget
+    id = forms.ModelChoiceField(required=False,
+                                queryset=TransactionPart.objects.none(),
+                                widget=forms.HiddenInput)
     note = forms.CharField(required=False,
                            widget=forms.Textarea(attrs={'rows': 0}))
     currency = forms.ChoiceField(required=False, widget=forms.Select(
         attrs={'class': 'part-currency'}))
 
     def __init__(self, budget: Budget, *args: Any,
-                 instance: Optional[TransactionPart] = None,
-                 initial: dict[str, Any] = {},
+                 instance: Optional[Transaction],
+                 initial: Optional[TransactionPart] = None,
                  **kwargs: Any):
         self.budget = budget
-        initial['currency'] = budget.get_initial_currency()
-        if instance:
-            entry = (instance.accountentry_set.first()
-                     or instance.categoryentry_set.first())
+        values = model_to_dict(initial) if initial else {}
+        values['currency'] = budget.get_initial_currency()
+        if initial:
+            entry = next(chain(*initial.entries1()), None)
             if entry:
-                initial['currency'] = entry.sink.currency
-        super().__init__(EntryFormSet, budget, *args,
-                         instance=instance, initial=initial, **kwargs)
+                values['currency'] = entry.currency
+        super().__init__(*args, initial=values, **kwargs)
+        self.formset = EntryFormSet(budget=budget, instance=initial)
+        if instance:
+            self.fields['id'].queryset = instance.parts.all()  # ???
         currencies = budget.currencies
         self.fields['currency'].choices = list(zip(currencies, currencies))
-        if initial['currency'] not in currencies:
+        if values['currency'] not in currencies:
             self.fields['currency'].choices += [
-                (initial['currency'], initial['currency'])]
+                (values['currency'], values['currency'])]
 
     def full_clean(self):
         super().full_clean()
@@ -209,16 +192,17 @@ class PartForm(FormSetInline[EntryFormSet]):
         return instance.set_entries(self.budget, accounts, categories)
 
 
-PartFormSet = forms.inlineformset_factory(
-    Transaction, TransactionPart,
+PartFormSet = forms.formset_factory(
     form=PartForm, formset=BasePartFormSet,
     min_num=1, extra=0, max_num=15)
 
 
-class TransactionForm(FormSetInline[PartFormSet]):
+class TransactionForm(forms.ModelForm, FormSetInline[PartFormSet]):
     class Meta:  # type: ignore
         model = Transaction
         fields = ('date', 'recurrence',)
+
+    formset = BasePartFormSet
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
                                                   format='%Y-%m-%d'),
                            initial=date.today)
@@ -234,6 +218,7 @@ class TransactionForm(FormSetInline[PartFormSet]):
     recurrence = forms.CharField(required=False)
 
     def __init__(self, *args: Any, instance: Optional[Transaction] = None,
+                 budget: Budget,
                  **kwargs: Any):
         initial = kwargs.setdefault('initial', {})
         if instance and instance.recurrence:
@@ -248,7 +233,8 @@ class TransactionForm(FormSetInline[PartFormSet]):
         else:
             initial['repeat'] = 'N'
             initial['freq'] = 'MONTHLY'
-        super().__init__(PartFormSet, *args, instance=instance, **kwargs)
+        super().__init__(*args, instance=instance, **kwargs)
+        self.formset = PartFormSet(budget=budget, instance=instance, **kwargs)
         if instance and not instance.recurrence:
             self.fields['repeat'].disabled = True
         if not instance:
