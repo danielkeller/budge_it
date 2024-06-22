@@ -719,10 +719,10 @@ class TransactionPart(models.Model):
     categoryentry_set: 'RelatedManager[Category]'
 
     # Make a type alias?
-    visible_accounts: dict[tuple[Account, Account], int]
-    invisible_accounts: dict[tuple[Account, Account], int]
-    visible_categories: dict[tuple[Category, Category], int]
-    invisible_categories: dict[tuple[Category, Category], int]
+    visible_accounts: dict[tuple[Account, Account], int] = {}
+    invisible_accounts: dict[tuple[Account, Account], int] = {}
+    visible_categories: dict[tuple[Category, Category], int] = {}
+    invisible_categories: dict[tuple[Category, Category], int] = {}
 
     def empty(self) -> bool:
         return not self.visible_accounts and not self.visible_categories
@@ -963,11 +963,15 @@ def category_balance(budget: Budget, start: date):
 
 
 def budgeting_transaction(budget: Budget, date: date):
-    return (Transaction.objects
-            .filter(kind=Transaction.Kind.BUDGETING, date=date,
-                    parts__categories__budget=budget)
-            .first()
-            ) or Transaction(date=date)
+    transaction = (Transaction.objects
+                   .filter(kind=Transaction.Kind.BUDGETING, date=date,
+                           parts__categories__budget=budget)
+                   .fetch_contents()
+                   .first())
+    if transaction:
+        fetch_accounts([transaction], budget)
+        return transaction
+    return Transaction(date=date)
 
 
 def budgeting_categories(budget: Budget, transaction: Transaction) -> list[Category]:

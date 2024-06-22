@@ -139,9 +139,9 @@ class PartForm(FormSetInline):
             if entry:
                 values['currency'] = entry.currency
         super().__init__(*args, initial=values, **kwargs)
-        del kwargs['use_required_attribute']
-        del kwargs['renderer']
-        self.formset = EntryFormSet(budget=budget, instance=initial, **kwargs)
+        self.formset = EntryFormSet(budget=budget, instance=initial,
+                                    prefix=kwargs.get('prefix'),
+                                    data=kwargs.get('data'))
         if initial:
             self.fields['id'].queryset = (
                 TransactionPart.objects.filter(pk=initial.pk))
@@ -181,8 +181,7 @@ class BasePartFormSet(forms.BaseFormSet):
     def __init__(self, budget: Budget,
                  instance: Optional[Transaction] = None,
                  **kwargs: Any):
-        if instance:
-            kwargs['initial'] = instance.visible_parts
+        kwargs['initial'] = instance.visible_parts if instance else []
         form_kwargs = {'budget': budget}
         super().__init__(form_kwargs=form_kwargs, **kwargs)
 
