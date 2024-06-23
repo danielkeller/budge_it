@@ -88,6 +88,7 @@ class Budget(Id):
     friends = models.ManyToManyField(
         'self', through='BudgetFriends', blank=True)
 
+    # Remove?
     initial_currency = models.CharField(max_length=16, blank=True)
     initial_split = models.CharField(max_length=100, blank=True)
 
@@ -132,14 +133,10 @@ class Budget(Id):
                 .order_by('order'))
 
     def get_initial_currency(self):
-        if self.initial_currency:
-            return self.initial_currency
+        for currency in self.currencies:
+            return currency
         else:
-            category = self.category_set.first()
-            if category:
-                return category.currency
-            else:
-                return 'CHF'
+            return 'CHF'
 
     @property
     def budget(self):
@@ -534,7 +531,7 @@ def fetch_accounts(transactions: Iterable['Transaction'], budget: Budget):
             json[3] or [], local_categories | other_categories, Category)
         return part
 
-    def part_visible(part: TransactionPart):
+    def is_visible(part: TransactionPart):
         # Part visibility: At least one own account
         return (any(sink.id in local_accounts
                     for _, sink in part.visible_accounts)
@@ -543,8 +540,11 @@ def fetch_accounts(transactions: Iterable['Transaction'], budget: Budget):
 
     for transaction in transactions:
         parts = [to_part(transaction, json) for json in transaction.contents]
-        transaction.all_parts = parts
-        transaction.visible_parts = list(filter(part_visible, parts))
+        parts.sort(key=lambda part: part.id)
+        transaction.visible_parts = [
+            part for part in parts if is_visible(part)]
+        transaction.invisible_parts = [
+            part for part in parts if not is_visible(part)]
 
 
 if TYPE_CHECKING:  # stupid thing
@@ -622,7 +622,8 @@ class Transaction(models.Model):
     running_sum: int | Literal['']
     contents: list[tuple[int, str, list[tuple[int, int, int]],
                          list[tuple[int, int, int]]]]
-    all_parts: list['TransactionPart'] = []
+    # Would it be nicer to just update these members and save_contents()?
+    invisible_parts: list['TransactionPart'] = []
     visible_parts: list['TransactionPart'] = []
 
     def __str__(self):
@@ -667,7 +668,7 @@ class Transaction(models.Model):
     def copy_to(self, to: 'date'):
         transaction = Transaction(date=to, kind=self.kind)
         transaction.save()
-        for from_part in self.all_parts:
+        for from_part in chain(self.visible_parts, self.invisible_parts):
             part = TransactionPart(
                 transaction=transaction, note=from_part.note)
             part.save()
@@ -736,7 +737,9 @@ class TransactionPart(models.Model):
         accounts = set(chain(accounts, categories))
         if isinstance(in_account, Account) or isinstance(in_account, Category):
             accounts.discard(in_account)
-        return ', '.join(account.description(in_account.budget) for account in accounts)
+        names = {account.description(in_account.budget)
+                 for account in accounts}
+        return ', '.join(sorted(names))
 
     def entries(self):
         return (sum_by((sink, amount)

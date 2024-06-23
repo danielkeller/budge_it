@@ -18,7 +18,8 @@
     <form id="form" method="post">
 
     <div class="controls">
-        <div><button class="backbutton" hx-get="{{ url('all', budget.id) }}" hx-target="#account">Close</button></div>
+        <div><button class="backbutton" type="button"
+            hx-get="{{ url('all', budget.id) }}" hx-target="#account">Close</button></div>
         <div>Budget name for others: {{ budget_form.name }}</div>
         <div class="spacer"></div>
         <div><button form="form">Save</button></div>
@@ -169,7 +170,6 @@
             <option value="CNH">
             <option value="INR">
         </datalist>
-</form>
 <div>
     {{ category_formset.errors or "" }}
     {{ category_formset.non_form_errors() }}
@@ -178,6 +178,7 @@
     {{ currency_formset.errors or "" }}
     {{ currency_formset.non_form_errors() }}
 </div>
+</form>
 </div>
 </div>
 <div id="transaction"></div>

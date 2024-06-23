@@ -258,9 +258,6 @@ def save(request: HttpRequest, budget: Budget, transaction_ids: Collection[int |
             raise ValueError(form.errors, form.formset.errors,
                              form.formset.non_form_errors())
     saved = form.save()
-    if saved.id:
-        budget.initial_currency = saved.first_currency()
-        budget.save()
     return {saved.id}
 
 
