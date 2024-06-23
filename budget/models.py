@@ -449,8 +449,10 @@ def double_entrify(in_budget: Budget, type: Type[AccountT],
             entries |= debts.combine_one(amount, payee)
         entries |= debts.combine()
     # This is kind of silly, maybe rethink.
-    return entries | {(sink, source): -amount
-                      for (source, sink), amount in entries.items()}
+    return list(chain(*(
+        ((source, sink, amount), (sink, source, -amount))
+        for (source, sink), amount in entries.items()
+    )))
 
 
 class TransactionQuerySet(models.QuerySet['Transaction']):
@@ -510,12 +512,12 @@ def fetch_accounts(transactions: Iterable['Transaction'], budget: Budget):
                  accounts: dict[int, AccountT],
                  type: Type[AccountT]):
         # Flow visibility: Can see both source and sink
-        visible = {(accounts[source], accounts[sink]): amount
+        visible = [(accounts[source], accounts[sink], amount)
                    for source, sink, amount in json
-                   if source in accounts and sink in accounts}
-        invisible = {(type(pk=source), type(pk=sink)): amount
+                   if source in accounts and sink in accounts]
+        invisible = [(type(pk=source), type(pk=sink), amount)
                      for source, sink, amount in json
-                     if source not in accounts or sink not in accounts}
+                     if source not in accounts or sink not in accounts]
         return (visible, invisible)
 
     def to_part(
@@ -534,9 +536,9 @@ def fetch_accounts(transactions: Iterable['Transaction'], budget: Budget):
     def is_visible(part: TransactionPart):
         # Part visibility: At least one own account
         return (any(sink.id in local_accounts
-                    for _, sink in part.visible_accounts)
+                    for _, sink, _ in part.visible_accounts)
                 or any(sink.id in local_categories
-                       for _, sink in part.visible_categories))
+                       for _, sink, _ in part.visible_categories))
 
     for transaction in transactions:
         parts = [to_part(transaction, json) for json in transaction.contents]
@@ -720,10 +722,12 @@ class TransactionPart(models.Model):
     categoryentry_set: 'RelatedManager[Category]'
 
     # Make a type alias?
-    visible_accounts: dict[tuple[Account, Account], int] = {}
-    invisible_accounts: dict[tuple[Account, Account], int] = {}
-    visible_categories: dict[tuple[Category, Category], int] = {}
-    invisible_categories: dict[tuple[Category, Category], int] = {}
+    # Really these should be dicts but we need to fix the integrity constraints
+    # on entries first.
+    visible_accounts: list[tuple[Account, Account, int]] = []
+    invisible_accounts: list[tuple[Account, Account, int]] = []
+    visible_categories: list[tuple[Category, Category, int]] = []
+    invisible_categories: list[tuple[Category, Category, int]] = []
 
     def empty(self) -> bool:
         return not self.visible_accounts and not self.visible_categories
@@ -743,27 +747,27 @@ class TransactionPart(models.Model):
 
     def entries(self):
         return (sum_by((sink, amount)
-                       for (_, sink), amount in self.visible_accounts.items()),
+                       for _, sink, amount in self.visible_accounts),
                 sum_by((sink, amount)
-                       for (_, sink), amount in self.visible_categories.items()))
+                       for _, sink, amount in self.visible_categories))
 
     def flows(self):
-        return (self.visible_accounts | self.invisible_accounts,
-                self.visible_categories | self.invisible_categories)
+        return (self.visible_accounts + self.invisible_accounts,
+                self.visible_categories + self.invisible_categories)
 
     def set_entries(self, in_budget: Budget,
                     accounts: dict[Account, int], categories: dict[Category, int]):
         """Set the contents of this transaction from the perspective of one budget.
         'accounts' and 'categories' both must to sum to zero."""
         return self.set_flows(double_entrify(in_budget, Account, accounts)
-                              | self.invisible_accounts,
+                              + self.invisible_accounts,
                               double_entrify(in_budget, Category, categories)
-                              | self.invisible_categories)
+                              + self.invisible_categories)
 
     @atomic
     def set_flows(self,
-                  accounts: dict[tuple[Account, Account], int],
-                  categories: dict[tuple[Category, Category], int]):
+                  accounts: list[tuple[Account, Account, int]],
+                  categories: list[tuple[Category, Category, int]]):
         has_accounts = self.set_flows_of(self.accountentry_set, accounts)
         has_categories = self.set_flows_of(self.categoryentry_set, categories)
         if has_accounts or has_categories:
@@ -771,11 +775,11 @@ class TransactionPart(models.Model):
         self.delete()
         return None
 
-    def set_flows_of(self, manager: Any, flows: dict[tuple[AccountT, AccountT], int]):
+    def set_flows_of(self, manager: Any, flows: list[tuple[AccountT, AccountT, int]]):
         manager.all().delete()
         updates = [manager.model(source=source, sink=sink, amount=amount,
                                  part=self)
-                   for (source, sink), amount in flows.items() if amount]
+                   for source, sink, amount in flows if amount]
         if not updates:
             return False
         manager.bulk_create(updates)
