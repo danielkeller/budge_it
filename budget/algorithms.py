@@ -1,6 +1,7 @@
 from typing import TypeVar, Iterable,  Generic
 from collections import defaultdict, deque
 from dataclasses import dataclass
+from itertools import chain
 
 T = TypeVar('T')
 
@@ -69,6 +70,8 @@ class Debts(Generic[T]):
         return result
 
 
+# Maybe we should make a sort of sparse vector class.
+
 def sum_by(input: Iterable[tuple[T, int]]) -> defaultdict[T, int]:
     result: defaultdict[T, int] = defaultdict(int)
     for key, value in input:
@@ -78,6 +81,9 @@ def sum_by(input: Iterable[tuple[T, int]]) -> defaultdict[T, int]:
             del result[key]
     return result
 
+
+def merge(input: Iterable[dict[T, int]]) -> defaultdict[T, int]:
+    return sum_by(chain.from_iterable(d.items() for d in input))
 
 # 'tree' below are child->parent edges, and can also be a forest
 

@@ -13,15 +13,40 @@
     {% endif %}
 </div>
 <div class="scroll edit">
-    {% if transaction_ids|length > 1 %}
-    {{ transaction_ids|length }} transactions selected.
-    {% elif transaction.kind == 'B' %}
+    {% if transaction.kind == 'B' %}
     <form id="form" autocomplete="off"
         hx-trigger="submit, keydown[key=='Enter'&&(ctrlKey||metaKey)] from:body"
         hx-post=""
         hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
     {% include 'budget/partials/budget.html' %}
     </form>
+    {% elif form.is_multi %}
+    {% for part in form %}
+    <table class="edit-table">
+        <tr>
+            <th class="listhead t6">Account</th>
+            <th class="listhead t6">Category</th>
+            <th class="listhead t4">Paid</th>
+            <th class="listhead t4">Owed</th>
+        </tr>
+        {% for row in part %}
+        <tr class="edit-row {{ 'a' if loop.index0 % 2 == 0 else 'b' }}">
+            <td class="tdinput"><account-select data-account>
+                {{ row.account }}<span></span><input list="accounts-{{ part.currency }}">
+                </account-select></td>
+            <td class="tdinput"><account-select>
+                {{ row.category }}<span></span><input list="categories-{{ part.currency }}">
+            </account-select></td>
+            <td class="tdinput"><currency-input currency="{{ part.currency }}">
+                {{ row.transferred }}<input class="number" disabled>
+            </currency-input></td>
+            <td class="tdinput"><currency-input currency="{{ part.currency }}">
+                {{ row.moved }}<input class="number" disabled>
+            </currency-input></td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endfor %}
     {% else %}
     <transaction-editor>
     <form id="form" autocomplete="off"

@@ -1,9 +1,9 @@
 from .recurrence import RRule
 from . import recurrence
-from .algorithms import sum_by, reroot, double_entrify_by, Debts
+from .algorithms import sum_by, merge, reroot, double_entrify_by, Debts
 from collections import defaultdict
 from typing import (Optional, Iterable, TypeVar, Type, Union, Generic,
-                    Any, ClassVar, Literal)
+                    Any, ClassVar, Literal, Collection)
 import functools
 from itertools import chain, islice
 from datetime import date, timedelta
@@ -481,9 +481,19 @@ class TransactionQuerySet(models.QuerySet['Transaction']):
             fetch_accounts([value], budget)
         except self.model.DoesNotExist:
             return None
-        if all(part.empty() for part in value.visible_parts):
+        if not value.visible():
             return None
         return value
+
+    def get_for_multi(self, budget: Budget, ids: Iterable[int]):
+        values = list(self.filter(id__in=ids).fetch_contents())
+        fetch_accounts(values, budget)
+        values = [value for value in values if value.visible()]
+        if not values:
+            return None
+        if len(values) == 1:
+            return values[0]
+        return MultiTransaction(contents=values)
 
 
 def account_dict(accounts: Iterable[AccountT]):
@@ -645,6 +655,9 @@ class Transaction(models.Model):
     def month(self, value: 'Optional[date]'):
         self.date = value and value.replace(day=1)
 
+    def visible(self):
+        return any(part.visible() for part in self.visible_parts)
+
     def clean(self):
         if isinstance(self.date, date) and isinstance(self.recurrence, RRule):
             if self.recurrence.freq in ("HOURLY", "MINUTELY", "SECONDLY"):
@@ -692,6 +705,25 @@ class Transaction(models.Model):
         raise RuntimeError("unreachable")
 
 
+@dataclass
+class MultiTransaction:
+    """Fake transaction representing multiple transactions."""
+    contents: list[Transaction]
+    kind: Literal['M'] = 'M'
+
+    def parts(self):
+        accounts: list[dict[Account, int]] = []
+        categories: list[dict[Category, int]] = []
+        for transaction in self.contents:
+            for part in transaction.visible_parts:
+                part_accounts, part_categories = part.entries()
+                accounts.append(part_accounts)
+                categories.append(part_categories)
+        cleared = ()  # TODO
+        # TODO: Group by currency
+        return [Row.from_entries(merge(accounts), merge(categories), cleared)]
+
+
 class Cleared(models.Model):
     class Meta:  # type: ignore
         db_table = 'budget_transaction_cleared'
@@ -729,8 +761,8 @@ class TransactionPart(models.Model):
     visible_categories: list[tuple[Category, Category, int]] = []
     invisible_categories: list[tuple[Category, Category, int]] = []
 
-    def empty(self) -> bool:
-        return not self.visible_accounts and not self.visible_categories
+    def visible(self) -> bool:
+        return bool(self.visible_accounts or self.visible_categories)
 
     # Maybe we need a re-double-entrify function...
 
@@ -798,15 +830,25 @@ class TransactionPart(models.Model):
             categories[account] = account_value
         self.set_entries(account.budget, accounts, categories)
 
-    @dataclass
-    class Row:
-        account: Optional[Account]
-        category: Optional[Category]
-        amount: int
-        reconciled: bool
-
     def tabular(self):
-        def pop_by_(entries: 'dict[AccountT, int]',
+        # Can this be cached?
+        reconciled = (self.transaction.cleared
+                      .filter(reconciled=True)
+                      .values_list('account', flat=True))
+        return Row.from_entries(*self.entries(), reconciled)
+
+
+@dataclass
+class Row:
+    account: Optional[Account]
+    category: Optional[Category]
+    amount: int
+    reconciled: bool
+
+    @staticmethod
+    def from_entries(accounts: dict[Account, int], categories: dict[Category, int],
+                     reconciled: Collection[int]):
+        def pop_by_(entries: dict[AccountT, int],
                     currency: str, amount: int):
             try:
                 result = next(to for (to, value) in entries.items()
@@ -816,23 +858,17 @@ class TransactionPart(models.Model):
             except StopIteration:
                 return None
 
-        # Can this be cached?
-        reconciled = (self.transaction.cleared
-                      .filter(reconciled=True)
-                      .values_list('account', flat=True))
-        accounts, categories = self.entries()
         amounts = sorted((account.currency, amount)
                          for account, amount
                          in chain(accounts.items(), categories.items()))
-        rows: list[TransactionPart.Row]
+        rows: list[Row]
         rows = []
         for currency, amount in amounts:
             account = pop_by_(accounts, currency, amount)
             category = pop_by_(categories, currency, amount)
             if account or category:
                 is_reconciled = (account and account.id) in reconciled
-                rows.append(TransactionPart.Row(
-                    account, category, amount, is_reconciled))
+                rows.append(Row(account, category, amount, is_reconciled))
         return rows
 
 

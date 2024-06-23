@@ -16,12 +16,12 @@ import cProfile
 
 from .models import (date_range, months_between,
                      BaseAccount, Account, Category, Budget,
-                     Transaction, Cleared,
+                     Transaction, MultiTransaction, Cleared,
                      accounts_overview, budgeting_transaction,
                      Balance, Total, AccountLike,
                      prior_budgeting_transaction)
 from .forms import (QuickAddForm, TransactionForm,
-                    BudgetingForm, BudgetForm,
+                    BudgetingForm, BudgetForm, MultiFormSet,
                     AccountManagementFormSet,
                     CategoryManagementFormSet, CurrencyManagementFormSet)
 
@@ -82,23 +82,27 @@ def _get_account_like_or_404(request: HttpRequest, budget: Budget,
     return _get_allowed_account_or_404(request, name)
 
 
-def _get_allowed_transaction_or_404(budget: Budget,
-                                    transaction_ids: Collection[int | Literal['new']]):
-    if not transaction_ids or 'new' in transaction_ids:
+def _get_allowed_transactions_or_404(
+        budget: Budget, transaction_ids: Collection[int] | Literal['new']):
+    if not transaction_ids or transaction_ids == 'new':
         return None
     budget = budget.main_budget()
-    transaction = Transaction.objects.get_for(
-        budget, next(iter(transaction_ids)))  # type: ignore
+    transaction = Transaction.objects.get_for_multi(budget, transaction_ids)
     if not transaction:
         raise Http404()
     return transaction
 
 
-def parse_transaction_ids(ids: str | list[str]) -> set[int | Literal['new']]:
+def parse_transaction_ids(ids: str | list[str]) -> set[int] | Literal['new']:
     if not ids:
         return set()
     if isinstance(ids, list):
-        return set('new' if id == 'new' else int(id) for id in ids)
+        if 'new' in ids:
+            return 'new'
+        try:
+            return set(int(id) for id in ids)
+        except ValueError:
+            raise Http404()
     else:
         return parse_transaction_ids(ids.split(','))
 
@@ -128,10 +132,10 @@ def all(request: HttpRequest, budget_id: int,
 @require_http_methods(['POST'])
 def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
     account = _get_allowed_account_or_404(request, account_id)
-    transaction = _get_allowed_transaction_or_404(
-        account.budget, {transaction_id})
-    assert transaction
-    transaction.change_inbox_to(account)
+    # transaction = _get_allowed_transaction_or_404(
+    #     account.budget, {transaction_id})
+    # assert transaction
+    # transaction.change_inbox_to(account)
     return update_all_view(request, account.budget)
 
 
@@ -169,7 +173,7 @@ def update_all_view(request: HttpRequest, budget: Budget):
 
 def all_view(request: HttpRequest, budget: Budget,
              account_id: str | int | None = None,
-             transaction_ids: Collection[int | Literal['new']] = set()):
+             transaction_ids: Collection[int] | Literal['new'] = set()):
     prev_args = {}
     if 'HX-Current-URL' in request.headers:
         prev_args = resolve(
@@ -186,11 +190,13 @@ def all_view(request: HttpRequest, budget: Budget,
             'all', args=[arg for arg in (budget.id, account_id, ids_str) if arg])
         return response
 
-    transaction = _get_allowed_transaction_or_404(budget, transaction_ids)
+    transaction = _get_allowed_transactions_or_404(budget, transaction_ids)
 
     # I think the prefix isn't needed
     if transaction and transaction.kind == Transaction.Kind.BUDGETING:
         form = BudgetingForm(budget, prefix="tx", instance=transaction)
+    elif isinstance(transaction, MultiTransaction):
+        form = MultiFormSet(budget, prefix="tx", instance=transaction)
     else:
         initial = {}
         if not transaction:
@@ -214,7 +220,8 @@ def all_view(request: HttpRequest, budget: Budget,
     if account_id:
         account = _get_account_like_or_404(request, budget, account_id)
         entries, balance, cleared = account.transactions()
-        initial = {'date': transaction.date} if transaction else {}
+        initial = ({'date': transaction.date}
+                   if isinstance(transaction, Transaction) else {})
         quick_add = QuickAddForm(account, initial=initial, prefix="qa",
                                  autofocus=request.method == 'PUT')
         context |= {'account': account, 'entries': entries,
@@ -241,10 +248,11 @@ def quick_save(request: HttpRequest, budget: Budget, account_id: str | None):
     return {form.save().id}
 
 
-def save(request: HttpRequest, budget: Budget, transaction_ids: Collection[int | Literal['new']]):
+def save(request: HttpRequest,
+         budget: Budget, transaction_ids: Collection[int] | Literal['new']):
     if len(transaction_ids) > 1:
         raise ValueError('Too many transactions')
-    transaction = _get_allowed_transaction_or_404(budget, transaction_ids)
+    transaction = _get_allowed_transactions_or_404(budget, transaction_ids)
 
     if transaction and transaction.kind == Transaction.Kind.BUDGETING:
         form = BudgetingForm(budget, prefix="tx",
@@ -262,7 +270,7 @@ def save(request: HttpRequest, budget: Budget, transaction_ids: Collection[int |
     return {saved.id}
 
 
-def delete(budget: Budget, transaction_ids: Collection[int | Literal['new']]):
+def delete(budget: Budget, transaction_ids: Collection[int] | Literal['new']):
     if len(transaction_ids) != 1:
         raise ValueError('Need exactly one transaction')
     transaction = get_object_or_404(

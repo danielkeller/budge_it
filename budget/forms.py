@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from collections import defaultdict
-from typing import Any, Union, Mapping, Optional, Type, TypeVar, cast, Generic
+from typing import Any, Union, Mapping, Optional, Type, cast
 from datetime import date
 from itertools import chain
 
@@ -11,7 +11,8 @@ from django.db import transaction
 from django.forms.models import model_to_dict
 
 from .models import (Id, Budget, BaseAccount, Account, Category, Balance,
-                     TransactionPart, Transaction, AccountLike,
+                     TransactionPart, Transaction, AccountLike, Row,
+                     MultiTransaction,
                      budgeting_categories)
 from .recurrence import RRule
 
@@ -54,7 +55,7 @@ class EntryForm(forms.Form):
     moved = forms.IntegerField(
         required=False, widget=forms.HiddenInput)
 
-    def __init__(self, *args: Any, initial: Optional[TransactionPart.Row] = None,
+    def __init__(self, *args: Any, initial: Optional[Row] = None,
                  **kwargs: Any):
         values: dict[str, Any] = {}
         self.row = initial
@@ -72,11 +73,11 @@ class BaseEntryFormSet(forms.BaseFormSet):
     currency: str
 
     def __init__(self, budget: Budget,
-                 instance: Optional[TransactionPart] = None,
+                 use_required_attribute: Any = None,
+                 renderer: Any = None,
                  **kwargs: Any):
+        self.currency = 'CHF'  # TODO
         self.budget = budget
-        if instance:
-            kwargs['initial'] = instance.tabular()
         super().__init__(**kwargs)
 
     def add_fields(self, form: EntryForm, index: int):
@@ -132,14 +133,14 @@ class PartForm(FormSetInline):
                  **kwargs: Any):
         self.budget = budget
         self.instance = initial or TransactionPart()
-        values = model_to_dict(initial) if initial else {}
+        values = model_to_dict(self.instance)
         values['currency'] = budget.get_initial_currency()
-        if initial:
-            entry = next(chain(*initial.entries()), None)
-            if entry:
-                values['currency'] = entry.currency
+        entry = next(chain(*self.instance.entries()), None)
+        if entry:
+            values['currency'] = entry.currency
         super().__init__(*args, initial=values, **kwargs)
-        self.formset = EntryFormSet(budget=budget, instance=initial,
+        self.formset = EntryFormSet(budget=budget,
+                                    initial=self.instance.tabular(),
                                     prefix=kwargs.get('prefix'),
                                     data=kwargs.get('data'))
         if initial:
@@ -173,7 +174,6 @@ class PartForm(FormSetInline):
             category = data.get('category')
             if category and data.get('moved'):
                 categories[category] += data['moved']
-        # TODO: We need the fetched stuff for this to work now.
         self.instance.set_entries(self.budget, accounts, categories)
 
 
@@ -254,6 +254,19 @@ class TransactionForm(forms.ModelForm, FormSetInline):
         if not instance.parts.exists():
             instance.delete()
         return instance
+
+
+class BaseMultiFormSet(forms.BaseFormSet):
+    is_multi = True
+
+    def __init__(self, budget: Budget, instance: MultiTransaction, **kwargs: Any):
+        super().__init__(form_kwargs={'budget': budget},
+                         initial=instance.parts(),
+                         **kwargs)
+
+
+MultiFormSet = forms.formset_factory(
+    EntryFormSet, formset=BaseMultiFormSet, extra=0)
 
 
 class BudgetingForm(forms.ModelForm):
