@@ -597,11 +597,11 @@ currency-input :disabled::placeholder {
 
 /* editor */
 
-transaction-editor {
+.editor {
     padding: var(--line-height);
 }
 
-transaction-editor,
+.editor,
 edit-part {
     display: flex;
     flex-direction: column;

@@ -73,12 +73,18 @@ class BaseEntryFormSet(forms.BaseFormSet):
     currency: str
 
     def __init__(self, budget: Budget,
+                 initial: list[Row],
                  use_required_attribute: Any = None,
                  renderer: Any = None,
                  **kwargs: Any):
-        self.currency = 'CHF'  # TODO
+        if initial:
+            if initial[0].account:
+                self.currency = initial[0].account.currency
+            elif initial[0].category:
+                self.currency = initial[0].category.currency
+
         self.budget = budget
-        super().__init__(**kwargs)
+        super().__init__(initial=initial, **kwargs)
 
     def add_fields(self, form: EntryForm, index: int):
         super().add_fields(form, index)

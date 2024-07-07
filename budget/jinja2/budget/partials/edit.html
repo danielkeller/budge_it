@@ -21,7 +21,10 @@
     {% include 'budget/partials/budget.html' %}
     </form>
     {% elif form.is_multi %}
+    <div class="editor">
+    <div>{{ transaction_ids|length }} transactions selected.</div>
     {% for part in form %}
+    <hr>
     <table class="edit-table">
         <tr>
             <th class="listhead t6">Account</th>
@@ -46,9 +49,13 @@
         </tr>
         {% endfor %}
     </table>
+    <div class="date-table">
+        <label>Currency</label><span>{{ part.currency }}</span>
+    </div>
     {% endfor %}
+    </div>
     {% else %}
-    <transaction-editor>
+    <transaction-editor class="editor">
     <form id="form" autocomplete="off"
         hx-trigger="submit, keydown[key=='Enter'&&(ctrlKey||metaKey)] from:body"
         hx-post=""

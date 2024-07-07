@@ -402,7 +402,7 @@ def group_by_currency(amounts: dict[AccountT, int]):
     result: dict[str, dict[AccountT, int]] = {}
     for account, amount in amounts.items():
         result.setdefault(account.currency, {})[account] = amount
-    return result.items()
+    return result
 
 
 def connectivity(budgets: list[Budget]) -> dict[Budget, Budget]:
@@ -430,7 +430,7 @@ def connectivity(budgets: list[Budget]) -> dict[Budget, Budget]:
 def double_entrify(in_budget: Budget, type: Type[AccountT],
                    all_amounts: dict[AccountT, int]):
     entries: dict[tuple[AccountT, AccountT], int] = {}
-    for currency, amounts in group_by_currency(all_amounts):
+    for currency, amounts in group_by_currency(all_amounts).items():
         amounts.setdefault(in_budget.get_inbox(type, currency), 0)
         payees = dict(item for item in amounts.items()
                       if item[0].budget.payee_of_id)
@@ -720,8 +720,13 @@ class MultiTransaction:
                 accounts.append(part_accounts)
                 categories.append(part_categories)
         cleared = ()  # TODO
-        # TODO: Group by currency
-        return [Row.from_entries(merge(accounts), merge(categories), cleared)]
+        accounts_grouped = group_by_currency(merge(accounts))
+        categories_grouped = group_by_currency(merge(categories))
+        return [
+            Row.from_entries(accounts_grouped.get(currency, {}),
+                             categories_grouped.get(currency, {}),
+                             cleared)
+            for currency in accounts_grouped | categories_grouped]
 
 
 class Cleared(models.Model):
