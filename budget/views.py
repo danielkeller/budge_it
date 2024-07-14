@@ -185,7 +185,8 @@ def all_view(request: HttpRequest, budget: Budget,
         if (bool(account_id) != ('account_id' in prev_args)
                 or bool(transaction_ids) != ('transaction_id' in prev_args)):
             action = 'HX-Push-Url'
-        ids_str = ','.join(str(id) for id in transaction_ids)
+        ids_str = ('new' if transaction_ids == 'new'
+                   else ','.join(str(id) for id in transaction_ids))
         response[action] = reverse(
             'all', args=[arg for arg in (budget.id, account_id, ids_str) if arg])
         return response
@@ -250,8 +251,6 @@ def quick_save(request: HttpRequest, budget: Budget, account_id: str | None):
 
 def save(request: HttpRequest,
          budget: Budget, transaction_ids: Collection[int] | Literal['new']):
-    if len(transaction_ids) > 1:
-        raise ValueError('Too many transactions')
     transaction = _get_allowed_transactions_or_404(budget, transaction_ids)
 
     if transaction and transaction.kind == Transaction.Kind.BUDGETING:
@@ -259,6 +258,13 @@ def save(request: HttpRequest,
                              instance=transaction, data=request.POST)
         if not form.is_valid():
             raise ValueError(form.errors)
+        return {form.save().id}
+    elif isinstance(transaction, MultiTransaction):
+        form = MultiFormSet(budget, prefix="tx",
+                            instance=transaction, data=request.POST)
+        if not form.is_valid():
+            raise ValueError(form.errors, form.non_form_errors())
+        return form.save().id
     else:
         form = TransactionForm(budget=budget, prefix="tx",
                                instance=transaction, data=request.POST)
@@ -266,8 +272,7 @@ def save(request: HttpRequest,
             # This doesn't work.
             raise ValueError(form.errors, form.formset.errors,
                              form.formset.non_form_errors())
-    saved = form.save()
-    return {saved.id}
+        return {form.save().id}
 
 
 def delete(budget: Budget, transaction_ids: Collection[int] | Literal['new']):

@@ -711,6 +711,10 @@ class MultiTransaction:
     contents: list[Transaction]
     kind: Literal['M'] = 'M'
 
+    @property
+    def id(self):
+        return {transaction.id for transaction in self.contents}
+
     def parts(self):
         accounts: list[dict[Account, int]] = []
         categories: list[dict[Category, int]] = []
@@ -839,16 +843,18 @@ class TransactionPart(models.Model):
         # Can this be cached?
         reconciled = (self.transaction.cleared
                       .filter(reconciled=True)
-                      .values_list('account', flat=True))
+                      .values_list('account', flat=True)
+                      if self.id else ())
         return Row.from_entries(*self.entries(), reconciled)
 
 
 @dataclass
 class Row:
-    account: Optional[Account]
-    category: Optional[Category]
+    account: Optional[Account | Budget]
+    category: Optional[Category | Budget]
     amount: int
     reconciled: bool
+    currency: str
 
     @staticmethod
     def from_entries(accounts: dict[Account, int], categories: dict[Category, int],
@@ -859,6 +865,8 @@ class Row:
                 result = next(to for (to, value) in entries.items()
                               if value == amount and to.currency == currency)
                 del entries[result]
+                if result.is_inbox():
+                    return result.budget
                 return result
             except StopIteration:
                 return None
@@ -873,7 +881,8 @@ class Row:
             category = pop_by_(categories, currency, amount)
             if account or category:
                 is_reconciled = (account and account.id) in reconciled
-                rows.append(Row(account, category, amount, is_reconciled))
+                rows.append(Row(account, category, amount,
+                            is_reconciled, currency))
         return rows
 
 

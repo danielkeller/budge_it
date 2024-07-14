@@ -3,7 +3,7 @@
     <button class="backbutton" hx-on:click="document.querySelector('[name=transaction]').select(null)">Close</button>
     <div class="spacer"></div>
     <button id="submit-button" form="form">
-        {% if transaction.id %}Save Changes{% else %}Create Transaction{% endif %}
+        {% if transaction_ids == 'new' %}Create Transaction{% else %}Save Changes{% endif %}
     </button>
     {% if transaction.id and transaction.kind == "T" %}
     <button type="button" hx-delete=""
@@ -13,13 +13,12 @@
     {% endif %}
 </div>
 <div class="scroll edit">
+<form id="form" autocomplete="off"
+    hx-trigger="submit, keydown[key=='Enter'&&(ctrlKey||metaKey)] from:body"
+    hx-post=""
+    hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
     {% if transaction.kind == 'B' %}
-    <form id="form" autocomplete="off"
-        hx-trigger="submit, keydown[key=='Enter'&&(ctrlKey||metaKey)] from:body"
-        hx-post=""
-        hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
     {% include 'budget/partials/budget.html' %}
-    </form>
     {% elif form.is_multi %}
     <div class="editor">
     <div>{{ transaction_ids|length }} transactions selected.</div>
@@ -35,31 +34,35 @@
         {% for row in part %}
         <tr class="edit-row {{ 'a' if loop.index0 % 2 == 0 else 'b' }}">
             <td class="tdinput"><account-select data-account>
-                {{ row.account }}<span></span><input list="accounts-{{ part.currency }}">
+                {{ row.account }}<span></span><input list="accounts-{{ row.row.currency }}">
                 </account-select></td>
             <td class="tdinput"><account-select>
-                {{ row.category }}<span></span><input list="categories-{{ part.currency }}">
+                {{ row.category }}<span></span><input list="categories-{{ row.row.currency }}">
             </account-select></td>
-            <td class="tdinput"><currency-input currency="{{ part.currency }}">
+            <td class="tdinput"><currency-input currency="{{ row.row.currency }}">
                 {{ row.transferred }}<input class="number" disabled>
             </currency-input></td>
-            <td class="tdinput"><currency-input currency="{{ part.currency }}">
+            <td class="tdinput"><currency-input currency="{{ row.row.currency }}">
                 {{ row.moved }}<input class="number" disabled>
             </currency-input></td>
         </tr>
         {% endfor %}
     </table>
+    {{ part.management_form.TOTAL_FORMS }}
+    {{ part.management_form.INITIAL_FORMS }}
+    {{ part.management_form.MIN_NUM_FORMS }}
+    {{ part.management_form.MAX_NUM_FORMS }}
     <div class="date-table">
-        <label>Currency</label><span>{{ part.currency }}</span>
+        <label>Currency</label><span>{{ part[0].row.currency }}</span>
     </div>
     {% endfor %}
     </div>
+    {{ form.management_form.TOTAL_FORMS }}
+    {{ form.management_form.INITIAL_FORMS }}
+    {{ form.management_form.MIN_NUM_FORMS }}
+    {{ form.management_form.MAX_NUM_FORMS }}
     {% else %}
     <transaction-editor class="editor">
-    <form id="form" autocomplete="off"
-        hx-trigger="submit, keydown[key=='Enter'&&(ctrlKey||metaKey)] from:body"
-        hx-post=""
-        hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
         <date-repeat class="part-extras">
             <div class="date-table">
                 <label for="{{form.date.id_for_label }}">Date</label>
@@ -158,13 +161,13 @@
         {{ form.formset.management_form.MIN_NUM_FORMS }}
         {{ form.formset.management_form.MAX_NUM_FORMS }}
         {{ csrf_input }}
-    </form>
     {{ form.formset.non_form_errors() or "" }}
     
-    {% endif %}
 
     {{ form.errors or "" }}
     </transaction-editor>
+    {% endif %}
+</form>
 </div>
 {% endif -%}
 

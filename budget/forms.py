@@ -12,6 +12,7 @@ from django.forms.models import model_to_dict
 
 from .models import (Id, Budget, BaseAccount, Account, Category, Balance,
                      TransactionPart, Transaction, AccountLike, Row,
+                     AccountT,
                      MultiTransaction,
                      budgeting_categories)
 from .recurrence import RRule
@@ -70,19 +71,12 @@ class EntryForm(forms.Form):
 
 class BaseEntryFormSet(forms.BaseFormSet):
     budget: Budget
-    currency: str
 
     def __init__(self, budget: Budget,
                  initial: list[Row],
                  use_required_attribute: Any = None,
                  renderer: Any = None,
                  **kwargs: Any):
-        if initial:
-            if initial[0].account:
-                self.currency = initial[0].account.currency
-            elif initial[0].category:
-                self.currency = initial[0].category.currency
-
         self.budget = budget
         super().__init__(initial=initial, **kwargs)
 
@@ -92,33 +86,28 @@ class BaseEntryFormSet(forms.BaseFormSet):
             form.fields['account'].user_id = self.budget.owner()
             form.fields['category'].user_id = self.budget.owner()
 
-    def full_clean(self):
-        super().full_clean()
-        for data in self.cleaned_data:
-            account = data.get('account')
-            if account:
-                if isinstance(account, Budget):
-                    data['account'] = account.get_inbox(Account, self.currency)
-            category = data.get('category')
-            if category:
-                if isinstance(category, Budget):
-                    data['category'] = category.get_inbox(
-                        Category, self.currency)
-
 
 EntryFormSet = forms.formset_factory(
     EntryForm, formset=BaseEntryFormSet, extra=1, min_num=1, max_num=15)
+MultiEntryFormSet = forms.formset_factory(
+    EntryForm, formset=BaseEntryFormSet, extra=0, min_num=1, max_num=100)
 
 
 class FormSetInline(forms.Form):
     """Form lifecycle boilerplate to hold a formset as a property."""
-    formset: Any
+    formset: forms.BaseFormSet
 
     def is_valid(self):
         return super().is_valid() and self.formset.is_valid()
 
     def has_changed(self):
         return super().has_changed() or self.formset.has_changed()
+
+
+def _to_account(cls: Type[AccountT], value: AccountT | Budget, currency: str):
+    if isinstance(value, Budget):
+        return value.get_inbox(cls, currency)
+    return cast(cls, value)
 
 
 class PartForm(FormSetInline):
@@ -131,7 +120,7 @@ class PartForm(FormSetInline):
                                 widget=forms.HiddenInput)
     note = forms.CharField(required=False,
                            widget=forms.Textarea(attrs={'rows': 0}))
-    currency = forms.ChoiceField(required=False, widget=forms.Select(
+    currency = forms.ChoiceField(required=True, widget=forms.Select(
         attrs={'class': 'part-currency'}))
 
     def __init__(self, budget: Budget, *args: Any,
@@ -158,17 +147,14 @@ class PartForm(FormSetInline):
             self.fields['currency'].choices += [
                 (values['currency'], values['currency'])]
 
-    def full_clean(self):
-        super().full_clean()
-        # Kind of a hack
+    def clean(self):
         if self.is_bound:
-            self.formset.currency = self.cleaned_data.get(
-                'currency')  # type: ignore
             self.instance.note = self.cleaned_data['note']
 
     def save(self, transaction: Transaction):
         self.instance.transaction = transaction
         self.instance.save()
+        currency: str = self.cleaned_data['currency']
         accounts: dict[Account, int] = defaultdict(int)
         categories: dict[Category, int] = defaultdict(int)
         for form in self.formset.forms:
@@ -176,9 +162,11 @@ class PartForm(FormSetInline):
             account = data.get('account')
             if account and data.get('transferred'):
                 # Leave it a list of tuples and do later?
+                account = _to_account(Account, account, currency)
                 accounts[account] += data['transferred']
             category = data.get('category')
             if category and data.get('moved'):
+                category = _to_account(Category, category, currency)
                 categories[category] += data['moved']
         self.instance.set_entries(self.budget, accounts, categories)
 
@@ -266,13 +254,37 @@ class BaseMultiFormSet(forms.BaseFormSet):
     is_multi = True
 
     def __init__(self, budget: Budget, instance: MultiTransaction, **kwargs: Any):
+        self.budget = budget
+        self.instance = instance
         super().__init__(form_kwargs={'budget': budget},
                          initial=instance.parts(),
                          **kwargs)
 
+    @transaction.atomic
+    def save(self):
+        changes = {}
+        for form in chain(*self.forms):
+            currency: str = form.row.currency
+            for field in form.changed_data:
+                type = Account if field == 'account' else Category
+                before = _to_account(type, form.initial[field], currency)
+                after = _to_account(type, form.cleaned_data[field], currency)
+                changes[before] = after
+        for transaction in self.instance.contents:
+            for part in transaction.visible_parts:
+                init_accounts, init_categories = part.entries()
+                accounts: dict[Account, int] = defaultdict(int)
+                for account, amount in init_accounts.items():
+                    accounts[changes.get(account, account)] += amount
+                categories: dict[Category, int] = defaultdict(int)
+                for category, amount in init_categories.items():
+                    categories[changes.get(category, category)] += amount
+                part.set_entries(self.budget, accounts, categories)
+        return self.instance
+
 
 MultiFormSet = forms.formset_factory(
-    EntryFormSet, formset=BaseMultiFormSet, extra=0)
+    MultiEntryFormSet, formset=BaseMultiFormSet, extra=0)
 
 
 class BudgetingForm(forms.ModelForm):
