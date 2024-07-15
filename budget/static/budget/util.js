@@ -160,10 +160,10 @@ class EntryList extends HTMLElement {
         }
         this.active = row;
         if (!shift) this.tail = row;
-        if (prev_value.toString() !== this.value.toString()) {
-            (row || this).dispatchEvent(
-                new CustomEvent(source + 'select', { bubbles: true }));
-        }
+        // if (prev_value.toString() !== this.value.toString()) {
+        (row || this).dispatchEvent(
+            new CustomEvent(source + 'select', { bubbles: true }));
+        // }
     }
     prev(modifiers = {}) {
         const items = this.items;

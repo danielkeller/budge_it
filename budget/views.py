@@ -194,10 +194,10 @@ def all_view(request: HttpRequest, budget: Budget,
         initial = {}
         if not transaction:
             prev_ids = parse_transaction_ids(
-                prev_args.get('transaction_id', ''))
+                prev_args.get('transaction_id', '')) - {'new'}  # type: ignore
             if prev_ids:
                 prev_transaction = Transaction.objects.get_for(
-                    budget, next(iter(prev_ids - set('new'))))  # type: ignore
+                    budget, next(iter(prev_ids)))
                 if prev_transaction:
                     initial = {'date': prev_transaction.date}
 
