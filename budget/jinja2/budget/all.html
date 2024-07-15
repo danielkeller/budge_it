@@ -18,12 +18,12 @@
 </head>
 
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-ext="event-header" hx-history="false" class="all">
-    <div id="pagestate" {% if transaction_id %}class="has_transaction"{% elif account %}class="has_account"{% endif %}></div>
+    <div id="pagestate" {% if transaction_ids %}class="has_transaction"{% elif account %}class="has_account"{% endif %}></div>
     <div id="overview">{% include 'budget/partials/overview.html' %}</div>
     <div id="account">{% include 'budget/partials/account.html' %}</div>
     <div id="transaction">{% include 'budget/partials/edit.html' %}</div>
 </body>
 
 {% if request.headers.hx_request %}
-<div id="pagestate" {% if transaction_id %}class="has_transaction"{% elif account %}class="has_account"{% endif %} hx-swap-oob="true"></div>
+<div id="pagestate" {% if transaction_ids %}class="has_transaction"{% elif account %}class="has_account"{% endif %} hx-swap-oob="true"></div>
 {% endif %}

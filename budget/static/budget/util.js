@@ -143,7 +143,9 @@ class EntryList extends HTMLElement {
     }
     select(row, source = 'mouse', { shift, ctrl } = {}) {
         const prev_value = this.value;
-        if (ctrl) {
+        if (row === null) {
+            this.uncheck()
+        } else if (ctrl) {
             row.classList.toggle('checked');
         } else if (shift) {
             for (let other of this.items) {
