@@ -224,7 +224,7 @@ function updateCurrency(part) {
     for (let input of part.querySelectorAll('currency-input'))
         input.setAttribute('currency', select.value);
     for (let input of part.querySelectorAll('account-select')) {
-        if (input.dataset.account) {
+        if ('account' in input.dataset) {
             input.input.setAttribute('list', 'accounts-' + select.value);
         } else {
             input.input.setAttribute('list', 'categories-' + select.value);
