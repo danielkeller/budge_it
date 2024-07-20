@@ -1,5 +1,6 @@
 from typing import Any, Callable, Literal, Collection
 from datetime import date
+from collections import defaultdict
 from urllib.parse import urlparse
 
 from django.views.decorators.http import require_http_methods
@@ -278,13 +279,24 @@ def _edit_context(budget: Budget):
     payees = dict(Budget.objects.filter(payee_of=budget.owner())
                   .values_list('id', 'name'))
     # Closed?
-    accounts = budget.account_set.exclude(name='')
-    categories = budget.category_set.exclude(name='')
+    own_accounts = []
+    accounts = defaultdict(list)
+    for account in budget.account_set.exclude(name=''):
+        accounts[account.currency].append(account)
+        own_accounts.append(account.id)
+    categories = defaultdict(list)
+    for category in budget.category_set.exclude(name=''):
+        categories[category.currency].append(category)
+        own_accounts.append(category.id)
+
+    for currency in budget.currencies:
+        accounts[currency]
+        categories[currency]
+
     data = {
         'budget': budget.id,
-        'accounts': (dict(accounts.values_list('id', 'currency'))
-                     | dict(categories.values_list('id', 'currency'))),
         'budgets': {budget.id: budget.name, **friends, **payees},
+        'own_accounts': own_accounts,
         'friends': friends,
     }
     return {'friends': friends, 'payees': payees,
@@ -392,7 +404,7 @@ def part_form(request: HttpRequest, budget_id: int, number: int):
 
 
 def row_form(request: HttpRequest, budget_id: int,
-             part_index: int, number: int):
+             part_index: int, currency: str, number: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
     budget = budget.main_budget()
     form = TransactionForm(budget=budget, prefix="tx")
@@ -400,7 +412,7 @@ def row_form(request: HttpRequest, budget_id: int,
     part = form.formset.forms[part_index]
     # Extra is 1
     part.formset.min_num = number + 1 - 1  # type: ignore
-    context = {'budget': budget,
+    context = {'budget': budget, 'currency': currency,
                'row': part.formset.forms[number], 'row_index': number,
                'part': part, 'part_index': part_index}
     return HttpResponse(render_block_to_string(

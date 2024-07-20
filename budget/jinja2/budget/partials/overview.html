@@ -1,29 +1,33 @@
 <div class="controls">
     <div id="datas">
-        <datalist id="account-list">
+        {% for currency, accounts in edit.accounts.items() %}
+        <datalist id="accounts-{{ currency }}">
             <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
-            {% for account in edit.accounts %}
+            {% for account in accounts %}
             <option data-id="{{ account.id }}" data-name="{{ account.name }}" value="👤 {{ account.name }}"></option>
             {% endfor %}
             {% for id, name in edit.friends.items() %}
             <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
             {% endfor %}
-            {% for id, name in edit.payees.items() %}
-            <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
-            {% endfor %}
+            {% for id, name in edit.payees.items() -%}
+            <option data-id="{{ id }}" value="{{ name }}"></option>
+            {%- endfor %}
         </datalist>
-        <datalist id="category-list">
+        {% endfor %}
+        {% for currency, categories in edit.categories.items() %}
+        <datalist id="categories-{{ currency }}">
             <option data-id="{{ budget.id }}" data-name="Inbox" value="👤 Inbox"></option>
-            {% for category in edit.categories %}
+            {% for category in categories %}
             <option data-id="{{ category.id }}" data-name="{{ category.name }}" value="👤 {{ category.name }}"></option>
             {% endfor %}
             {% for id, name in edit.friends.items() %}
             <option data-id="{{ id }}" data-name="{{ name }}" value="👥 {{ name }}"></option>
             {% endfor %}
-            {% for id, name in edit.payees.items() %}
-            <option data-id="{{ id }}" data-name="{{ name }}" value="{{ name }}"></option>
-            {% endfor %}
+            {% for id, name in edit.payees.items() -%}
+            <option data-id="{{ id }}" value="{{ name }}"></option>
+            {%- endfor %}
         </datalist>
+        {% endfor %}
         <script id="data" type="application/json">
             {{ edit.data|tojson|safe }}
         </script>        

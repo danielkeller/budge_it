@@ -48,6 +48,7 @@
         </date-repeat>
         {% for part in form.formset %}
         {% set part_index=loop.index0 %}
+        {% set currency=part.currency.value() %}
         {% block edit_part scoped %}
         <edit-part>
             <hr>
@@ -63,17 +64,17 @@
                 {% block edit_row scoped %}
                 <tr class="edit-row {{ 'a' if row_index % 2 == 0 else 'b' }}">
                     <td class="tdinput"><account-select data-account>
-                        {{ row.account }}<span></span><input list="account-list"
+                        {{ row.account }}<span></span><input list="accounts-{{ currency }}"
                             {% if row.row.reconciled %}readonly{% endif %}>
                         </account-select></td>
                     <td class="tdinput"><account-select>
-                        {{ row.category }}<span></span><input list="category-list">
+                        {{ row.category }}<span></span><input list="categories-{{ currency }}">
                     </account-select></td>
-                    <td class="tdinput"><currency-input currency="{{ part.currency.value() }}">
+                    <td class="tdinput"><currency-input currency="{{ currency }}">
                         {{ row.transferred }}
                         <input class="number" placeholder="0.00" {% if row.row.reconciled %}readonly{% endif %}>
                     </currency-input></td>
-                    <td class="tdinput"><currency-input currency="{{ part.currency.value() }}">
+                    <td class="tdinput"><currency-input currency="{{ currency }}">
                         {{ row.moved }}
                         <input class="number" placeholder="0.00">
                     </currency-input></td>
@@ -81,7 +82,7 @@
                 {% if not loop or loop.last %}
                 <tr class="new_row" style="display: none;"
                     {% if part.formset.management_form.TOTAL_FORMS.value() < part.formset.management_form.MAX_NUM_FORMS.value() %}
-                    hx-get="{{ url('row_form', budget.id, part_index, part.formset.management_form.TOTAL_FORMS.value()) }}"
+                    hx-get="{{ url('row_form', budget.id, part_index, currency, part.formset.management_form.TOTAL_FORMS.value()) }}"
                     hx-swap="outerHTML"
                     hx-trigger="account-change from:previous tr"
                     {% endif %}

@@ -30,7 +30,7 @@ urlpatterns = [
     # Htmx partials
     path('partial/edit/<int:budget_id>/part/<int:number>/',
          views.part_form, name='part_form'),
-    path('partial/edit/<int:budget_id>/row/<int:part_index>/<int:number>/',
+    path('partial/edit/<int:budget_id>/row/<int:part_index>/<currency>/<int:number>/',
          views.row_form, name='row_form'),
     path('partial/manage/<int:budget_id>/account/<int:number>/',
          views.account_form, name='account_form'),

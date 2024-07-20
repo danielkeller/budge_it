@@ -1,7 +1,7 @@
 "use strict";
 
 function ownAccount(value) {
-    return value == data.budget || value in data.accounts;
+    return value == data.budget || data.own_accounts.includes(+value);
 }
 
 class Editor extends HTMLElement {
@@ -18,7 +18,7 @@ class Editor extends HTMLElement {
         setTimeout(() => {
             this.disableAmounts();
             for (const part of this.parts) {
-                for (let { account, category, moved, transferred } of part.rows) {
+                for (let { account, category } of part.rows) {
                     if (category.value === account.value && category.value != data.budget)
                         category.input.classList.add('suggested');
                 }
@@ -93,8 +93,9 @@ class AccountSelect extends HTMLElement {
     set value(value) {
         value = String(value);
         this.#hidden.value = value;
+        // It could be more efficient to pass the ids in a separate dict.
         const option = this.#options.find(opt => opt.dataset.id === value);
-        this.input.value = option ? option.dataset.name : value;
+        this.input.value = option ? option.dataset.name || option.value : value;
         this.#updateSigil();
     }
     get #options() { return Array.from(this.input.list.options); }
@@ -115,8 +116,9 @@ class AccountSelect extends HTMLElement {
         const option = this.#options.find(opt =>
             [opt.dataset.name, opt.value].includes(this.input.value));
         this.#hidden.value = option ? option.dataset.id : this.input.value;
+        // Remove type emoji when selected
         if (option && this.input.value === option.value
-            && option.dataset.name !== option.value) {
+            && option.dataset.name && option.dataset.name !== option.value) {
             this.input.value = option.dataset.name;
         }
         this.#updateSigil();
@@ -201,30 +203,14 @@ function categoryChanged(target) {
 }
 
 function updateCurrency(part) {
-    var fixed = null;
-    var fixed_account = '';
+    var fixed = false;
     for (const { account, category } of part.rows) {
         for (const selector of [account, category]) {
-            const account_currency = data.accounts[selector.value];
-            if (fixed && account_currency
-                && data.accounts[selector.value] != fixed) {
-                // TODO: The list breaks reportValidity.
-                // Create separate lists per currency
-                selector.input.setCustomValidity(
-                    `Currency of ${fixed_account} is ${fixed} but currency of `
-                    + `${selector.input.value} is ${account_currency}`);
-            } else {
-                if (!fixed && account_currency) {
-                    fixed = account_currency;
-                    fixed_account = selector.input.value;
-                }
-                selector.input.setCustomValidity('');
-            }
+            fixed |= data.own_accounts.includes(+selector.value);
         }
     }
     const select = part.currencyInput;
     if (fixed) {
-        select.value = fixed;
         select.setAttribute('readonly', '');
         for (const option of select.children) {
             option.disabled = !option.selected;
@@ -237,6 +223,13 @@ function updateCurrency(part) {
     }
     for (let input of part.querySelectorAll('currency-input'))
         input.setAttribute('currency', select.value);
+    for (let input of part.querySelectorAll('account-select')) {
+        if (input.dataset.account) {
+            input.input.setAttribute('list', 'accounts-' + select.value);
+        } else {
+            input.input.setAttribute('list', 'categories-' + select.value);
+        }
+    }
 
     checkValid();
 }
