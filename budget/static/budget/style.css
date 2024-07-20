@@ -507,24 +507,11 @@ entry-list {
         grid-column: 3 / 4;
     }
 
-    .grid.c5 .is_inbox :nth-child(4) {
-        grid-column: span 2;
-    }
-
-    .grid.c5 .is_inbox :nth-child(5) {
-        display: none;
-    }
-
     .grid .th:nth-child(3),
     .grid .th:nth-child(4),
     .grid .th:nth-child(5) {
         top: var(--line-height);
     }
-}
-
-.is_inbox {
-    color: GrayText;
-    font-style: italic;
 }
 
 .disclosure {

@@ -59,7 +59,7 @@
     </form>
     {% endif %}
     {% for row in entries %}
-    <div class="{{ rowclass.next() }} {{"is_inbox" if row.is_inbox else ""}} {% if transaction_ids != 'new' and row.id in transaction_ids %}checked active{% endif %} {{"is_future" if row.is_future else "" }} entry"
+    <div class="{{ rowclass.next() }} {% if transaction_ids != 'new' and row.id in transaction_ids %}checked active{% endif %} {{"is_future" if row.is_future else "" }} entry"
         data-value="{{row.id}}">
         <a class="td" href="{{ url('all', budget.id, account.id, row.id) }}">{{row.date}} {% if row.recurrence %}🔁{% endif %}</a>
 
@@ -68,9 +68,6 @@
         <short-currency class="td number" value="{{row.change}}" currency="{{account.currency}}"></short-currency>
 
         {% if account.clearable %}
-        {% if row.is_inbox %}
-        <span class="td"></span>
-        {% else %}
         <label class="td" for="clear-{{ row.id }}">
             {% if row.reconciled %}
             🔒
@@ -86,20 +83,8 @@
             {% endif %}
         </label>
         {% endif %}
-        {% endif %}
 
-        {% if row.is_inbox %}
-        <span class="td">
-            <button hx-post="{{ url('add_to_account', account.id, row.id) }}"
-                class="move-here"
-                hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance"
-                hx-target="this"
-                hx-sync="entry-list:replace">
-                Move here</button>
-        </span>
-        {% else %}
         <short-currency class="td number" value="{{ row.running_sum }}" currency="{{ account.currency }}" id="total-{{row.id}}"></short-currency>
-        {% endif %}
     </div>
 {% endfor %}
 {% endblock %}

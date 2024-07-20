@@ -130,16 +130,6 @@ def all(request: HttpRequest, budget_id: int,
 
 
 @require_http_methods(['POST'])
-def add_to_account(request: HttpRequest, account_id: int, transaction_id: int):
-    account = _get_allowed_account_or_404(request, account_id)
-    # transaction = _get_allowed_transaction_or_404(
-    #     account.budget, {transaction_id})
-    # assert transaction
-    # transaction.change_inbox_to(account)
-    return update_all_view(request, account.budget)
-
-
-@require_http_methods(['POST'])
 def clear(request: HttpRequest, account_id: int, transaction_id: int):
     account = _get_allowed_account_or_404(request, account_id)
     if not isinstance(account, Account) or not account.clearable:

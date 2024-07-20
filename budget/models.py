@@ -225,14 +225,8 @@ class BaseAccount(Id):
         else:
             field, amount = 'parts__categories', 'parts__categoryentry_set__amount'
 
-        if not self.is_inbox():
-            inbox = self.budget.get_inbox(type(self), self.currency).id
-        else:
-            inbox = None
-
         qs = (Transaction.objects
-              .filter(Q(**{field: self}) |
-                      (Q(**{field: inbox}) & ~Q(kind=Transaction.Kind.BUDGETING)))
+              .filter(**{field: self})
               .annotate(account=F(field), change=Sum(amount)).exclude(change=0)
               .annotate(cleared_self=FilteredRelation('cleared',
                                                       condition=Q(cleared__account_id=self.id)),
@@ -246,9 +240,7 @@ class BaseAccount(Id):
 
         balance, cleared = 0, 0
         for transaction in qs:
-            if transaction.account == inbox:
-                transaction.is_inbox = True
-            elif self.clearable and transaction.reconciled is None:
+            if self.clearable and transaction.reconciled is None:
                 transaction.uncleared = True
                 transaction.running_sum = ''
             else:
@@ -256,7 +248,7 @@ class BaseAccount(Id):
                 transaction.running_sum = cleared
             if transaction.date and transaction.date > date.today():
                 transaction.is_future = True
-            elif not hasattr(transaction, 'is_inbox'):
+            else:
                 balance += transaction.change
         return list(reversed(qs)), balance, cleared
 
@@ -626,7 +618,6 @@ class Transaction(models.Model):
         TransactionQuerySet)()  # type: ignore
 
     account: BaseAccount
-    is_inbox: bool
     is_future: bool
     reconciled: bool | None
     uncleared: bool
@@ -673,11 +664,6 @@ class Transaction(models.Model):
     def first_currency(self):
         part = self.visible_parts[0]
         return next(chain(*part.entries())).currency
-
-    @atomic
-    def change_inbox_to(self, account: Account | Category):
-        for part in self.visible_parts:
-            part.change_inbox_to(account)
 
     @atomic
     def copy_to(self, to: 'date'):
@@ -825,19 +811,6 @@ class TransactionPart(models.Model):
             return False
         manager.bulk_create(updates)
         return True
-
-    def change_inbox_to(self, account: Account | Category):
-        accounts, categories = self.entries()
-        if isinstance(account, Account):
-            inbox = account.budget.get_inbox(Account, account.currency)
-            account_value = accounts.pop(inbox, 0) + accounts.pop(account, 0)
-            accounts[account] = account_value
-        else:
-            inbox = account.budget.get_inbox(Category, account.currency)
-            account_value = (categories.pop(inbox, 0)
-                             + categories.pop(account, 0))
-            categories[account] = account_value
-        self.set_entries(account.budget, accounts, categories)
 
     def tabular(self):
         # Can this be cached?

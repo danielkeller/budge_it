@@ -18,8 +18,6 @@ urlpatterns = [
          views.budgeting, name='budget'),
 
     # POST-only paths
-    path('account/<int:account_id>/add/<int:transaction_id>/',
-         views.add_to_account, name='add_to_account'),
     path('account/<int:account_id>/clear/<int:transaction_id>/',
          views.clear, name='clear'),
     path('account/<int:account_id>/reconcole/',
