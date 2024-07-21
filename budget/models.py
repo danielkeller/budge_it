@@ -203,10 +203,12 @@ class BaseAccount(Id):
         return self.name == ""
 
     def __str__(self):
-        if self.is_inbox():
+        if not self.budget_id:
+            return str(self.id)  # Created from just an id
+        elif self.is_inbox():
             return f"{self.budget.name} ({self.currency})"
         else:
-            return f"{self.budget.name} - {str(self.name)}  ({self.currency})"
+            return f"{self.budget.name} - {str(self.name)} ({self.currency})"
 
     def description(self, in_budget: Budget):
         if self.name:
