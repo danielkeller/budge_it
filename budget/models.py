@@ -771,7 +771,8 @@ class TransactionPart(models.Model):
         if isinstance(in_account, Account) or isinstance(in_account, Category):
             accounts.discard(in_account)
         names = {account.description(in_account.budget)
-                 for account in accounts}
+                 for account in accounts
+                 if account.budget.name != 'Payee'}
         return ', '.join(sorted(names))
 
     def entries(self):
