@@ -192,8 +192,8 @@ def all_view(request: HttpRequest, budget: Budget,
         initial = {}
         if not transaction:
             prev_ids = parse_transaction_ids(
-                prev_args.get('transaction_id', '')) - {'new'}  # type: ignore
-            if prev_ids:
+                prev_args.get('transaction_id', ''))
+            if prev_ids and prev_ids != 'new':
                 prev_transaction = Transaction.objects.get_for(
                     budget, next(iter(prev_ids)))
                 if prev_transaction:
