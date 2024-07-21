@@ -401,15 +401,16 @@ def part_form(request: HttpRequest, budget_id: int, number: int):
     budget = budget.main_budget()
     form = TransactionForm(budget=budget, prefix="tx")
     form.formset.min_num = number + 1  # type: ignore
+    # TODO: The currency interaction is jank.
     context = {'budget': budget,
                'part': form.formset.forms[number], 'part_index': number,
-               'form': form}
+               'currency': 'XXX', 'form': form}
     return HttpResponse(render_block_to_string(
         'budget/partials/edit.html', 'edit_part', context, request))
 
 
 def row_form(request: HttpRequest, budget_id: int,
-             part_index: int, currency: str, number: int):
+             part_index: int, number: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
     budget = budget.main_budget()
     form = TransactionForm(budget=budget, prefix="tx")
@@ -417,7 +418,7 @@ def row_form(request: HttpRequest, budget_id: int,
     part = form.formset.forms[part_index]
     # Extra is 1
     part.formset.min_num = number + 1 - 1  # type: ignore
-    context = {'budget': budget, 'currency': currency,
+    context = {'budget': budget, 'currency': 'XXX',
                'row': part.formset.forms[number], 'row_index': number,
                'part': part, 'part_index': part_index}
     return HttpResponse(render_block_to_string(

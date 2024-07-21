@@ -98,7 +98,7 @@ class AccountSelect extends HTMLElement {
         this.input.value = option ? option.dataset.name || option.value : value;
         this.#updateSigil();
     }
-    get #options() { return Array.from(this.input.list.options); }
+    get #options() { return Array.from(this.input.list?.options || []); }
     #updateSigil() {
         const sigil = ownAccount(this.value) ? '👤'
             : this.value in data.friends ? '👥'
@@ -198,7 +198,6 @@ function categoryChanged(target) {
     moved.input.disabled = !category.value;
     if (moved.input.disabled) moved.value = '';
 
-    updateCurrency(getPart(category));
     suggestAmounts();
 }
 

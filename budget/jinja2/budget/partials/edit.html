@@ -117,7 +117,7 @@
                 {% if not loop or loop.last %}
                 <tr class="new_row" style="display: none;"
                     {% if part.formset.management_form.TOTAL_FORMS.value() < part.formset.management_form.MAX_NUM_FORMS.value() %}
-                    hx-get="{{ url('row_form', budget.id, part_index, currency, part.formset.management_form.TOTAL_FORMS.value()) }}"
+                    hx-get="{{ url('row_form', budget.id, part_index, part.formset.management_form.TOTAL_FORMS.value()) }}"
                     hx-swap="outerHTML"
                     hx-trigger="account-change from:previous tr"
                     {% endif %}
