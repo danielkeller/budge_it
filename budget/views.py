@@ -248,7 +248,8 @@ def save(request: HttpRequest,
                              instance=transaction, data=request.POST)
         if not form.is_valid():
             raise ValueError(form.errors)
-        return {form.save().id}
+        id = form.save().id
+        return {id} if id else {}
     elif isinstance(transaction, MultiTransaction):
         form = MultiFormSet(budget, prefix="tx",
                             instance=transaction, data=request.POST)
@@ -262,7 +263,8 @@ def save(request: HttpRequest,
             # This doesn't work.
             raise ValueError(form.errors, form.formset.errors,
                              form.formset.non_form_errors())
-        return {form.save().id}
+        id = form.save().id
+        return {id} if id else {}
 
 
 def delete(budget: Budget, transaction_ids: Collection[int] | Literal['new']):
