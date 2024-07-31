@@ -302,6 +302,7 @@ class Balance:
     currency: str
 
     def get_absolute_url(self):
+        # This is wrong...
         return reverse('balance', kwargs={'currency': self.currency,
                                           'budget_id_1': self.budget.id,
                                           'budget_id_2': self.other.id})
@@ -719,6 +720,9 @@ class MultiTransaction:
                              categories_grouped.get(currency, {}),
                              cleared)
             for currency in accounts_grouped | categories_grouped]
+
+    def first_currency(self):
+        return self.parts()[0][0].currency
 
 
 class Cleared(models.Model):

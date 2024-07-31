@@ -111,10 +111,13 @@ def parse_transaction_ids(ids: str | list[str]) -> set[int] | Literal['new']:
 def all(request: HttpRequest, budget_id: int,
         account_id: str | None = None,
         transaction_id: str | None = None):
-    budget = _get_allowed_budget_or_404(request, budget_id)
     account_id = account_id or request.GET.get('account')
     transaction_ids = parse_transaction_ids(
         transaction_id or request.GET.getlist('transaction'))
+
+    budget = get_object_or_404(Budget, id=budget_id)
+    if not budget.view_permission(request.user):
+        return redirect_to_own_url(request, budget, transaction_ids)
 
     if request.method == 'PUT':
         # A bit of a hack to use the method like this. TODO: Use update_all_view approach.
@@ -127,6 +130,20 @@ def all(request: HttpRequest, budget_id: int,
     return all_view(request, budget, account_id, transaction_ids)
 
 # TODO: The hx-select-oob on these is getting a little out of hand
+
+
+def redirect_to_own_url(request: HttpRequest, other: Budget,
+                        transaction_ids: Collection[int] | Literal['new'] = set()):
+    """Try to redirect to a corresponding view that is allowed."""
+    budget: Budget
+    budget = request.user.budget  # type: ignore
+    if other not in budget.visible_budgets():
+        raise Http404()
+    transaction = _get_allowed_transactions_or_404(budget, transaction_ids)
+    currency = (transaction.first_currency() if transaction
+                else budget.get_initial_currency())
+    account = Balance(budget, other, currency)
+    return HttpResponseRedirect(all_url(budget.id, account.id, transaction_ids))
 
 
 @require_http_methods(['POST'])
@@ -161,6 +178,14 @@ def update_all_view(request: HttpRequest, budget: Budget):
                     parse_transaction_ids(params.kwargs.get('transaction_id', '')))
 
 
+def all_url(budget_id: int,  account_id: str | int | None,
+            transaction_ids: Collection[int] | Literal['new']):
+    ids_str = ('new' if transaction_ids == 'new'
+               else ','.join(str(id) for id in transaction_ids))
+    return reverse(
+        'all', args=[arg for arg in (budget_id, account_id, ids_str) if arg])
+
+
 def all_view(request: HttpRequest, budget: Budget,
              account_id: str | int | None = None,
              transaction_ids: Collection[int] | Literal['new'] = set()):
@@ -175,10 +200,7 @@ def all_view(request: HttpRequest, budget: Budget,
         if (bool(account_id) != ('account_id' in prev_args)
                 or bool(transaction_ids) != ('transaction_id' in prev_args)):
             action = 'HX-Push-Url'
-        ids_str = ('new' if transaction_ids == 'new'
-                   else ','.join(str(id) for id in transaction_ids))
-        response[action] = reverse(
-            'all', args=[arg for arg in (budget.id, account_id, ids_str) if arg])
+        response[action] = all_url(budget.id, account_id, transaction_ids)
         return response
 
     transaction = _get_allowed_transactions_or_404(budget, transaction_ids)
