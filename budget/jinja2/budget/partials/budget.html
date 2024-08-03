@@ -22,7 +22,8 @@
     </div>
     {% endif %}
     <div class="{{ rowclass.next() }}">
-        <label for="{{ row.field.id_for_label }}_vis" class="td ellipsis">
+        <label for="{{ row.field.id_for_label }}_vis" class="td ellipsis"
+            title="{{ row.category.name }}">
             {{ row.category.name or 'Inbox' }}
         </label>
         <label for="{{ row.field.id_for_label }}_vis" class="td number">
