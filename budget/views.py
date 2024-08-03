@@ -146,6 +146,25 @@ def redirect_to_own_url(request: HttpRequest, other: Budget,
     return HttpResponseRedirect(all_url(budget.id, account.id, transaction_ids))
 
 
+def copy(request: HttpRequest, budget_id: int, account_id: str, transaction_id: int):
+    budget = _get_allowed_budget_or_404(request, budget_id)
+    transaction = Transaction.objects.get_for(budget, transaction_id)
+    if not transaction:
+        raise Http404()
+    transaction.id = None  # type: ignore
+    for part in transaction.visible_parts:
+        part.id = None  # type: ignore
+    form = TransactionForm(budget=budget, prefix="tx", instance=transaction)
+
+    context = {'budget': budget, 'account_id': account_id,
+               'transaction_ids': 'new',
+               'transaction': transaction, 'form': form}
+
+    response = render(request, 'budget/partials/edit.html', context)
+    response['HX-Replace-Url'] = all_url(budget.id, account_id, 'new')
+    return response
+
+
 @require_http_methods(['POST'])
 def clear(request: HttpRequest, account_id: int, transaction_id: int):
     account = _get_allowed_account_or_404(request, account_id)

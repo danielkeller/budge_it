@@ -2,15 +2,18 @@
 <div class="controls">
     <button class="backbutton" hx-on:click="document.querySelector('[name=transaction]').select(null)">Close</button>
     <div class="spacer"></div>
-    <button id="submit-button" form="form">
-        {% if transaction_ids == 'new' %}Create Transaction{% else %}Save Changes{% endif %}
-    </button>
     {% if transaction.id and transaction.kind == "T" %}
+    <button type="button" hx-get="copy" hx-target="#transaction"
+    hx-on:htmx:before-request="document.querySelector('[name=transaction]').uncheck()">
+    Copy...</button>
     <button type="button" hx-delete=""
         hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas"
         hx-confirm="Delete this transaction?">
-        Delete Transaction</button>
+        Delete</button>
     {% endif %}
+    <button id="submit-button" form="form">
+        {% if transaction_ids == 'new' %}Create{% else %}Save{% endif %}
+    </button>
 </div>
 <div class="scroll edit">
 <form id="form" autocomplete="off"

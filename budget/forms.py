@@ -212,8 +212,9 @@ class TransactionForm(forms.ModelForm, FormSetInline):
     def __init__(self, *args: Any, instance: Optional[Transaction] = None,
                  budget: Budget,
                  **kwargs: Any):
+        instance = instance or Transaction()
         initial = kwargs.setdefault('initial', {})
-        if instance and instance.recurrence:
+        if instance.recurrence:
             rrule = instance.recurrence
             if (self.base_fields['freq'].valid_value(rrule.freq)  # type: ignore
                     and rrule == RRule(freq=rrule.freq, interval=rrule.interval)):
@@ -227,9 +228,9 @@ class TransactionForm(forms.ModelForm, FormSetInline):
             initial['freq'] = 'MONTHLY'
         super().__init__(*args, instance=instance, **kwargs)
         self.formset = PartFormSet(budget=budget, instance=instance, **kwargs)
-        if instance and not instance.recurrence:
+        if instance.id and not instance.recurrence:
             self.fields['repeat'].disabled = True
-        if not instance:
+        if not instance.id:
             self.fields['date'].widget.attrs['autofocus'] = ''
 
     def clean(self):
