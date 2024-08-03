@@ -6,17 +6,21 @@ function keyNotCaptured() {
         .indexOf(document.activeElement.tagName) === -1;
 }
 
+const DECIMALS = {};
 function currencyDecimals(currency) {
+    if (DECIMALS[currency]) return DECIMALS[currency];
+
     const currencyRe = /.*\.([0-9])|.*/;
     const forced = currency.match(currencyRe)[1];
     if (forced) return +forced;
     try {
         const format = new Intl.NumberFormat(navigator.language,
             { style: 'currency', currency });
-        return format.resolvedOptions().maximumFractionDigits;
+        DECIMALS[currency] = format.resolvedOptions().maximumFractionDigits;
     } catch (invalid) {
-        return 2;
+        DECIMALS[currency] = 2;
     }
+    return DECIMALS[currency];
 }
 
 function parseCurrency(value, currency) {
@@ -24,11 +28,15 @@ function parseCurrency(value, currency) {
     return parse(value, places).toInt(places);
 }
 
+const FORMATTERS = {};
 function formatCurrencyField(value, currency) {
     const decimals = currencyDecimals(currency);
-    const format = new Intl.NumberFormat(navigator.language,
-        { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
-    return format.format(+value / 10 ** decimals);
+    let formatter = FORMATTERS[currency];
+    if (!formatter) {
+        FORMATTERS[currency] = formatter = new Intl.NumberFormat(navigator.language,
+            { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+    }
+    return formatter.format(+value / 10 ** decimals);
 }
 
 function formatCurrency(value, currency) {
