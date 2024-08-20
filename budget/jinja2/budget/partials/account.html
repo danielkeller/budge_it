@@ -78,7 +78,7 @@
                 name="clear"
                 id="clear-{{ row.id }}"
                 hx-post="{{ url('clear', account.id, row.id) }}"
-                hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance"
+                hx-swap="none settle:0" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance"
                 hx-target="this"
                 hx-sync="entry-list:replace"
                 {% if not row.uncleared %}checked{% endif %}>
