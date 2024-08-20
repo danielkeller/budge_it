@@ -7,7 +7,7 @@
     hx-on:htmx:before-request="document.querySelector('[name=transaction]').uncheck()">
     Copy...</button>
     <button type="button" hx-delete=""
-        hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas"
+        hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas,#balance,#cleared-balance"
         hx-confirm="Delete this transaction?">
         Delete</button>
     {% endif %}
@@ -19,7 +19,7 @@
 <form id="form" autocomplete="off"
     hx-trigger="submit, keydown[key=='Enter'&&(ctrlKey||metaKey)] from:body"
     hx-post=""
-    hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas">
+    hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#datas,#balance,#cleared-balance">
     {% if transaction.kind == 'B' %}
     {% include 'budget/partials/budget.html' %}
     {% elif form.is_multi %}
