@@ -99,14 +99,17 @@ def reroot(tree: dict[T, T], node: T):
 
 
 def double_entrify_by(amounts: dict[T, int], tree: dict[T, T]):
+    degree = sum_by((parent, 1) for parent in tree.values())
+    leaves = deque(tree.keys() - degree.keys())
     result: dict[tuple[T, T], int] = {}
-    leaves = deque(tree.keys() - tree.values())
     while leaves:
         source = leaves.popleft()
         if source not in tree:
             continue
         sink = tree[source]
-        leaves.append(sink)
+        degree[sink] -= 1
+        if not degree[sink]:
+            leaves.append(sink)
         result[(source, sink)] = -amounts[source]
         amounts[sink] += amounts[source]
         amounts[source] = 0

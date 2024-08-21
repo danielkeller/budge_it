@@ -162,6 +162,28 @@ class ModelTests(TestCase):
                                         (self.category, foo, 10),
                                         (foo, self.category, -10)])
 
+    def test_4_users(self):
+        qux = Budget.objects.create(name="qux")
+        baz = Budget.objects.create(name="baz")
+        self.bar.friends.add(qux, baz)
+        _, t = new_transaction()
+        def inbox(b): return b.get_inbox(Category, 'CHF')
+        t.set_entries(self.foo, {}, {inbox(self.foo): 15,
+                                     inbox(self.bar): -5,
+                                     inbox(qux): -5,
+                                     inbox(baz): -5})
+        t = Transaction.objects.get_for(
+            self.bar, t.transaction.id).visible_parts[0]
+        self.assertEqual(t.visible_categories, [
+            (inbox(qux), inbox(self.bar), 5),
+            (inbox(self.bar), inbox(qux), -5),
+            (inbox(baz), inbox(self.bar), 5),
+            (inbox(self.bar), inbox(baz), -5),
+            (inbox(self.bar), inbox(self.foo), 15),
+            (inbox(self.foo), inbox(self.bar), -15),
+        ])
+        self.assertEqual(t.invisible_categories, [])
+
     def test_get_for_none(self):
         _, t = new_transaction()
         payee = self.payee.get_inbox(Category, 'CHF')
