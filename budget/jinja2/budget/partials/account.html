@@ -35,16 +35,16 @@
 <div id="entries">
     {% block list_contents %}
     <div>
-        <span class="listhead th th1">Date</span>
         <span class="listhead th th1">Transaction</span>
+        <span class="listhead th th1">Date</span>
         <span class="listhead th th1">{{ account.currency }}</span>
         {% if account.clearable %}<span class="listhead th th1">☑️</span>{% endif %}
         <span class="listhead th th1">Total</span>
     </div>
     {% if quick_add %}
     <form class="{{ rowclass.next() }}" hx-put="{{ url('all', budget.id, account.id) }}" hx-target="this" hx-swap="none" hx-select-oob="#transaction,#entries,#categories,#balance,#cleared-balance">
-        <span class="td tdinput">{{ quick_add.date }}</span>
         <span class="td tdinput">{{ quick_add.note }}</span>
+        <span class="td tdinput">{{ quick_add.date }}</span>
         <currency-input class="td tdinput" currency="{{ account.currency }}">
             <span class="sigil">-</span>
             {{ quick_add.amount }}
@@ -62,10 +62,10 @@
     {% for row in entries %}
     <div class="{{ rowclass.next() }} {% if transaction_ids != 'new' and row.id in transaction_ids %}checked active{% endif %} {{"is_future" if row.is_future else "" }} entry"
         data-value="{{row.id}}">
-        <a class="td" href="{{ url('all', budget.id, account.id, row.id) }}">{{row.date}} {% if row.recurrence %}🔁{% endif %}</a>
-
         <a class="td ellipsis" href="{{ url('all', budget.id, account.id, row.id) }}"
         title="{{ row.description(account) }}">{{ row.description(account) }}</a>
+
+        <a class="td" href="{{ url('all', budget.id, account.id, row.id) }}">{{row.date}} {% if row.recurrence %}🔁{% endif %}</a>
 
         <short-currency class="td number" value="{{row.change}}" currency="{{account.currency}}"></short-currency>
 
