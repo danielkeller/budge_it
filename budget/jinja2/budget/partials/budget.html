@@ -8,13 +8,14 @@
         <span class="listhead th th1">Spent</span>
         <span class="listhead th th1">{{ end_of_month(form.instance.date).strftime("%b %d") }}</span>
     </div>
-    {% set rowclass = cycler('a', 'b') %}
+    {% set rowclass = cycler('b', 'a') %}
     {% set ns = namespace(lastgroup="") %}
     {% for row in form.rows %}
     {% if row.category.group != ns.lastgroup %}
     {% set ns.lastgroup = row.category.group %}
-    <div class="{{ rowclass.next() }}">
-        <span class="td th ellipsis">{{row.category.group or "&nbsp;"}}</span>
+    {% set _ = rowclass.reset() %}
+    <div>
+        <span class="td th innerh ellipsis">{{row.category.group or "&nbsp;"}}</span>
         <span></span>
         <span></span>
         <span></span>
@@ -22,7 +23,7 @@
     </div>
     {% endif %}
     <div class="{{ rowclass.next() }}">
-        <label for="{{ row.field.id_for_label }}_vis" class="td ellipsis"
+        <label for="{{ row.field.id_for_label }}_vis" class="td inneritem ellipsis"
             title="{{ row.category.name }}">
             {{ row.category.name or 'Inbox' }}
         </label>

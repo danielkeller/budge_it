@@ -383,8 +383,10 @@ entry-list {
 
 .gapgrid .td:not(.tdinput) {
     border-radius: var(--td-hpad);
-    margin: 0 calc(0px - var(--td-hpad));
-    padding: 0 calc(2 * var(--td-hpad));
+    margin-left: calc(0px - var(--td-hpad));
+    margin-right: calc(0px - var(--td-hpad));
+    padding-left: calc(2 * var(--td-hpad));
+    padding-right: calc(2 * var(--td-hpad));
 }
 
 .gapgrid .listhead:first-child {
@@ -689,7 +691,8 @@ long-currency {
     border-right: 1px solid var(--line);
 }
 
-.overview .th {
+.overview .th,
+.gapgrid .innerh {
     padding-top: calc(2 * var(--td-hpad));
 }
 
@@ -701,7 +704,8 @@ long-currency {
     box-shadow: 0px 0px 3px 3px var(--sidebar);
 }
 
-.overview .td:first-child {
+.overview .td:first-child,
+.gapgrid .td.inneritem {
     padding-left: calc(3 * var(--td-hpad));
 }
 
