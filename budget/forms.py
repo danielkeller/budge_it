@@ -520,7 +520,7 @@ class QuickAddForm(forms.Form):
         self.fields['split'].initial = initial_split
         self.fields['is_split'].initial = bool(initial_split)
         if autofocus:
-            self.fields['date'].widget.attrs['autofocus'] = ''
+            self.fields['note'].widget.attrs['autofocus'] = ''
 
     @transaction.atomic
     def save(self):
