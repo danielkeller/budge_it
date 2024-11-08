@@ -557,7 +557,7 @@ entry-list {
 .tdinput :disabled,
 .tdinput [readonly] {
     /* ??? */
-    /* background-color: var(--canvas); */
+    background-color: var(--canvas);
     color: GrayText;
 }
 
