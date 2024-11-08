@@ -199,8 +199,7 @@ class TransactionForm(forms.ModelForm, FormSetInline):
 
     formset: BasePartFormSet
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'},
-                                                  format='%Y-%m-%d'),
-                           initial=date.today)
+                                                  format='%Y-%m-%d'))
 
     repeat = forms.ChoiceField(choices=[('N', 'None'),
                                         ('R', 'Every'),

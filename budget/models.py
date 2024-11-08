@@ -601,7 +601,7 @@ class RecurrenceRuleField(RRFBase):
 class Transaction(models.Model):
     """A logical event involving moving money between accounts and categories"""
     id: models.BigAutoField
-    date = models.DateField()
+    date = models.DateField(default=date.today)
     recurrence = RecurrenceRuleField(null=True, blank=True)
     cleared_account: 'models.ManyToManyField[Account, Cleared]'
     cleared_account = models.ManyToManyField(
