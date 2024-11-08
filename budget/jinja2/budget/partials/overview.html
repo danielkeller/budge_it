@@ -65,7 +65,7 @@
         </div>
         {% endif %}
         <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
-            <a class="td ellipsis" href="{{ url('all', budget.id, row.id) }}" title="{{ row.name }}">{{ row.name or "Inbox" }}</a>
+            <a class="td ellipsis" href="{{ url('all', budget.id, row.id) }}" title="{{ row.name }}">{{ row.name or "Inbox 🔴" }}</a>
             <span class="td">
                 <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency>
             </span>
@@ -77,7 +77,7 @@
         </div>
         {% for row in accounts %}
         <div class="{% if row.id == checked %}checked{% endif %}" data-value="{{row.id}}">
-            <a class="td ellipsis" href="{{ url('all', budget.id, row.id) }}" title="{{ row.name }}">{{ row.name or "Inbox" }}</a>
+            <a class="td ellipsis" href="{{ url('all', budget.id, row.id) }}" title="{{ row.name }}">{{ row.name or "Inbox 🔴" }}</a>
             <span class="td"> <long-currency currency="{{ row.currency }}" value="{{ row.balance or 0 }}"></long-currency></span>
         </div>
         {% endfor %}
