@@ -222,6 +222,10 @@ def all_view(request: HttpRequest, budget: Budget,
         response[action] = all_url(budget.id, account_id, transaction_ids)
         return response
 
+    account = None
+    if account_id:
+        account = _get_account_like_or_404(request, budget, account_id)
+
     transaction = _get_allowed_transactions_or_404(budget, transaction_ids)
 
     # I think the prefix isn't needed
@@ -240,7 +244,7 @@ def all_view(request: HttpRequest, budget: Budget,
                 if prev_transaction:
                     initial = {'date': prev_transaction.date}
 
-        form = TransactionForm(budget=budget, prefix="tx",
+        form = TransactionForm(budget=budget, account=account, prefix="tx",
                                instance=transaction, initial=initial)
 
     context = {'budget': budget, 'account_id': account_id, 'transaction_ids': transaction_ids,
@@ -250,7 +254,6 @@ def all_view(request: HttpRequest, budget: Budget,
         return fix_url(render(request, 'budget/partials/edit.html', context))
 
     if account_id:
-        account = _get_account_like_or_404(request, budget, account_id)
         entries, balance, cleared = account.transactions()
         initial = ({'date': transaction.date}
                    if isinstance(transaction, Transaction) else {})
@@ -437,13 +440,14 @@ def manage_accounts(request: HttpRequest, budget_id: int):
     return render(request, 'budget/manage.html', context)
 
 
-def part_form(request: HttpRequest, budget_id: int, number: int):
+def part_form(request: HttpRequest, budget_id: int, account_id: str, number: int):
     budget = _get_allowed_budget_or_404(request, budget_id)
     budget = budget.main_budget()
-    form = TransactionForm(budget=budget, prefix="tx")
+    account = _get_account_like_or_404(request, budget, account_id)
+    form = TransactionForm(budget=budget, account=account, prefix="tx")
     form.formset.min_num = number + 1  # type: ignore
     # TODO: The currency interaction is jank.
-    context = {'budget': budget,
+    context = {'budget': budget, 'account_id': account_id,
                'part': form.formset.forms[number], 'part_index': number,
                'currency': 'XXX', 'form': form}
     return HttpResponse(render_block_to_string(

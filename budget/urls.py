@@ -29,7 +29,7 @@ urlpatterns = [
          views.copy_budget, name='copy_budget'),
 
     # Htmx partials
-    path('partial/edit/<int:budget_id>/part/<int:number>/',
+    path('partial/edit/<int:budget_id>/<account_id>/part/<int:number>/',
          views.part_form, name='part_form'),
     path('partial/edit/<int:budget_id>/row/<int:part_index>/<int:number>/',
          views.row_form, name='row_form'),
