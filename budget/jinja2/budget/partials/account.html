@@ -17,7 +17,7 @@
     <div class="spacer"></div>
     <div><button type="button"
         hx-get="{{ url('all', budget.id, account.id, 'new') }}"
-        hx-trigger="click, keyup[key=='c'&&keyNotCaptured()] from:body"
+        hx-trigger="click, keyup[key=='c'&&keyNotCaptured()&&!ctrlKey] from:body"
         hx-target="#transaction"
         hx-on:htmx:after-request="document.querySelector('[name=transaction]').uncheck()">
         New...</button></div>
