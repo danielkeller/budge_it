@@ -4,25 +4,22 @@
 
 html {
     --hue: #00ffbf;
-
-    --canvas: color-mix(in lab, var(--gray) 10%, var(--bg));
-    --toolbar: color-mix(in lab, var(--gray) 20%, var(--bg));
+    --canvas: color-mix(in lab, var(--gray) 13%, var(--bg));
+    --toolbar: color-mix(in lab, var(--gray) 22%, var(--bg));
     --button-face: color-mix(in lab, var(--gray) 30%, var(--bg));
-    --inactive-selected: color-mix(in lab, var(--gray) 75%, var(--bg));
-
+    --inactive-selected: color-mix(in lab, var(--gray) 60%, var(--bg));
     --field: color-mix(in lab, var(--green) 6%, var(--bg));
-    --alt-field: color-mix(in lab, var(--green) 25%, var(--canvas));
-    --sidebar: color-mix(in lab, var(--green) 13%, var(--toolbar));
+    --alt-field: color-mix(in lab, var(--green) 20%, var(--canvas));
+    --sidebar: color-mix(in lab, var(--green) 30%, var(--canvas));
 }
 
 @media (prefers-color-scheme: light) {
     html {
         --bg: white;
         --fg: black;
-        --gray: color-mix(in lab, var(--fg) 30%, var(--bg));
+        --gray: color-mix(in lab, var(--fg) 35%, var(--bg));
         --line: var(--gray);
         --green: color-mix(in lab, var(--hue) 40%, var(--canvas));
-
     }
 }
 
