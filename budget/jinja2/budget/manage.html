@@ -52,13 +52,13 @@
                 <td>={{ form.order }}{{ form.group }}{{ form.id_ptr }}</td>
                 {% if form.instance.pk and form.instance.name == '' %}
                 <td>Inbox</td>
-                <td class="tdinput">{{ form.currency }}</td>
+                <td>{{ form.currency }}</td>
                 <td></td>
                 <td></td>
                 <td></td>
                 {% else %}
                 <td class="tdinput">{{ form.name }}</td>
-                <td class="tdinput">{{ form.currency }}</td>
+                <td>{{ form.currency }}</td>
                 <td></td>
                 <td>{{ form.closed }}</td>
                 <td>{% if form.instance.pk %}{{ form.DELETE }}{% endif %}</td>
@@ -93,7 +93,7 @@
             <tr draggable="true" data-account>
                 <td>={{ form.order }}</td>
                 <td class="tdinput">{{ form.name }}</td>
-                <td class="tdinput">{{ form.currency }}</td>
+                <td>{{ form.currency }}</td>
                 <td>{{ form.clearable }}</td>
                 <td>{{ form.closed }}</td>
                 <td>
