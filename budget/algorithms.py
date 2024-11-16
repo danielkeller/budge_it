@@ -72,10 +72,15 @@ class Debts(Generic[T]):
 
 # Maybe we should make a sort of sparse vector class.
 
-def sum_by(input: Iterable[tuple[T, int]]) -> defaultdict[T, int]:
+def sum_by_with_zeros(input: Iterable[tuple[T, int]]) -> defaultdict[T, int]:
     result: defaultdict[T, int] = defaultdict(int)
     for key, value in input:
         result[key] += value
+    return result
+
+
+def sum_by(input: Iterable[tuple[T, int]]) -> defaultdict[T, int]:
+    result = sum_by_with_zeros(input)
     for key in list(result.keys()):
         if not result[key]:
             del result[key]
@@ -83,7 +88,7 @@ def sum_by(input: Iterable[tuple[T, int]]) -> defaultdict[T, int]:
 
 
 def merge(input: Iterable[dict[T, int]]) -> defaultdict[T, int]:
-    return sum_by(chain.from_iterable(d.items() for d in input))
+    return sum_by_with_zeros(chain.from_iterable(d.items() for d in input))
 
 # 'tree' below are child->parent edges, and can also be a forest
 
