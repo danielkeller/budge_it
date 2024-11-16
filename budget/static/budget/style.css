@@ -202,7 +202,8 @@ input:not([type=checkbox]) {
 
 button,
 input:not([type=date]) {
-    font: inherit;
+    font-size: inherit;
+    font-family: inherit;
 }
 
 [type=checkbox] {
@@ -549,7 +550,6 @@ entry-list {
     border: none;
     margin: 0;
     width: 100%;
-    vertical-align: bottom;
     background-color: transparent;
     padding: 0 var(--td-hpad);
 }
