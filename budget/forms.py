@@ -254,6 +254,28 @@ class TransactionForm(forms.ModelForm, FormSetInline):
         return instance
 
 
+def _update_part_with(budget: Budget, part: TransactionPart,
+                      changes: dict[Any, Any]):
+    init_accounts, init_categories = part.entries()
+    accounts: dict[Account, int] = defaultdict(int)
+    for account, amount in init_accounts.items():
+        accounts[changes.get(account, account)] += amount
+    categories: dict[Category, int] = defaultdict(int)
+    for category, amount in init_categories.items():
+        categories[changes.get(category, category)] += amount
+    return part.set_entries(budget, accounts, categories)
+
+
+def _update_transaction_with(budget: Budget, transaction: Transaction,
+                             changes: dict[Any, Any]):
+    parts = [_update_part_with(budget, part, changes)
+             for part in transaction.visible_parts]
+    if not any(parts) and not transaction.invisible_parts:
+        transaction.delete()
+    else:
+        return transaction
+
+
 class BaseMultiFormSet(forms.BaseFormSet):
     is_multi = True
 
@@ -274,16 +296,11 @@ class BaseMultiFormSet(forms.BaseFormSet):
                 before = _to_account(type, form.initial[field], currency)
                 after = _to_account(type, form.cleaned_data[field], currency)
                 changes[before] = after
-        for transaction in self.instance.contents:
-            for part in transaction.visible_parts:
-                init_accounts, init_categories = part.entries()
-                accounts: dict[Account, int] = defaultdict(int)
-                for account, amount in init_accounts.items():
-                    accounts[changes.get(account, account)] += amount
-                categories: dict[Category, int] = defaultdict(int)
-                for category, amount in init_categories.items():
-                    categories[changes.get(category, category)] += amount
-                part.set_entries(self.budget, accounts, categories)
+        transactions = [
+            _update_transaction_with(self.budget, transaction, changes)
+            for transaction in self.instance.contents]
+        self.instance.contents = [
+            transaction for transaction in transactions if transaction]
         return self.instance
 
 
