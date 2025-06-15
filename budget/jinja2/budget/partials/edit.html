@@ -34,6 +34,7 @@
             <th class="listhead t4">Paid</th>
             <th class="listhead t4">Owed</th>
         </tr>
+        {% set total_owed = 0 %}
         {% for row in part %}
         <tr class="edit-row {{ 'a' if loop.index0 % 2 == 0 else 'b' }}">
             <td class="tdinput"><account-select data-account>
@@ -49,7 +50,12 @@
                 {{ row.moved }}<input class="number" disabled>
             </currency-input></td>
         </tr>
+        {% set total_owed = total_owed + (row.moved or 0) %}
         {% endfor %}
+        <tr>
+            <td colspan="3" style="text-align:right;"><strong>Total Owed:</strong></td>
+            <td><strong>{{ total_owed }}</strong></td>
+        </tr>
     </table>
     {{ part.management_form.TOTAL_FORMS }}
     {{ part.management_form.INITIAL_FORMS }}
