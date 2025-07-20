@@ -691,7 +691,7 @@ class Transaction(models.Model):
                     self.date = copy
                     self.save()
                     return True
-        raise RuntimeError("unreachable")
+            raise RuntimeError("Recurrence stopped early")
 
 
 @dataclass
