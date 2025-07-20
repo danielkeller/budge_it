@@ -659,10 +659,10 @@ class Transaction(models.Model):
                                        'Transaction repeats more than once a day'})
             # DOS protection
             repeats = self.recurrence.iterate(self.date)
-            twentieth = next(islice(repeats, 20, None), None)
+            twentieth = next(islice(repeats, 50, None), None)
             if twentieth and twentieth < date.today():
                 raise ValidationError(
-                    {'recurrence': 'Transaction repeats more than 20 times'})
+                    {'recurrence': 'Transaction repeats more than 50 times'})
 
     def first_currency(self):
         part = self.visible_parts[0]
